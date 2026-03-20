@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: 'mysql:8.4'
+    environment:
+      - 'MYSQL_DATABASE=kontrolla'
+      - 'MYSQL_PASSWORD=kontrolla'
+      - 'MYSQL_ROOT_PASSWORD=root'
+      - 'MYSQL_USER=kontrolla'
+    ports:
+      - '3306'
+    volumes:
+      - 'mysql_data:/var/lib/mysql'
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  mysql_data:
