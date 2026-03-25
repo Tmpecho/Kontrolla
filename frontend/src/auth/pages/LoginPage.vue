@@ -6,18 +6,14 @@ const authStore = useAuthStore()
 </script>
 
 <template>
-  <main>
-    <section>
-      <header>
-        <h1>Log in</h1>
-        <p>Sign in to Kontrolla.</p>
-      </header>
+  <header>
+    <h1>Log in</h1>
+    <p>Sign in to Kontrolla.</p>
+  </header>
 
-      <LoginForm />
+  <LoginForm />
 
-      <p v-if="authStore.isAuthenticated && authStore.user">
-        Logged in as {{ authStore.user.email }}.
-      </p>
-    </section>
-  </main>
+  <p v-if="authStore.isAuthenticated && authStore.user">
+    Logged in as {{ authStore.user.email }}.
+  </p>
 </template>

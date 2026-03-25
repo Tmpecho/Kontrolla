@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import AuthLayout from '@/app/layouts/AuthLayout.vue'
 import LoginPage from '@/auth/pages/LoginPage.vue'
 
 const router = createRouter({
@@ -6,12 +7,18 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'login',
-      component: LoginPage,
-    },
-    {
-      path: '/login',
-      redirect: { name: 'login' },
+      component: AuthLayout,
+      children: [
+        {
+          path: '',
+          redirect: { name: 'login' },
+        },
+        {
+          path: 'login',
+          name: 'login',
+          component: LoginPage,
+        },
+      ],
     },
   ],
 })
