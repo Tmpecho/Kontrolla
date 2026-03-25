@@ -12,6 +12,17 @@ docker compose up
 The frontend will be available on `http://localhost:5173`.
 The backend will be available on `http://localhost:8080`.
 
+## GitHub Actions
+
+The repository uses GitHub Actions for development-time CI:
+
+- `CI` runs on pull requests and pushes to `main`.
+- Backend changes run `./gradlew test`.
+- Frontend changes run `npm ci`, `npm run lint:check`, `npm run build`, and `npm run test:unit:ci`.
+- `E2E` is a separate Playwright workflow that runs on pushes to `main` and on manual dispatch.
+
+Recommended branch protection is to require the `Status` job from the `CI` workflow before merging to `main`.
+
 ## Backend Profiles
 
 The backend is split into explicit Spring profiles:
