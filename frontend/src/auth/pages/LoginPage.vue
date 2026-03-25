@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import LoginForm from '@/auth/components/LoginForm.vue'
+import { useAuthStore } from '@/auth/model/auth.store'
+
+const authStore = useAuthStore()
 </script>
 
 <template>
@@ -11,6 +14,10 @@ import LoginForm from '@/auth/components/LoginForm.vue'
       </header>
 
       <LoginForm />
+
+      <p v-if="authStore.isAuthenticated && authStore.user">
+        Logged in as {{ authStore.user.email }}.
+      </p>
     </section>
   </main>
 </template>

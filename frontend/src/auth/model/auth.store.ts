@@ -1,0 +1,45 @@
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+
+import { login as loginRequest } from '@/auth/api/auth.api'
+import type { AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
+
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref<AuthUser | null>(null)
+  const accessToken = ref<string | null>(null)
+  const tokenType = ref<string | null>(null)
+  const expiresIn = ref<number | null>(null)
+
+  const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
+
+  function setSession(session: AuthSession) {
+    user.value = session.user
+    accessToken.value = session.accessToken
+    tokenType.value = session.tokenType
+    expiresIn.value = session.expiresIn
+  }
+
+  function clearSession() {
+    user.value = null
+    accessToken.value = null
+    tokenType.value = null
+    expiresIn.value = null
+  }
+
+  async function login(credentials: LoginCredentials) {
+    const session = await loginRequest(credentials)
+    setSession(session)
+    return session
+  }
+
+  return {
+    user,
+    accessToken,
+    tokenType,
+    expiresIn,
+    isAuthenticated,
+    setSession,
+    clearSession,
+    login,
+  }
+})
