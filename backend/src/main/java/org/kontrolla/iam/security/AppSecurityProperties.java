@@ -16,6 +16,7 @@ public class AppSecurityProperties {
 	private final Refresh refresh = new Refresh();
 	private final Cors cors = new Cors();
 	private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
+	private final BootstrapUser bootstrapUser = new BootstrapUser();
 
 	@Setter
 	@Getter
@@ -55,6 +56,17 @@ public class AppSecurityProperties {
 		private String password;
 		private String firstName = "Platform";
 		private String lastName = "Admin";
+
+	}
+
+	@Setter
+	@Getter
+	public static class BootstrapUser {
+
+		private String email;
+		private String password;
+		private String firstName = "Demo";
+		private String lastName = "User";
 
 	}
 }

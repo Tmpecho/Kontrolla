@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const form = reactive({
   email: '',
@@ -22,6 +24,7 @@ async function onSubmit() {
       email: form.email,
       password: form.password,
     })
+    await router.push({ name: 'workspace-home' })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Unable to log in'
   } finally {

@@ -25,14 +25,19 @@ async function readProblemMessage(response: Response): Promise<string> {
   }
 }
 
-export async function login(credentials: LoginCredentials): Promise<AuthSession> {
-  const response = await fetch(buildApiUrl('/api/v1/auth/login'), {
+async function requestSession(
+  path: string,
+  options?: {
+    body?: string
+  },
+): Promise<AuthSession> {
+  const response = await fetch(buildApiUrl(path), {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(credentials),
+    body: options?.body,
   })
 
   if (!response.ok) {
@@ -40,4 +45,14 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
   }
 
   return (await response.json()) as AuthSession
+}
+
+export async function login(credentials: LoginCredentials): Promise<AuthSession> {
+  return requestSession('/api/v1/auth/login', {
+    body: JSON.stringify(credentials),
+  })
+}
+
+export async function refreshSession(): Promise<AuthSession> {
+  return requestSession('/api/v1/auth/refresh')
 }

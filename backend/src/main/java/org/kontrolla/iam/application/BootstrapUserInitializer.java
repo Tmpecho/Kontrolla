@@ -1,6 +1,5 @@
 package org.kontrolla.iam.application;
 
-import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.AppSecurityProperties;
@@ -12,21 +11,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
 @Component
 @Profile("dev")
-public class BootstrapAdminInitializer implements ApplicationRunner {
+public class BootstrapUserInitializer implements ApplicationRunner {
 
-	private static final Logger log = LoggerFactory.getLogger(BootstrapAdminInitializer.class);
+	private static final Logger log = LoggerFactory.getLogger(BootstrapUserInitializer.class);
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final AppSecurityProperties properties;
 
-	public BootstrapAdminInitializer(
+	public BootstrapUserInitializer(
 			UserRepository userRepository,
 			PasswordEncoder passwordEncoder,
 			AppSecurityProperties properties
@@ -39,32 +37,28 @@ public class BootstrapAdminInitializer implements ApplicationRunner {
 	@Override
 	@Transactional
 	public void run(org.springframework.boot.ApplicationArguments args) {
-		String email = Optional.ofNullable(properties.getBootstrapAdmin().getEmail()).orElse("").trim();
-		String password = Optional.ofNullable(properties.getBootstrapAdmin().getPassword()).orElse("").trim();
+		String email = Optional.ofNullable(properties.getBootstrapUser().getEmail()).orElse("").trim();
+		String password = Optional.ofNullable(properties.getBootstrapUser().getPassword()).orElse("").trim();
 		if (email.isBlank() || password.isBlank()) {
 			return;
 		}
 
 		userRepository.findByEmailIgnoreCase(email).ifPresentOrElse(existing -> {
-			HashSet<GlobalRole> roles = new HashSet<>(existing.getGlobalRoles());
-			if (roles.add(GlobalRole.PLATFORM_ADMIN)) {
-				existing.setGlobalRoles(roles);
-				log.info("Granted PLATFORM_ADMIN to bootstrap user {}", email);
-			}
 			if (!existing.isActive()) {
 				existing.setActive(true);
+				log.info("Activated bootstrap user {}", email);
 			}
 		}, () -> {
 			User created = new User(
 					email,
-					properties.getBootstrapAdmin().getFirstName(),
-					properties.getBootstrapAdmin().getLastName(),
+					properties.getBootstrapUser().getFirstName(),
+					properties.getBootstrapUser().getLastName(),
 					passwordEncoder.encode(password),
 					true,
-					Set.of(GlobalRole.PLATFORM_ADMIN)
+					Set.of()
 			);
 			userRepository.save(created);
-			log.info("Created bootstrap platform admin {}", email);
+			log.info("Created bootstrap user {}", email);
 		});
 	}
 }

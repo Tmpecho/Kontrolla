@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import LoginForm from '@/auth/components/LoginForm.vue'
-import { useAuthStore } from '@/auth/model/auth.store'
-
-const authStore = useAuthStore()
+import { appEnv } from '@/shared/config/env'
 </script>
 
 <template>
@@ -11,9 +9,9 @@ const authStore = useAuthStore()
     <p>Sign in to Kontrolla.</p>
   </header>
 
-  <LoginForm />
-
-  <p v-if="authStore.isAuthenticated && authStore.user">
-    Logged in as {{ authStore.user.email }}.
+  <p v-if="appEnv.showDevLoginHint">
+    Development login: <code>demo@example.com</code> / <code>password123</code>
   </p>
+
+  <LoginForm />
 </template>

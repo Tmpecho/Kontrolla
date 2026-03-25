@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { login as loginRequest } from '@/auth/api/auth.api'
+import { AuthApiError, login as loginRequest, refreshSession } from '@/auth/api/auth.api'
 import type { AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null)
   const tokenType = ref<string | null>(null)
   const expiresIn = ref<number | null>(null)
+  const isSessionReady = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
 
@@ -32,14 +33,31 @@ export const useAuthStore = defineStore('auth', () => {
     return session
   }
 
+  async function initializeSession() {
+    try {
+      const session = await refreshSession()
+      setSession(session)
+    } catch (error) {
+      clearSession()
+
+      if (!(error instanceof AuthApiError) || error.status !== 401) {
+        throw error
+      }
+    } finally {
+      isSessionReady.value = true
+    }
+  }
+
   return {
     user,
     accessToken,
     tokenType,
     expiresIn,
+    isSessionReady,
     isAuthenticated,
     setSession,
     clearSession,
     login,
+    initializeSession,
   }
 })
