@@ -25,7 +25,7 @@ defineProps<{
   justify-content: space-between;
   align-items: center;
   transition: background-color 0.2s ease;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .button:hover {
