@@ -49,6 +49,10 @@ body {
   justify-content: center;
   background-color: #f8f9fa;
   padding: 2rem;
+
+  padding-bottom: 10vh;
+  box-sizing: border-box;
+
   font-family:
     system-ui,
     -apple-system,
