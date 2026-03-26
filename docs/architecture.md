@@ -1,6 +1,6 @@
 # Architecture
 
-Kontrolla is a multi-tenant web application for internal control in Norwegian food and alcohol service establishments. The system is split into two product areas, `IK-mat` and `IK-alkohol`, which share common infrastructure for authentication, tenancy, and reporting while keeping domain workflows separate.
+Kontrolla is a multi-tenant web application for internal control in Norwegian food and alcohol service establishments. The system is split into two product areas, `IK-mat` and `IK-alkohol`, which share common infrastructure for authentication, tenancy, checklists, reporting and more, while keeping domain workflows separate.
 
 ## Frontend
 

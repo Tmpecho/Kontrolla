@@ -9,6 +9,12 @@ import {
 } from '@/auth/api/auth.api'
 import type { AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
 
+let currentAccessToken: string | null = null
+
+export function getAccessToken(): string | null {
+  return currentAccessToken
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const accessToken = ref<string | null>(null)
@@ -23,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = session.accessToken
     tokenType.value = session.tokenType
     expiresIn.value = session.expiresIn
+    currentAccessToken = session.accessToken
   }
 
   function clearSession() {
@@ -30,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     tokenType.value = null
     expiresIn.value = null
+    currentAccessToken = null
   }
 
   async function login(credentials: LoginCredentials) {

@@ -1,14 +1,88 @@
 <script setup lang="ts">
+import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import type { ChecklistRun } from '@/checklists/model/checklist.types'
+import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
+import { computed, onMounted, ref } from 'vue'
+
+const checklistRuns = ref<ChecklistRun[]>([])
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
+
+const missingContextMessage = computed(() => {
+  if (appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId) {
+    return null
+  }
+
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs in development.'
+})
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat('nb-NO', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function formatStatus(status: ChecklistRun['status']): string {
+  return status
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+async function loadChecklistRuns(): Promise<void> {
+  if (!appEnv.defaultOrganizationId || !appEnv.defaultEstablishmentId) {
+    return
+  }
+
+  isLoading.value = true
+  errorMessage.value = null
+
+  try {
+    const page = await listChecklistRuns({
+      organizationId: appEnv.defaultOrganizationId,
+      establishmentId: appEnv.defaultEstablishmentId,
+      serviceArea: 'IK_MAT',
+      size: 10,
+    })
+
+    checklistRuns.value = page.items
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadChecklistRuns()
+})
 </script>
 
 <template>
   <section>
-    <h1>IK-alkohol Dashboard</h1>
+    <h1>IK-mat Dashboard</h1>
     <p>Overview over food compliance.</p>
   </section>
 
   <section>
-    <h2>Important</h2>
-    <p>Important things that need action.</p>
+    <h2>Checklist runs</h2>
+
+    <p v-if="missingContextMessage">{{ missingContextMessage }}</p>
+    <p v-else-if="isLoading">Loading checklist runs...</p>
+    <p v-else-if="errorMessage">{{ errorMessage }}</p>
+    <p v-else-if="checklistRuns.length === 0">No checklist runs found.</p>
+
+    <ul v-else style="padding-left: 1.25rem">
+      <li v-for="run in checklistRuns" :key="run.id" style="margin-bottom: 0.75rem">
+        <strong>{{ run.title }}</strong>
+        <div>Due: {{ formatDateTime(run.dueAt) }}</div>
+        <div>Status: {{ formatStatus(run.status) }}</div>
+        <div>Assignments: {{ run.assignments.length }}</div>
+      </li>
+    </ul>
   </section>
 </template>
