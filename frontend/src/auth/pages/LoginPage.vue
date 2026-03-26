@@ -71,7 +71,7 @@ body {
   display: inline-flex;
   padding: 12px;
   background-color: #eef2ff;
-  border-radius: 10px;
+  border-radius: 3px;
   margin-bottom: 1rem;
 }
 
@@ -99,7 +99,7 @@ body {
 
 .form-box {
   background-color: #ffffff;
-  border-radius: 12px;
+  border-radius: 5px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid #e5e7eb;
   padding: 2.5rem;
