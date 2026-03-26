@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
-import SettingsPopup from '@/app/components/SettingsPopup.vue'
-import ProfilePopup from '@/app/components/ProfilePopup.vue'
+import NotificationsPopup from '@/shared/components/NotificationsPopup.vue'
+import SettingsPopup from '@/shared/components/SettingsPopup.vue'
+import ProfilePopup from '@/shared/components/ProfilePopup.vue'
 
 const activePopup = ref<null | 'notifications' | 'settings' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
