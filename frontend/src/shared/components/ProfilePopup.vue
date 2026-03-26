@@ -6,8 +6,10 @@
 
 <template>
 <div class="profile-container">
-    <p>{{ authStore.user.firstName }} {{ authStore.user.lastName }}</p>
-    <p>{{ authStore.user.email }}</p>
+    <p v-if="authStore.user">
+        {{ authStore.user.firstName }} {{ authStore.user.lastName }}
+    </p>
+    <p v-else>Not signed in</p>
 </div>
 </template>
 
