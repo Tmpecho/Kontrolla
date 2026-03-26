@@ -102,7 +102,7 @@ async function onSubmit() {
 }
 
 .footer-link {
-  color: #373737;
+  color: #3763f4;
   font-weight: 500;
   text-decoration: none;
 }
