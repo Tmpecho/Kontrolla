@@ -4,8 +4,8 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/auth/model/auth.store'
 
-import Input from '@/shared/components/Input.vue'
-import Button from '@/shared/components/Button.vue'
+import BaseInput from '@/shared/components/BaseInput.vue'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -32,7 +32,7 @@ async function onSubmit() {
     <div v-if="errorMessage" class="error-notification">{{ errorMessage }}</div>
 
     <div class="input-group">
-      <Input
+      <BaseInput
         id="email"
         label="Email or Username"
         type="email"
@@ -42,7 +42,7 @@ async function onSubmit() {
     </div>
 
     <div class="input-group">
-      <Input
+      <BaseInput
         id="password"
         label="Password"
         type="password"
@@ -52,13 +52,13 @@ async function onSubmit() {
         <template #aside>
           <a href="#" class="input-aside-link">Forgot Password?</a>
         </template>
-      </Input>
+      </BaseInput>
     </div>
 
     <div class="actions">
-      <Button type="submit" :disabled="isSubmitting">
+      <BaseButton type="submit" :disabled="isSubmitting">
         {{ isSubmitting ? 'Signing In...' : 'Sign In' }} <span v-if="!isSubmitting">&rarr;</span>
-      </Button>
+      </BaseButton>
     </div>
 
     <footer class="form-footer">
