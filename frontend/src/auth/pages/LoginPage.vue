@@ -25,9 +25,25 @@ import { appEnv } from '@/shared/config/env'
   </div>
 </template>
 
+<style>
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+}
+</style>
+
 <style scoped>
 .page-layout {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,6 +54,8 @@ import { appEnv } from '@/shared/config/env'
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
+
+  box-sizing: border-box;
 }
 
 .login-container {
