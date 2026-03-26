@@ -6,9 +6,13 @@ import { appEnv } from '@/shared/config/env'
 <template>
   <div class="page-layout">
     <div class="login-container">
-      <!-- The White Box -->
+      <!-- Brand Header -->
+      <header class="brand-header">
+        <div class="brand-accent"></div>
+        <span class="brand-name">Kontrolla</span>
+      </header>
+
       <div class="form-box">
-        <!-- The top half of the box -->
         <div class="form-header">
           <h1 class="title">Log in</h1>
           <p class="subtitle">
@@ -87,5 +91,25 @@ import { appEnv } from '@/shared/config/env'
   padding: 0.75rem 1rem;
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
+}
+
+.brand-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.brand-accent {
+  width: 12px;
+  height: 12px;
+  background-color: #0f62fe;
+}
+
+.brand-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #161616;
+  letter-spacing: 0.5px;
 }
 </style>
