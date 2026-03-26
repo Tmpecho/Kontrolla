@@ -8,5 +8,5 @@ import java.util.UUID;
 
 public interface ChecklistItemResponseRepository extends JpaRepository<ChecklistItemResponse, UUID> {
 
-	List<ChecklistItemResponse> findByChecklistRunId(UUID checklistRunId);
+	List<ChecklistItemResponse> findByChecklistRunItemChecklistRunId(UUID checklistRunId);
 }

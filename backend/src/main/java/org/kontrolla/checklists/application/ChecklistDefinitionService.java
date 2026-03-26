@@ -8,6 +8,7 @@ import org.kontrolla.checklists.domain.ChecklistSchedule;
 import org.kontrolla.checklists.domain.ChecklistScheduleType;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
+import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.establishments.application.EstablishmentService;
 import org.kontrolla.establishments.domain.Establishment;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -27,6 +29,8 @@ import java.util.UUID;
 
 @Service
 public class ChecklistDefinitionService {
+
+	private static final String DEFAULT_TIMEZONE = "Europe/Oslo";
 
 	private final ChecklistDefinitionRepository checklistDefinitionRepository;
 	private final OrganizationAccessService organizationAccessService;
@@ -54,7 +58,12 @@ public class ChecklistDefinitionService {
 			Pageable pageable
 	) {
 		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
-		return checklistDefinitionRepository.findByEstablishmentIdAndServiceArea(establishmentId, serviceArea, pageable);
+		return checklistDefinitionRepository.findByEstablishmentIdAndServiceAreaAndStatus(
+				establishmentId,
+				serviceArea,
+				ChecklistDefinitionStatus.ACTIVE,
+				pageable
+		);
 	}
 
 	@Transactional(readOnly = true)
@@ -83,13 +92,17 @@ public class ChecklistDefinitionService {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 		Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 		User actor = getUserOrThrow(currentUser.userId());
+		Instant now = Instant.now();
 
 		ChecklistDefinition checklistDefinition = new ChecklistDefinition(
+				UUID.randomUUID(),
 				establishment,
 				serviceArea,
 				title,
 				description,
-				ChecklistDefinitionStatus.ACTIVE,
+				1,
+				resolveDefinitionStatusForNewVersion(null),
+				now,
 				actor,
 				actor
 		);
@@ -113,23 +126,52 @@ public class ChecklistDefinitionService {
 			CurrentUser currentUser
 	) {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
-		ChecklistDefinition checklistDefinition = getChecklistDefinition(
+		ChecklistDefinition currentDefinition = getChecklistDefinition(
 				organizationId,
 				establishmentId,
 				checklistDefinitionId,
 				currentUser
 		);
 		User actor = getUserOrThrow(currentUser.userId());
+		Instant now = Instant.now();
 
-		checklistDefinition.setServiceArea(serviceArea);
-		checklistDefinition.setTitle(title);
-		checklistDefinition.setDescription(description);
-		checklistDefinition.setStatus(status == null ? checklistDefinition.getStatus() : status);
-		checklistDefinition.setUpdatedByUser(actor);
-		checklistDefinition.replaceItems(toChecklistItems(items));
-		checklistDefinition.replaceSchedules(toChecklistSchedules(schedules, actor));
+		currentDefinition.supersede(now, actor);
 
-		return checklistDefinition;
+		ChecklistDefinition nextDefinition = new ChecklistDefinition(
+				currentDefinition.getDefinitionGroupId(),
+				currentDefinition.getEstablishment(),
+				serviceArea,
+				title,
+				description,
+				currentDefinition.getVersionNumber() + 1,
+				resolveDefinitionStatusForNewVersion(status),
+				now,
+				actor,
+				actor
+		);
+		nextDefinition.replaceItems(toChecklistItems(items));
+		nextDefinition.replaceSchedules(toChecklistSchedules(schedules, actor));
+
+		return checklistDefinitionRepository.save(nextDefinition);
+	}
+
+	@Transactional(readOnly = true)
+	public List<ChecklistDefinition> listChecklistDefinitionVersions(
+			UUID organizationId,
+			UUID establishmentId,
+			UUID checklistDefinitionId,
+			CurrentUser currentUser
+	) {
+		ChecklistDefinition checklistDefinition = getChecklistDefinition(
+				organizationId,
+				establishmentId,
+				checklistDefinitionId,
+				currentUser
+		);
+		return checklistDefinitionRepository.findByDefinitionGroupIdAndEstablishmentIdOrderByVersionNumberAsc(
+				checklistDefinition.getDefinitionGroupId(),
+				establishmentId
+		);
 	}
 
 	private List<ChecklistItemDefinition> toChecklistItems(List<ChecklistItemInput> items) {
@@ -157,6 +199,7 @@ public class ChecklistDefinitionService {
 						schedule.dueTime(),
 						schedule.weekdayMask(),
 						schedule.dayOfMonth(),
+						schedule.timezone() == null || schedule.timezone().isBlank() ? DEFAULT_TIMEZONE : schedule.timezone(),
 						schedule.active() == null || schedule.active(),
 						actor,
 						actor
@@ -167,6 +210,19 @@ public class ChecklistDefinitionService {
 	private User getUserOrThrow(UUID userId) {
 		return userRepository.findById(userId)
 				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
+	}
+
+	private ChecklistDefinitionStatus resolveDefinitionStatusForNewVersion(ChecklistDefinitionStatus status) {
+		if (status == null) {
+			return ChecklistDefinitionStatus.ACTIVE;
+		}
+		if (status == ChecklistDefinitionStatus.SUPERSEDED) {
+			throw new ConflictException(
+					"checklist_definition_invalid_status",
+					"A new checklist definition version cannot be created in SUPERSEDED state"
+			);
+		}
+		return status;
 	}
 
 	public record ChecklistItemInput(
@@ -185,6 +241,7 @@ public class ChecklistDefinitionService {
 			LocalTime dueTime,
 			Integer weekdayMask,
 			Integer dayOfMonth,
+			String timezone,
 			Boolean active
 	) {
 	}

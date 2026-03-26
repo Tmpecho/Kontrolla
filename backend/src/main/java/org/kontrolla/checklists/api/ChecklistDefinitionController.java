@@ -158,6 +158,7 @@ public class ChecklistDefinitionController {
 						schedule.dueTime(),
 						schedule.weekdayMask(),
 						schedule.dayOfMonth(),
+						schedule.timezone(),
 						schedule.active()
 				))
 				.toList();
@@ -178,6 +179,7 @@ public class ChecklistDefinitionController {
 						schedule.dueTime(),
 						schedule.weekdayMask(),
 						schedule.dayOfMonth(),
+						schedule.timezone(),
 						schedule.active()
 				))
 				.toList();

@@ -1,6 +1,13 @@
 package org.kontrolla.checklists.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
@@ -44,6 +51,10 @@ public class ChecklistSchedule extends AbstractAuditableUuidEntity {
 	private Integer dayOfMonth;
 
 	@Setter
+	@Column(nullable = false, length = 64)
+	private String timezone;
+
+	@Setter
 	@Column(nullable = false)
 	private boolean active;
 
@@ -66,6 +77,7 @@ public class ChecklistSchedule extends AbstractAuditableUuidEntity {
 			LocalTime dueTime,
 			Integer weekdayMask,
 			Integer dayOfMonth,
+			String timezone,
 			boolean active,
 			User createdByUser,
 			User updatedByUser
@@ -76,6 +88,7 @@ public class ChecklistSchedule extends AbstractAuditableUuidEntity {
 		this.dueTime = dueTime;
 		this.weekdayMask = weekdayMask;
 		this.dayOfMonth = dayOfMonth;
+		this.timezone = timezone;
 		this.active = active;
 		this.createdByUser = createdByUser;
 		this.updatedByUser = updatedByUser;
@@ -84,5 +97,4 @@ public class ChecklistSchedule extends AbstractAuditableUuidEntity {
 	void attachTo(ChecklistDefinition checklistDefinition) {
 		this.checklistDefinition = checklistDefinition;
 	}
-
 }

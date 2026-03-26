@@ -14,7 +14,7 @@ public record SubmitChecklistRunRequest(
 ) {
 
 	public record ChecklistItemSubmissionRequest(
-			@NotNull UUID checklistItemDefinitionId,
+			@NotNull UUID checklistRunItemId,
 			Boolean booleanValue,
 			@Size(max = 2000) String textValue,
 			BigDecimal numberValue,

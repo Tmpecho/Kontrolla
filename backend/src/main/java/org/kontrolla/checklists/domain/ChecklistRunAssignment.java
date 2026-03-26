@@ -1,6 +1,12 @@
 package org.kontrolla.checklists.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import org.kontrolla.iam.domain.User;
@@ -9,7 +15,13 @@ import java.time.Instant;
 
 @Getter
 @Entity
-@Table(name = "checklist_run_assignments")
+@Table(
+		name = "checklist_run_assignments",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_checklist_run_assignments_run_user",
+				columnNames = {"checklist_run_id", "assigned_user_id"}
+		)
+)
 public class ChecklistRunAssignment extends AbstractAuditableUuidEntity {
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)

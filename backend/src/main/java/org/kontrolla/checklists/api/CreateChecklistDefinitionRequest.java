@@ -39,6 +39,7 @@ public record CreateChecklistDefinitionRequest(
 			LocalTime dueTime,
 			@Min(0) @Max(127) Integer weekdayMask,
 			@Min(1) @Max(31) Integer dayOfMonth,
+			@Size(max = 64) String timezone,
 			Boolean active
 	) {
 	}
