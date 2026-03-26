@@ -38,6 +38,7 @@ async function onSubmit() {
         type="email"
         autocomplete="email"
         v-model="form.email"
+        placeholder="name@company.com"
       />
     </div>
 
@@ -48,6 +49,7 @@ async function onSubmit() {
         type="password"
         autocomplete="current-password"
         v-model="form.password"
+        hint="Must be at least 8 characters long."
       >
         <template #aside>
           <a href="#" class="input-aside-link">Forgot Password?</a>
