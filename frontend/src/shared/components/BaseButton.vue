@@ -12,8 +12,8 @@ defineProps<{
 
 <style scoped>
 .button {
-  background-color: #0f62fe;
-  color: #ffffff;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   border: none;
   padding: 1rem 1rem;
   font-size: 0.875rem;
@@ -29,12 +29,12 @@ defineProps<{
 }
 
 .button:hover {
-  background-color: #0353e9;
+  background-color: color-mix(in srgb, var(--color-primary) 88%, black);
 }
 
 .button:focus {
-  outline: 2px solid #ffffff;
+  outline: 2px solid var(--color-white);
   outline-offset: -4px;
-  box-shadow: 0 0 0 2px #0f62fe;
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 </style>
