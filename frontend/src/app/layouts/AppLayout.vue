@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/auth/model/auth.store'
+import TopBar from '@/app/components/TopBar.vue'
 
 const authStore = useAuthStore()
 </script>
 
 <template>
   <div>
+
+    <TopBar/>
+    
     <header>
       <div>
         <p>Kontrolla</p>
@@ -17,10 +21,6 @@ const authStore = useAuthStore()
         <p>{{ authStore.user.email }}</p>
       </div>
     </header>
-
-    <nav>
-      <RouterLink :to="{ name: 'workspace-home' }">Home</RouterLink>
-    </nav>
 
     <main>
       <RouterView />
