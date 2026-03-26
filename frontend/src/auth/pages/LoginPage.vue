@@ -1,24 +1,26 @@
 <script setup lang="ts">
 import LoginForm from '@/auth/components/LoginForm.vue'
-import { appEnv } from '@/shared/config/env'
 </script>
 
 <template>
   <div class="page-layout">
-    <div class="login-container">
+    <div class="main-content">
       <header class="brand-header">
-        <div class="brand-accent"></div>
-        <span class="brand-name">Kontrolla</span>
+        <div class="brand-icon-wrapper">
+          <svg class="brand-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+            />
+          </svg>
+        </div>
+        <h1 class="brand-title">Kontrolla</h1>
+        <p class="brand-subtitle">PORTAL LOGIN</p>
       </header>
 
       <div class="form-box">
-        <div class="form-header">
-          <h1 class="title">Log in</h1>
-          <div v-if="appEnv.showDevLoginHint" class="dev-hint">
-            Dev login: <code>demo@example.com</code> / <code>password123</code>
-          </div>
-        </div>
-
         <LoginForm />
       </div>
     </div>
@@ -31,7 +33,7 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden;
+  overflow: hidden; /* This kills the scroll globally on this page */
 }
 
 #app {
@@ -41,88 +43,65 @@ body {
 
 <style scoped>
 .page-layout {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f4f4f4;
+  background-color: #f8f9fa;
   padding: 2rem;
   font-family:
-    'IBM Plex Sans',
+    system-ui,
     -apple-system,
-    BlinkMacSystemFont,
     sans-serif;
-
-  box-sizing: border-box;
 }
 
-.login-container {
+.main-content {
   width: 100%;
-  max-width: 480px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.brand-header {
+  text-align: center;
+}
+
+.brand-icon-wrapper {
+  display: inline-flex;
+  padding: 12px;
+  background-color: #eef2ff;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  color: #3763f4;
+}
+
+.brand-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.brand-subtitle {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-top: 0.25rem;
 }
 
 .form-box {
   background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  border-radius: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.form-header {
-  padding: 3rem 3rem 0 3rem;
-}
-
-.title {
-  font-size: 2rem;
-  font-weight: 300;
-  color: #161616;
-  margin: 0 0 0.5rem 0;
-}
-
-.subtitle {
-  font-size: 0.875rem;
-  color: #525252;
-  margin: 0 0 1.5rem 0;
-}
-
-.text-link {
-  color: #0f62fe;
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-
-.text-link:hover {
-  text-decoration: underline;
-}
-
-.dev-hint {
-  background-color: #defbe6;
-  border-left: 4px solid #24a148;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.5rem;
-  font-size: 0.875rem;
-}
-
-.brand-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-}
-
-.brand-accent {
-  width: 12px;
-  height: 12px;
-  background-color: #0f62fe;
-}
-
-.brand-name {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #161616;
-  letter-spacing: 0.5px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  padding: 2.5rem;
 }
 </style>
