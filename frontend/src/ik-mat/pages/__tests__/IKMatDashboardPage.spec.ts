@@ -1,11 +1,20 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError } from '@/shared/api/http.ts'
+import { ApiError } from '@/shared/api/http'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 
-const { listChecklistRunsMock } = vi.hoisted(() => ({
+const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
   listChecklistRunsMock: vi.fn(),
+  appEnvMock: {
+    mode: 'test',
+    isDevelopment: true,
+    isProduction: false,
+    apiBaseUrl: 'http://localhost:8080',
+    defaultOrganizationId: 'org-1' as string | undefined,
+    defaultEstablishmentId: 'est-1' as string | undefined,
+    showDevLoginHint: false,
+  },
 }))
 
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
@@ -13,15 +22,7 @@ vi.mock('@/checklists/api/checklist-runs.api', () => ({
 }))
 
 vi.mock('@/shared/config/env', () => ({
-  appEnv: {
-    mode: 'test',
-    isDevelopment: true,
-    isProduction: false,
-    apiBaseUrl: 'http://localhost:8080',
-    defaultOrganizationId: 'org-1',
-    defaultEstablishmentId: 'est-1',
-    showDevLoginHint: false,
-  },
+  appEnv: appEnvMock,
 }))
 
 function createDeferred<T>() {
@@ -43,6 +44,10 @@ function createDeferred<T>() {
 describe('IKMatDashboardPage', () => {
   afterEach(() => {
     listChecklistRunsMock.mockReset()
+    appEnvMock.isDevelopment = true
+    appEnvMock.isProduction = false
+    appEnvMock.defaultOrganizationId = 'org-1'
+    appEnvMock.defaultEstablishmentId = 'est-1'
   })
 
   it('renders a loading state while checklist runs are being fetched', async () => {
@@ -150,5 +155,20 @@ describe('IKMatDashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Forbidden')
+  })
+
+  it('renders a generic missing context message outside development', async () => {
+    appEnvMock.isDevelopment = false
+    appEnvMock.isProduction = true
+    appEnvMock.defaultOrganizationId = undefined
+    appEnvMock.defaultEstablishmentId = undefined
+
+    const wrapper = mount(IKMatDashboardPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(
+      'Checklist runs cannot be loaded until organization and establishment context is available.',
+    )
+    expect(listChecklistRunsMock).not.toHaveBeenCalled()
   })
 })

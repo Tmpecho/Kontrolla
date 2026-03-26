@@ -379,7 +379,7 @@ public class ChecklistRunService {
 
 	private List<ChecklistTaskExecutionInput> normalizeTaskExecutions(List<ChecklistTaskExecutionInput> taskExecutions) {
 		Map<UUID, ChecklistTaskExecutionInput> taskExecutionsById = new LinkedHashMap<>();
-		taskExecutions.stream().filter(taskExecution ->
+		taskExecutions.stream().map(this::normalizeTaskExecutionInput).filter(taskExecution ->
 				taskExecutionsById.put(taskExecution.checklistTaskExecutionId(), taskExecution) != null).forEach(_ -> {
 			throw new ConflictException(
 					"checklist_task_execution_duplicate_submission",
@@ -387,6 +387,26 @@ public class ChecklistRunService {
 			);
 		});
 		return List.copyOf(taskExecutionsById.values());
+	}
+
+	private ChecklistTaskExecutionInput normalizeTaskExecutionInput(ChecklistTaskExecutionInput taskExecutionInput) {
+		return new ChecklistTaskExecutionInput(
+				taskExecutionInput.checklistTaskExecutionId(),
+				taskExecutionInput.executionStatus(),
+				normalizeOptionalText(taskExecutionInput.comment()),
+				taskExecutionInput.verificationResult(),
+				taskExecutionInput.measuredValue(),
+				normalizeOptionalText(taskExecutionInput.enteredText())
+		);
+	}
+
+	private String normalizeOptionalText(String value) {
+		if (value == null) {
+			return null;
+		}
+
+		String normalizedValue = value.strip();
+		return normalizedValue.isEmpty() ? null : normalizedValue;
 	}
 
 	private void applyTaskExecution(
@@ -421,7 +441,7 @@ public class ChecklistRunService {
 
 		boolean hasVerificationResult = taskExecutionInput.verificationResult() != null;
 		boolean hasMeasuredValue = taskExecutionInput.measuredValue() != null;
-		boolean hasEnteredText = taskExecutionInput.enteredText() != null && !taskExecutionInput.enteredText().isBlank();
+		boolean hasEnteredText = taskExecutionInput.enteredText() != null;
 
 		if (taskExecutionInput.executionStatus() != ChecklistTaskExecutionStatus.COMPLETED) {
 			if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
-import { ApiError } from '@/shared/api/http.ts'
-import { listChecklistRuns } from '@/checklists/api/checklist-runs.api.ts'
+import { ApiError } from '@/shared/api/http'
+import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 
 vi.mock('@/auth/model/auth.store', () => ({
   getAccessToken: () => 'test-access-token',
