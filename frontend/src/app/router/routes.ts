@@ -48,12 +48,12 @@ export const routes: RouteRecordRaw[] = [
         component: WorkspaceHomePage,
       },
       {
-        path: '',
+        path: 'ik-mat',
         name: 'ik-mat-dashboard',
         component: IKMatDashboardPage,
       },
       {
-        path: '',
+        path: 'ik-alkohol',
         name: 'ik-alkohol-dashboard',
         component: IKAlkoholDashboardPage,
       },
