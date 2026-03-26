@@ -7,10 +7,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.kontrolla.checklists.domain.ChecklistResponseType;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.domain.ChecklistScheduleType;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -19,16 +20,19 @@ public record CreateChecklistDefinitionRequest(
 		@NotBlank @Size(max = 255) String title,
 		@Size(max = 2000) String description,
 		@NotNull ChecklistServiceArea serviceArea,
-		@NotEmpty List<@Valid ChecklistItemRequest> items,
+		@NotEmpty List<@Valid ChecklistTaskRequest> tasks,
 		List<@Valid ChecklistScheduleRequest> schedules
 ) {
 
-	public record ChecklistItemRequest(
-			@NotBlank @Size(max = 500) String prompt,
-			@Size(max = 1000) String instructionText,
-			@NotNull ChecklistResponseType responseType,
+	public record ChecklistTaskRequest(
+			@NotBlank @Size(max = 500) String title,
+			@Size(max = 1000) String details,
+			@NotNull ChecklistTaskKind taskKind,
 			boolean required,
-			@Min(0) int sortOrder
+			@Min(0) int sortOrder,
+			@Size(max = 32) String measurementUnit,
+			BigDecimal minimumAllowedValue,
+			BigDecimal maximumAllowedValue
 	) {
 	}
 

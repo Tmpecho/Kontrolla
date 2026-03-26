@@ -84,7 +84,7 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("sortOrder ASC")
-	private final List<ChecklistRunItem> runItems = new ArrayList<>();
+	private final List<ChecklistTaskExecution> taskExecutions = new ArrayList<>();
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
 	private final Set<ChecklistRunAssignment> assignments = new LinkedHashSet<>();
@@ -117,18 +117,18 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 		this.createdByUser = createdByUser;
 	}
 
-	public void replaceRunItems(List<ChecklistRunItem> runItems) {
-		this.runItems.clear();
-		runItems.forEach(this::addRunItem);
+	public void replaceTaskExecutions(List<ChecklistTaskExecution> taskExecutions) {
+		this.taskExecutions.clear();
+		taskExecutions.forEach(this::addTaskExecution);
 	}
 
-	public void addRunItem(ChecklistRunItem runItem) {
-		runItem.attachTo(this);
-		this.runItems.add(runItem);
+	public void addTaskExecution(ChecklistTaskExecution taskExecution) {
+		taskExecution.attachTo(this);
+		this.taskExecutions.add(taskExecution);
 	}
 
-	public void snapshotItemsFromDefinition(List<ChecklistItemDefinition> items) {
-		replaceRunItems(items.stream().map(ChecklistRunItem::fromDefinitionItem).toList());
+	public void snapshotTasksFromDefinition(List<ChecklistTaskDefinition> tasks) {
+		replaceTaskExecutions(tasks.stream().map(ChecklistTaskExecution::fromDefinitionTask).toList());
 	}
 
 	public void replaceAssignments(List<ChecklistRunAssignment> assignments) {

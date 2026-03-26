@@ -88,19 +88,25 @@ describe('IKMatDashboardPage', () => {
               assignedAt: '2026-03-26T07:05:00Z',
             },
           ],
-          items: [
+          tasks: [
             {
-              checklistRunItemId: 'run-item-1',
-              sourceChecklistItemDefinitionId: 'definition-item-1',
-              prompt: 'Check fridge temperature',
-              instructionText: 'Record the opening fridge reading',
-              responseType: 'BOOLEAN',
+              checklistTaskExecutionId: 'task-execution-1',
+              sourceChecklistTaskDefinitionId: 'definition-task-1',
+              title: 'Prepare oven for first shift',
+              details: 'Switch on and verify preheating',
+              taskKind: 'ACTION',
               required: true,
               sortOrder: 0,
-              booleanValue: null,
-              textValue: null,
-              numberValue: null,
-              note: null,
+              measurementUnit: null,
+              minimumAllowedValue: null,
+              maximumAllowedValue: null,
+              executionStatus: 'PENDING',
+              resolvedAt: null,
+              resolvedByUserId: null,
+              comment: null,
+              verificationResult: null,
+              measuredValue: null,
+              enteredText: null,
             },
           ],
           events: [],
@@ -118,7 +124,8 @@ describe('IKMatDashboardPage', () => {
     expect(wrapper.text()).toContain('Morning shift')
     expect(wrapper.text()).toContain('Status: Pending')
     expect(wrapper.text()).toContain('Assignments: 1')
-    expect(wrapper.text()).toContain('Check fridge temperature')
+    expect(wrapper.text()).toContain('Prepare oven for first shift')
+    expect(wrapper.text()).toContain('Pending')
   })
 
   it('renders an empty state when no checklist runs are returned', async () => {

@@ -4,21 +4,24 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.kontrolla.checklists.domain.ChecklistTaskExecutionStatus;
+import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 public record SubmitChecklistRunRequest(
-		@NotEmpty List<@Valid ChecklistItemSubmissionRequest> responses
+		@NotEmpty List<@Valid ChecklistTaskExecutionRequest> tasks
 ) {
 
-	public record ChecklistItemSubmissionRequest(
-			@NotNull UUID checklistRunItemId,
-			Boolean booleanValue,
-			@Size(max = 2000) String textValue,
-			BigDecimal numberValue,
-			@Size(max = 1000) String note
+	public record ChecklistTaskExecutionRequest(
+			@NotNull UUID checklistTaskExecutionId,
+			@NotNull ChecklistTaskExecutionStatus executionStatus,
+			@Size(max = 1000) String comment,
+			ChecklistVerificationResult verificationResult,
+			BigDecimal measuredValue,
+			@Size(max = 2000) String enteredText
 	) {
 	}
 }

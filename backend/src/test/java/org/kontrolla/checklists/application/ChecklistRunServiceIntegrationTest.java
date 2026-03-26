@@ -3,12 +3,14 @@ package org.kontrolla.checklists.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
-import org.kontrolla.checklists.domain.ChecklistResponseType;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
 import org.kontrolla.checklists.domain.ChecklistRunEventType;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
+import org.kontrolla.checklists.domain.ChecklistTaskExecutionStatus;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
+import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.common.exception.ForbiddenException;
@@ -110,17 +112,18 @@ class ChecklistRunServiceIntegrationTest {
 		assertThat(startedRun.getStatus()).isEqualTo(ChecklistRunStatus.IN_PROGRESS);
 		assertThat(startedRun.getStartedAt()).isNotNull();
 
-		UUID runItemId = startedRun.getRunItems().getFirst().getId();
+		UUID taskExecutionId = startedRun.getTaskExecutions().getFirst().getId();
 		ChecklistRun completedRun = checklistRunService.submitChecklistRun(
 				organization.getId(),
 				establishment.getId(),
 				run.getId(),
-				List.of(new ChecklistRunService.ChecklistItemSubmissionInput(
-						runItemId,
-						Boolean.TRUE,
+				List.of(new ChecklistRunService.ChecklistTaskExecutionInput(
+						taskExecutionId,
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Completed during opening shift",
 						null,
 						null,
-						"Completed during opening shift"
+						null
 				)),
 				currentUser(employee)
 		);
@@ -204,6 +207,67 @@ class ChecklistRunServiceIntegrationTest {
 		)).isInstanceOf(ForbiddenException.class);
 	}
 
+	@Test
+	void verificationTaskCanBeCompletedEvenWhenResultIsNegative() {
+		User manager = createUser("manager4@example.com");
+		User employee = createUser("employee4@example.com");
+		Organization organization = createOrganization("Kontrolla Verification");
+		Establishment establishment = createEstablishment(organization, "Sushi Stavanger");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = checklistDefinitionService.createChecklistDefinition(
+				organization.getId(),
+				establishment.getId(),
+				ChecklistServiceArea.IK_MAT,
+				"Morning verification",
+				"Opening verification routine",
+				List.of(new ChecklistDefinitionService.ChecklistTaskInput(
+						"Verify handwash station is stocked",
+						"Confirm soap and paper are available",
+						ChecklistTaskKind.VERIFICATION,
+						true,
+						0,
+						null,
+						null,
+						null
+				)),
+				List.of(),
+				currentUser(manager)
+		);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		checklistRunService.assignChecklistRun(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				List.of(employee.getId()),
+				currentUser(manager)
+		);
+
+		ChecklistRun submittedRun = checklistRunService.submitChecklistRun(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				List.of(new ChecklistRunService.ChecklistTaskExecutionInput(
+						run.getTaskExecutions().getFirst().getId(),
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Soap was missing",
+						ChecklistVerificationResult.NOT_VERIFIED,
+						null,
+						null
+				)),
+				currentUser(employee)
+		);
+
+		assertThat(submittedRun.getStatus()).isEqualTo(ChecklistRunStatus.COMPLETED);
+		assertThat(submittedRun.getTaskExecutions()).singleElement().satisfies(taskExecution -> {
+			assertThat(taskExecution.getExecutionStatus()).isEqualTo(ChecklistTaskExecutionStatus.COMPLETED);
+			assertThat(taskExecution.getVerificationResult()).isEqualTo(ChecklistVerificationResult.NOT_VERIFIED);
+			assertThat(taskExecution.getComment()).isEqualTo("Soap was missing");
+		});
+	}
+
 	private ChecklistDefinition createDefinition(Organization organization, Establishment establishment, User manager) {
 		return checklistDefinitionService.createChecklistDefinition(
 				organization.getId(),
@@ -211,12 +275,15 @@ class ChecklistRunServiceIntegrationTest {
 				ChecklistServiceArea.IK_MAT,
 				"Morning shift",
 				"Opening routine",
-				List.of(new ChecklistDefinitionService.ChecklistItemInput(
-						"Check fridge temperature",
-						"Record the opening fridge reading",
-						ChecklistResponseType.BOOLEAN,
+				List.of(new ChecklistDefinitionService.ChecklistTaskInput(
+						"Prepare oven for first shift",
+						"Switch on the oven and verify it is heating",
+						ChecklistTaskKind.ACTION,
 						true,
-						0
+						0,
+						null,
+						null,
+						null
 				)),
 				List.of(),
 				currentUser(manager)
@@ -235,7 +302,7 @@ class ChecklistRunServiceIntegrationTest {
 				ChecklistRunStatus.PENDING,
 				manager
 		);
-		run.snapshotItemsFromDefinition(definition.getItems());
+		run.snapshotTasksFromDefinition(definition.getTasks());
 		return checklistRunRepository.saveAndFlush(run);
 	}
 

@@ -84,7 +84,7 @@ public class ChecklistDefinitionController {
 						request.serviceArea(),
 						request.title(),
 						request.description(),
-						toCreateChecklistItemInputs(request.items()),
+						toCreateChecklistTaskInputs(request.tasks()),
 						toCreateChecklistScheduleInputs(request.schedules()),
 						currentUser
 				)
@@ -108,37 +108,43 @@ public class ChecklistDefinitionController {
 						request.title(),
 						request.description(),
 						request.status(),
-						toUpdateChecklistItemInputs(request.items()),
+						toUpdateChecklistTaskInputs(request.tasks()),
 						toUpdateChecklistScheduleInputs(request.schedules()),
 						currentUser
 				)
 		);
 	}
 
-	private List<ChecklistDefinitionService.ChecklistItemInput> toCreateChecklistItemInputs(
-			List<CreateChecklistDefinitionRequest.ChecklistItemRequest> items
+	private List<ChecklistDefinitionService.ChecklistTaskInput> toCreateChecklistTaskInputs(
+			List<CreateChecklistDefinitionRequest.ChecklistTaskRequest> tasks
 	) {
-		return items.stream()
-				.map(item -> new ChecklistDefinitionService.ChecklistItemInput(
-						item.prompt(),
-						item.instructionText(),
-						item.responseType(),
-						item.required(),
-						item.sortOrder()
+		return tasks.stream()
+				.map(task -> new ChecklistDefinitionService.ChecklistTaskInput(
+						task.title(),
+						task.details(),
+						task.taskKind(),
+						task.required(),
+						task.sortOrder(),
+						task.measurementUnit(),
+						task.minimumAllowedValue(),
+						task.maximumAllowedValue()
 				))
 				.toList();
 	}
 
-	private List<ChecklistDefinitionService.ChecklistItemInput> toUpdateChecklistItemInputs(
-			List<UpdateChecklistDefinitionRequest.ChecklistItemRequest> items
+	private List<ChecklistDefinitionService.ChecklistTaskInput> toUpdateChecklistTaskInputs(
+			List<UpdateChecklistDefinitionRequest.ChecklistTaskRequest> tasks
 	) {
-		return items.stream()
-				.map(item -> new ChecklistDefinitionService.ChecklistItemInput(
-						item.prompt(),
-						item.instructionText(),
-						item.responseType(),
-						item.required(),
-						item.sortOrder()
+		return tasks.stream()
+				.map(task -> new ChecklistDefinitionService.ChecklistTaskInput(
+						task.title(),
+						task.details(),
+						task.taskKind(),
+						task.required(),
+						task.sortOrder(),
+						task.measurementUnit(),
+						task.minimumAllowedValue(),
+						task.maximumAllowedValue()
 				))
 				.toList();
 	}

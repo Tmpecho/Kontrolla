@@ -1,14 +1,15 @@
 package org.kontrolla.checklists.api;
 
-import org.kontrolla.checklists.domain.ChecklistItemResponse;
-import org.kontrolla.checklists.domain.ChecklistResponseType;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
 import org.kontrolla.checklists.domain.ChecklistRunEventType;
-import org.kontrolla.checklists.domain.ChecklistRunItem;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
+import org.kontrolla.checklists.domain.ChecklistTaskExecution;
+import org.kontrolla.checklists.domain.ChecklistTaskExecutionStatus;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
+import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -33,7 +34,7 @@ public record ChecklistRunResponse(
 		Instant createdAt,
 		Instant updatedAt,
 		List<ChecklistRunAssignmentResponse> assignments,
-		List<ChecklistRunItemResponse> items,
+		List<ChecklistTaskExecutionResponse> tasks,
 		List<ChecklistRunEventResponse> events
 ) {
 
@@ -57,9 +58,9 @@ public record ChecklistRunResponse(
 				checklistRun.getAssignments().stream()
 						.map(ChecklistRunAssignmentResponse::from)
 						.toList(),
-				checklistRun.getRunItems().stream()
-						.sorted(Comparator.comparingInt(ChecklistRunItem::getSortOrder))
-						.map(ChecklistRunItemResponse::from)
+				checklistRun.getTaskExecutions().stream()
+						.sorted(Comparator.comparingInt(ChecklistTaskExecution::getSortOrder))
+						.map(ChecklistTaskExecutionResponse::from)
 						.toList(),
 				checklistRun.getEvents().stream()
 						.sorted(Comparator.comparing(ChecklistRunEvent::getOccurredAt))
@@ -85,34 +86,45 @@ public record ChecklistRunResponse(
 		}
 	}
 
-	public record ChecklistRunItemResponse(
-			UUID checklistRunItemId,
-			UUID sourceChecklistItemDefinitionId,
-			String prompt,
-			String instructionText,
-			ChecklistResponseType responseType,
+	public record ChecklistTaskExecutionResponse(
+			UUID checklistTaskExecutionId,
+			UUID sourceChecklistTaskDefinitionId,
+			String title,
+			String details,
+			ChecklistTaskKind taskKind,
 			boolean required,
 			int sortOrder,
-			Boolean booleanValue,
-			String textValue,
-			BigDecimal numberValue,
-			String note
+			String measurementUnit,
+			BigDecimal minimumAllowedValue,
+			BigDecimal maximumAllowedValue,
+			ChecklistTaskExecutionStatus executionStatus,
+			Instant resolvedAt,
+			UUID resolvedByUserId,
+			String comment,
+			ChecklistVerificationResult verificationResult,
+			BigDecimal measuredValue,
+			String enteredText
 	) {
 
-		private static ChecklistRunItemResponse from(ChecklistRunItem item) {
-			ChecklistItemResponse response = item.getResponse();
-			return new ChecklistRunItemResponse(
-					item.getId(),
-					item.getSourceChecklistItemDefinition() == null ? null : item.getSourceChecklistItemDefinition().getId(),
-					item.getPromptSnapshot(),
-					item.getInstructionTextSnapshot(),
-					item.getResponseType(),
-					item.isRequired(),
-					item.getSortOrder(),
-					response == null ? null : response.getBooleanValue(),
-					response == null ? null : response.getTextValue(),
-					response == null ? null : response.getNumberValue(),
-					response == null ? null : response.getNote()
+		private static ChecklistTaskExecutionResponse from(ChecklistTaskExecution taskExecution) {
+			return new ChecklistTaskExecutionResponse(
+					taskExecution.getId(),
+					taskExecution.getSourceChecklistTaskDefinition() == null ? null : taskExecution.getSourceChecklistTaskDefinition().getId(),
+					taskExecution.getTitleSnapshot(),
+					taskExecution.getDetailsSnapshot(),
+					taskExecution.getTaskKindSnapshot(),
+					taskExecution.isRequired(),
+					taskExecution.getSortOrder(),
+					taskExecution.getMeasurementUnitSnapshot(),
+					taskExecution.getMinimumAllowedValueSnapshot(),
+					taskExecution.getMaximumAllowedValueSnapshot(),
+					taskExecution.getExecutionStatus(),
+					taskExecution.getResolvedAt(),
+					taskExecution.getResolvedByUser() == null ? null : taskExecution.getResolvedByUser().getId(),
+					taskExecution.getComment(),
+					taskExecution.getVerificationResult(),
+					taskExecution.getMeasuredValue(),
+					taskExecution.getEnteredText()
 			);
 		}
 	}

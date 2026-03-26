@@ -93,7 +93,7 @@ public class ChecklistSchedulerService {
 							ChecklistRunStatus.PENDING,
 							actor
 					);
-					checklistRun.snapshotItemsFromDefinition(definition.getItems());
+					checklistRun.snapshotTasksFromDefinition(definition.getTasks());
 					checklistRun.addEvent(new ChecklistRunEvent(
 							ChecklistRunEventType.CREATED,
 							actor,

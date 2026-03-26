@@ -5,13 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.kontrolla.checklists.api.ChecklistRunResponse;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
-import org.kontrolla.checklists.domain.ChecklistItemDefinition;
-import org.kontrolla.checklists.domain.ChecklistResponseType;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistScheduleType;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
+import org.kontrolla.checklists.domain.ChecklistTaskDefinition;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.establishments.domain.Establishment;
@@ -84,12 +84,15 @@ class ChecklistDefinitionVersioningIntegrationTest {
 				"Morning shift",
 				"Opening routine for the kitchen",
 				List.of(
-						new ChecklistDefinitionService.ChecklistItemInput(
-								"Check rice cooker",
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Prepare rice cooker",
 								"Confirm the rice is prepared for service",
-								ChecklistResponseType.BOOLEAN,
+								ChecklistTaskKind.ACTION,
 								true,
-								0
+								0,
+								null,
+								null,
+								null
 						)
 				),
 				List.of(
@@ -116,19 +119,25 @@ class ChecklistDefinitionVersioningIntegrationTest {
 				"Updated opening routine for the kitchen",
 				ChecklistDefinitionStatus.ACTIVE,
 				List.of(
-						new ChecklistDefinitionService.ChecklistItemInput(
-								"Check rice cooker",
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Prepare rice cooker",
 								"Confirm the rice is prepared for service",
-								ChecklistResponseType.BOOLEAN,
+								ChecklistTaskKind.ACTION,
 								true,
-								0
+								0,
+								null,
+								null,
+								null
 						),
-						new ChecklistDefinitionService.ChecklistItemInput(
-								"Check fish fridge",
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Record fish fridge temperature",
 								"Confirm cold storage is in range",
-								ChecklistResponseType.NUMBER,
+								ChecklistTaskKind.MEASUREMENT,
 								true,
-								1
+								1,
+								"C",
+								java.math.BigDecimal.valueOf(0),
+								java.math.BigDecimal.valueOf(4)
 						)
 				),
 				List.of(
@@ -165,9 +174,9 @@ class ChecklistDefinitionVersioningIntegrationTest {
 		assertThat(newVersion.getDefinitionGroupId()).isEqualTo(oldVersion.getDefinitionGroupId());
 		assertThat(newVersion.getVersionNumber()).isEqualTo(2);
 		assertThat(newVersion.getStatus()).isEqualTo(ChecklistDefinitionStatus.ACTIVE);
-		assertThat(newVersion.getItems())
-				.extracting(ChecklistItemDefinition::getPrompt)
-				.containsExactly("Check rice cooker", "Check fish fridge");
+		assertThat(newVersion.getTasks())
+				.extracting(ChecklistTaskDefinition::getTitle)
+				.containsExactly("Prepare rice cooker", "Record fish fridge temperature");
 		assertThat(newVersion.getSchedules())
 				.singleElement()
 				.satisfies(schedule -> {
@@ -177,7 +186,7 @@ class ChecklistDefinitionVersioningIntegrationTest {
 	}
 
 	@Test
-	void checklistRunResponseUsesRunItemSnapshotsEvenIfDefinitionChangesLater() {
+	void checklistRunResponseUsesTaskSnapshotsEvenIfDefinitionChangesLater() {
 		User actor = createPlatformAdmin("snapshot-admin@example.com");
 		Organization organization = createOrganization("Snapshot Org");
 		Establishment establishment = createEstablishment(organization, "Snapshot Sushi");
@@ -190,12 +199,15 @@ class ChecklistDefinitionVersioningIntegrationTest {
 				"Morning shift",
 				"Opening routine",
 				List.of(
-						new ChecklistDefinitionService.ChecklistItemInput(
-								"Check fridge temperature",
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Record fridge temperature",
 								"Read and record the main fridge",
-								ChecklistResponseType.NUMBER,
+								ChecklistTaskKind.MEASUREMENT,
 								true,
-								0
+								0,
+								"C",
+								java.math.BigDecimal.valueOf(0),
+								java.math.BigDecimal.valueOf(4)
 						)
 				),
 				List.of(),
@@ -213,19 +225,19 @@ class ChecklistDefinitionVersioningIntegrationTest {
 				ChecklistRunStatus.PENDING,
 				actor
 		);
-		run.snapshotItemsFromDefinition(definition.getItems());
+		run.snapshotTasksFromDefinition(definition.getTasks());
 		checklistRunRepository.saveAndFlush(run);
 
-		definition.getItems().getFirst().setPrompt("Changed prompt after publication");
+		definition.getTasks().getFirst().setTitle("Changed title after publication");
 		checklistDefinitionRepository.saveAndFlush(definition);
 
 		ChecklistRun persistedRun = checklistRunRepository.findByIdAndEstablishmentId(run.getId(), establishment.getId())
 				.orElseThrow();
 		ChecklistRunResponse response = ChecklistRunResponse.from(persistedRun);
 
-		assertThat(response.items()).singleElement().satisfies(item -> {
-			assertThat(item.prompt()).isEqualTo("Check fridge temperature");
-			assertThat(item.sourceChecklistItemDefinitionId()).isEqualTo(definition.getItems().getFirst().getId());
+		assertThat(response.tasks()).singleElement().satisfies(task -> {
+			assertThat(task.title()).isEqualTo("Record fridge temperature");
+			assertThat(task.sourceChecklistTaskDefinitionId()).isEqualTo(definition.getTasks().getFirst().getId());
 		});
 	}
 
@@ -244,12 +256,15 @@ class ChecklistDefinitionVersioningIntegrationTest {
 				"Morning shift",
 				"Opening routine",
 				List.of(
-						new ChecklistDefinitionService.ChecklistItemInput(
-								"Check sushi rice",
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Prepare sushi rice",
 								null,
-								ChecklistResponseType.BOOLEAN,
+								ChecklistTaskKind.ACTION,
 								true,
-								0
+								0,
+								null,
+								null,
+								null
 						)
 				),
 				List.of(),
@@ -267,7 +282,7 @@ class ChecklistDefinitionVersioningIntegrationTest {
 				ChecklistRunStatus.PENDING,
 				actor
 		);
-		run.snapshotItemsFromDefinition(definition.getItems());
+		run.snapshotTasksFromDefinition(definition.getTasks());
 		run.addAssignment(new ChecklistRunAssignment(employee, actor, Instant.parse("2026-03-26T06:45:00Z")));
 		run.addAssignment(new ChecklistRunAssignment(employee, actor, Instant.parse("2026-03-26T06:50:00Z")));
 

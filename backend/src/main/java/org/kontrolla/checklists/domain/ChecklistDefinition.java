@@ -78,7 +78,7 @@ public class ChecklistDefinition extends AbstractAuditableUuidEntity {
 
 	@OneToMany(mappedBy = "checklistDefinition", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("sortOrder ASC")
-	private final List<ChecklistItemDefinition> items = new ArrayList<>();
+	private final List<ChecklistTaskDefinition> tasks = new ArrayList<>();
 
 	@OneToMany(mappedBy = "checklistDefinition", cascade = CascadeType.ALL, orphanRemoval = true)
 	private final Set<ChecklistSchedule> schedules = new LinkedHashSet<>();
@@ -122,14 +122,14 @@ public class ChecklistDefinition extends AbstractAuditableUuidEntity {
 		this.updatedByUser = updatedByUser;
 	}
 
-	public void replaceItems(List<ChecklistItemDefinition> items) {
-		this.items.clear();
-		items.forEach(this::addItem);
+	public void replaceTasks(List<ChecklistTaskDefinition> tasks) {
+		this.tasks.clear();
+		tasks.forEach(this::addTask);
 	}
 
-	public void addItem(ChecklistItemDefinition item) {
-		item.attachTo(this);
-		this.items.add(item);
+	public void addTask(ChecklistTaskDefinition task) {
+		task.attachTo(this);
+		this.tasks.add(task);
 	}
 
 	public void replaceSchedules(List<ChecklistSchedule> schedules) {

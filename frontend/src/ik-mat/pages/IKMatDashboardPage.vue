@@ -32,6 +32,10 @@ function formatStatus(status: ChecklistRun['status']): string {
     .join(' ')
 }
 
+function formatTaskExecutionStatus(status: ChecklistRun['tasks'][number]['executionStatus']): string {
+  return status === 'COMPLETED' ? 'Completed' : status === 'SKIPPED' ? 'Skipped' : 'Pending'
+}
+
 async function loadChecklistRuns(): Promise<void> {
   if (!appEnv.defaultOrganizationId || !appEnv.defaultEstablishmentId) {
     return
@@ -83,11 +87,11 @@ onMounted(async () => {
         <div>Status: {{ formatStatus(run.status) }}</div>
         <div>Assignments: {{ run.assignments.length }}</div>
 
-        <div v-if="run.items.length > 0" style="margin-top: 0.5rem">
-          <div>Items:</div>
+        <div v-if="run.tasks.length > 0" style="margin-top: 0.5rem">
+          <div>Tasks:</div>
           <ul style="padding-left: 1.25rem; margin-top: 0.25rem">
-            <li v-for="item in run.items" :key="item.checklistRunItemId">
-              {{ item.prompt }}
+            <li v-for="task in run.tasks" :key="task.checklistTaskExecutionId">
+              {{ task.title }} - {{ formatTaskExecutionStatus(task.executionStatus) }}
             </li>
           </ul>
         </div>

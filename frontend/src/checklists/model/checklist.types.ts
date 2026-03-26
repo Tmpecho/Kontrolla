@@ -17,18 +17,30 @@ export type ChecklistRunAssignment = {
   assignedAt: string
 }
 
-export type ChecklistRunItem = {
-  checklistRunItemId: string
-  sourceChecklistItemDefinitionId: string | null
-  prompt: string
-  instructionText: string | null
-  responseType: 'BOOLEAN' | 'TEXT' | 'NUMBER'
+export type ChecklistTaskKind = 'ACTION' | 'VERIFICATION' | 'MEASUREMENT' | 'TEXT_ENTRY'
+
+export type ChecklistTaskExecutionStatus = 'PENDING' | 'COMPLETED' | 'SKIPPED'
+
+export type ChecklistVerificationResult = 'VERIFIED' | 'NOT_VERIFIED'
+
+export type ChecklistTaskExecution = {
+  checklistTaskExecutionId: string
+  sourceChecklistTaskDefinitionId: string | null
+  title: string
+  details: string | null
+  taskKind: ChecklistTaskKind
   required: boolean
   sortOrder: number
-  answerBoolean: boolean | null
-  answerText: string | null
-  answerNumber: number | null
-  answerNote: string | null
+  measurementUnit: string | null
+  minimumAllowedValue: number | null
+  maximumAllowedValue: number | null
+  executionStatus: ChecklistTaskExecutionStatus
+  resolvedAt: string | null
+  resolvedByUserId: string | null
+  comment: string | null
+  verificationResult: ChecklistVerificationResult | null
+  measuredValue: number | null
+  enteredText: string | null
 }
 
 export type ChecklistRunEvent = {
@@ -56,6 +68,6 @@ export type ChecklistRun = {
   createdAt: string
   updatedAt: string
   assignments: ChecklistRunAssignment[]
-  items: ChecklistRunItem[]
+  tasks: ChecklistTaskExecution[]
   events: ChecklistRunEvent[]
 }
