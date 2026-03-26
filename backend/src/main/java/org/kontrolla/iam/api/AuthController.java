@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -31,12 +33,12 @@ public class AuthController {
 		AuthSession session = authService.login(request.email(), request.password());
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
-				.body(new LoginResponse(
-						AuthUserResponse.from(session.user()),
-						session.accessToken(),
-						"Bearer",
-						session.expiresInSeconds()
-				));
+				.body(
+						new LoginResponse(
+								AuthUserResponse.from(session.user()),
+								session.accessToken(),
+								"Bearer",
+								session.expiresInSeconds()));
 	}
 
 	@PostMapping("/refresh")
@@ -44,12 +46,12 @@ public class AuthController {
 		AuthSession session = authService.refresh(extractRefreshCookie(request));
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
-				.body(new LoginResponse(
-						AuthUserResponse.from(session.user()),
-						session.accessToken(),
-						"Bearer",
-						session.expiresInSeconds()
-				));
+				.body(
+						new LoginResponse(
+								AuthUserResponse.from(session.user()),
+								session.accessToken(),
+								"Bearer",
+								session.expiresInSeconds()));
 	}
 
 	@PostMapping("/logout")
@@ -90,12 +92,10 @@ public class AuthController {
 			return null;
 		}
 
-		for (Cookie cookie : request.getCookies()) {
-			if (securityProperties.getRefresh().getCookieName().equals(cookie.getName())) {
-				return cookie.getValue();
-			}
-		}
-
-		return null;
+		return Arrays.stream(request.getCookies())
+				.filter(cookie -> securityProperties.getRefresh().getCookieName().equals(cookie.getName()))
+				.findFirst()
+				.map(Cookie::getValue)
+				.orElse(null);
 	}
 }
