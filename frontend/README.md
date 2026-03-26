@@ -35,6 +35,11 @@ npm install
 npm run dev
 ```
 
+For the first checklist API integration, set these Vite environment variables in development:
+
+- `VITE_DEFAULT_ORGANIZATION_ID`
+- `VITE_DEFAULT_ESTABLISHMENT_ID`
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh
