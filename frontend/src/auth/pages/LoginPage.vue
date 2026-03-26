@@ -2,7 +2,6 @@
 import LoginForm from '@/auth/components/LoginForm.vue'
 import { appEnv } from '@/shared/config/env'
 </script>
-
 <template>
   <div class="page-layout">
     <div class="main-content">
@@ -20,14 +19,15 @@ import { appEnv } from '@/shared/config/env'
         <h1 class="brand-title">Kontrolla</h1>
         <p class="brand-subtitle">PORTAL LOGIN</p>
       </header>
-
-      <div class="form-box">
+      <div class="form-wrapper">
         <div v-if="appEnv.showDevLoginHint" class="dev-hint">
           <span>Dev login:</span>
           <code>demo@example.com</code>
           <code>password123</code>
         </div>
-        <LoginForm />
+        <div class="form-box">
+          <LoginForm />
+        </div>
       </div>
     </div>
   </div>
@@ -41,7 +41,6 @@ body {
   height: 100%;
   overflow: hidden;
 }
-
 #app {
   height: 100%;
 }
@@ -55,10 +54,8 @@ body {
   justify-content: center;
   background-color: #f8f9fa;
   padding: 2rem;
-
   padding-bottom: 10vh;
   box-sizing: border-box;
-
   font-family:
     system-ui,
     -apple-system,
@@ -107,23 +104,34 @@ body {
   margin-top: 0.25rem;
 }
 
+.form-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .form-box {
   background-color: #ffffff;
   border-radius: 5px;
   padding: 2.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dev-hint {
+  position: absolute;
+  top: 0;
+  left: calc(-210px - 1.5rem);
+  width: 210px;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-
   background-color: #e6f7f0;
   border-left: 4px solid #18a361;
   border-radius: 4px;
   padding: 1rem;
-  margin-bottom: 2rem;
   font-size: 0.875rem;
   color: #2d3748;
+  box-sizing: border-box;
+  z-index: 10;
 }
 </style>
