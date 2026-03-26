@@ -6,6 +6,8 @@ import PublicLayout from '@/app/layouts/PublicLayout.vue'
 import LoginPage from '@/auth/pages/LoginPage.vue'
 import LandingPage from '@/marketing/pages/LandingPage.vue'
 import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
+import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
+import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -44,6 +46,16 @@ export const routes: RouteRecordRaw[] = [
         path: '',
         name: 'workspace-home',
         component: WorkspaceHomePage,
+      },
+      {
+        path: '',
+        name: 'ik-mat-dashboard',
+        component: IKMatDashboardPage,
+      },
+      {
+        path: '',
+        name: 'ik-alkohol-dashboard',
+        component: IKAlkoholDashboardPage,
       },
     ],
   },
