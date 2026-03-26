@@ -8,10 +8,17 @@ import { computed, onMounted, ref } from 'vue'
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const hasChecklistContext = computed(
+  () => Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
+)
 
 const missingContextMessage = computed(() => {
-  if (appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId) {
+  if (hasChecklistContext.value) {
     return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'Checklist runs cannot be loaded until organization and establishment context is available.'
   }
 
   return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs in development.'
@@ -37,7 +44,10 @@ function formatTaskExecutionStatus(status: ChecklistRun['tasks'][number]['execut
 }
 
 async function loadChecklistRuns(): Promise<void> {
-  if (!appEnv.defaultOrganizationId || !appEnv.defaultEstablishmentId) {
+  const organizationId = appEnv.defaultOrganizationId
+  const establishmentId = appEnv.defaultEstablishmentId
+
+  if (!organizationId || !establishmentId) {
     return
   }
 
@@ -46,8 +56,8 @@ async function loadChecklistRuns(): Promise<void> {
 
   try {
     const page = await listChecklistRuns({
-      organizationId: appEnv.defaultOrganizationId,
-      establishmentId: appEnv.defaultEstablishmentId,
+      organizationId,
+      establishmentId,
       serviceArea: 'IK_MAT',
       size: 10,
     })
