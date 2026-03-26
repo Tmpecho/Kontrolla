@@ -1,7 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { AuthApiError, login as loginRequest, refreshSession } from '@/auth/api/auth.api'
+import {
+  AuthApiError,
+  login as loginRequest,
+  refreshSession,
+  logout as logoutRequest,
+} from '@/auth/api/auth.api'
 import type { AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -33,6 +38,11 @@ export const useAuthStore = defineStore('auth', () => {
     return session
   }
 
+  async function logout() {
+    await logoutRequest()
+    clearSession()
+  }
+
   async function initializeSession() {
     try {
       const session = await refreshSession()
@@ -58,6 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
     setSession,
     clearSession,
     login,
+    logout,
     initializeSession,
   }
 })
