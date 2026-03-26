@@ -6,7 +6,6 @@ import { appEnv } from '@/shared/config/env'
 <template>
   <div class="page-layout">
     <div class="login-container">
-      <!-- Brand Header -->
       <header class="brand-header">
         <div class="brand-accent"></div>
         <span class="brand-name">Kontrolla</span>
@@ -15,10 +14,6 @@ import { appEnv } from '@/shared/config/env'
       <div class="form-box">
         <div class="form-header">
           <h1 class="title">Log in</h1>
-          <p class="subtitle">
-            Don't have an account? <a href="#" class="text-link">Create an account</a>
-          </p>
-
           <div v-if="appEnv.showDevLoginHint" class="dev-hint">
             Dev login: <code>demo@example.com</code> / <code>password123</code>
           </div>
