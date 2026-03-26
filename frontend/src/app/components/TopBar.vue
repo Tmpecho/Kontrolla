@@ -9,8 +9,9 @@
             </h1>
         </div>
         <div class="group-container">
-            <p>Profile</p>
-            <p>Settings</p>
+            <img class="top-bar-img" src="@/assets/icons/notification.png" alt="Notifications"></img>
+            <img class="top-bar-img" src="@/assets/icons/settings.png" alt="Settings"></img>
+            <img class="top-bar-img" src="@/assets/icons/profile.png" alt="Profile"></img>
         </div>
     </div>
 </template>
@@ -30,12 +31,21 @@
     .group-container {
         display: flex;
         flex-direction: row;
-        gap: 10px;
+        gap: 0px 30px;
+    }
+
+    .app-title {
+        margin: 0px;
     }
 
     .app-title :deep(a) {
+        font-size: 20px;
         color: #4a5568;
-        text-decoration: none;
-        
+        text-decoration: none;   
+    }
+
+    .top-bar-img {
+        width: 20px;
+        height: 20px;
     }
 </style>
