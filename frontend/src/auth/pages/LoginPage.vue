@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LoginForm from '@/auth/components/LoginForm.vue'
+import { appEnv } from '@/shared/config/env'
 </script>
 
 <template>
@@ -21,6 +22,11 @@ import LoginForm from '@/auth/components/LoginForm.vue'
       </header>
 
       <div class="form-box">
+        <div v-if="appEnv.showDevLoginHint" class="dev-hint">
+          <span>Dev login:</span>
+          <code>demo@example.com</code>
+          <code>password123</code>
+        </div>
         <LoginForm />
       </div>
     </div>
@@ -107,5 +113,19 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid #e5e7eb;
   padding: 2.5rem;
+}
+
+.dev-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  background-color: #e6f7f0;
+  border-left: 4px solid #18a361;
+  border-radius: 3px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+  color: #2d3748;
 }
 </style>
