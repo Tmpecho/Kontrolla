@@ -45,7 +45,7 @@ public class ChecklistDefinition extends AbstractAuditableUuidEntity {
 	private ChecklistServiceArea serviceArea;
 
 	@Setter
-	@Column(nullable = false, length = 255)
+	@Column(nullable = false)
 	private String title;
 
 	@Setter

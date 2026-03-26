@@ -48,7 +48,7 @@ public class ChecklistRunItem extends AbstractAuditableUuidEntity {
 	@Column(name = "sort_order", nullable = false)
 	private int sortOrder;
 
-	@OneToOne(mappedBy = "checklistRunItem", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToOne(mappedBy = "checklistRunItem", cascade = CascadeType.ALL, orphanRemoval = true)
 	private ChecklistItemResponse response;
 
 	protected ChecklistRunItem() {

@@ -49,7 +49,7 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 	private ChecklistServiceArea serviceArea;
 
 	@Setter
-	@Column(name = "title_snapshot", nullable = false, length = 255)
+	@Column(name = "title_snapshot", nullable = false)
 	private String titleSnapshot;
 
 	@Setter
