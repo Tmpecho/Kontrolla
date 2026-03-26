@@ -110,8 +110,6 @@ body {
 .form-box {
   background-color: #ffffff;
   border-radius: 5px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e7eb;
   padding: 2.5rem;
 }
 
@@ -122,7 +120,7 @@ body {
 
   background-color: #e6f7f0;
   border-left: 4px solid #18a361;
-  border-radius: 3px;
+  border-radius: 4px;
   padding: 1rem;
   margin-bottom: 2rem;
   font-size: 0.875rem;
