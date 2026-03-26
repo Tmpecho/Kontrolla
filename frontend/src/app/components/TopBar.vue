@@ -36,8 +36,8 @@ onBeforeUnmount(() => {
         <RouterLink :to="{ name: 'workspace-home' }">Kontrolla</RouterLink>
       </h1>
 
-      <p class="appliance-text">IK-Mat</p>
-      <p class="appliance-text">IK-Alkohol</p>
+      <RouterLink class="nav-link" :to="{name: 'ik-mat-dashboard' }">IK-Mat</RouterLink>
+      <RouterLink class="nav-link" :to="{name: 'ik-alkohol-dashboard' }">IK-Alkohol</RouterLink>
     </div>
 
     <div class="right-container icons-container">
@@ -125,9 +125,14 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.appliance-text {
+.nav-link {
+  text-decoration: none;
   margin: 0;
   color: var(--color-text-secondary);
+}
+
+.nav-link:hover {
+  color: var(--color-text-primary);
 }
 
 .top-bar-img {
