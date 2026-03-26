@@ -51,32 +51,32 @@ defineEmits(['update:modelValue'])
 .input-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .input-field {
-  background-color: #f4f4f4;
+  background-color: var(--color-container);
   border: none;
-  border-bottom: 1px solid #a8a8a8;
+  border-bottom: 1px solid var(--color-border-muted);
   border-radius: 4px;
   padding: 0.875rem 0.5rem;
   font-size: 1rem;
-  color: #161616;
+  color: var(--color-text-primary);
   width: 100%;
   box-sizing: border-box;
 }
 
 .input-field:focus {
-  outline: 2px solid #3763f4;
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   border-bottom-color: transparent;
 }
 
 .input-hint {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0.5rem 0 0 0;
   padding-left: 0.25rem;
 }

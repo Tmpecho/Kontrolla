@@ -84,7 +84,7 @@ async function onSubmit() {
 .input-aside-link {
   font-size: 0.875rem;
   text-decoration: none;
-  color: #3763f4;
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -99,12 +99,12 @@ async function onSubmit() {
 .form-footer {
   text-align: center;
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin-top: 1rem;
 }
 
 .footer-link {
-  color: #3763f4;
+  color: var(--color-primary);
   font-weight: 500;
   text-decoration: none;
 }
@@ -113,9 +113,9 @@ async function onSubmit() {
 }
 
 .error-notification {
-  background-color: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  background-color: var(--color-container);
+  color: var(--color-critical);
+  border: 1px solid var(--color-critical);
   padding: 0.75rem 1rem;
   border-radius: 8px;
   font-size: 0.875rem;

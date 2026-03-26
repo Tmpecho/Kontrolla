@@ -52,14 +52,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8f9fa;
+  background-color: var(--color-surface);
   padding: 2rem;
   padding-bottom: 10vh;
   box-sizing: border-box;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
 }
 
 .main-content {
@@ -77,7 +73,7 @@ body {
 .brand-icon-wrapper {
   display: inline-flex;
   padding: 12px;
-  background-color: #eef2ff;
+  background-color: var(--color-container);
   border-radius: 3px;
   margin-bottom: 1rem;
 }
@@ -85,20 +81,20 @@ body {
 .brand-icon {
   width: 28px;
   height: 28px;
-  color: #3763f4;
+  color: var(--color-primary);
 }
 
 .brand-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .brand-subtitle {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   letter-spacing: 0.8px;
   text-transform: uppercase;
   margin-top: 0.25rem;
@@ -110,7 +106,7 @@ body {
 }
 
 .form-box {
-  background-color: #ffffff;
+  background-color: var(--color-container);
   border-radius: 5px;
   padding: 2.5rem;
   width: 100%;
@@ -125,12 +121,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  background-color: #e6f7f0;
-  border-left: 4px solid #18a361;
+  background-color: var(--color-container);
+  border-left: 4px solid var(--color-success);
   border-radius: 4px;
   padding: 1rem;
   font-size: 0.875rem;
-  color: #2d3748;
+  color: var(--color-text-primary);
   box-sizing: border-box;
   z-index: 10;
 }
