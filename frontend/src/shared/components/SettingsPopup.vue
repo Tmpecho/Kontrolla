@@ -12,13 +12,12 @@
 <style scoped>
     .settings-container {
         position: absolute;
-        top: 30px;
+        top: 60px;
         right: 0;
         min-width: 200px;
         padding: 12px;
-        background: white;
-        border: 1px solid #ddd;
-        border-radius: 8px;
+        background: #f8f9fa;
+        border-radius: 2px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         z-index: 100;
     }
