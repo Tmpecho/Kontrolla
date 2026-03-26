@@ -50,6 +50,7 @@ async function onSubmit() {
         autocomplete="current-password"
         v-model="form.password"
         hint="Must be at least 8 characters long."
+        placeholder="password"
       >
         <template #aside>
           <a href="#" class="input-aside-link">Forgot Password?</a>

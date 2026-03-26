@@ -41,9 +41,6 @@ body {
   height: 100%;
   overflow: hidden;
 }
-#app {
-  height: 100%;
-}
 </style>
 
 <style scoped>
@@ -53,8 +50,7 @@ body {
   align-items: center;
   justify-content: center;
   background-color: var(--color-surface);
-  padding: 2rem;
-  padding-bottom: 10vh;
+  padding: 2rem 2rem 10vh;
   box-sizing: border-box;
 }
 
@@ -95,7 +91,7 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-secondary);
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   margin-top: 0.25rem;
 }
