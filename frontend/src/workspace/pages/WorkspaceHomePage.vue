@@ -1,8 +1,22 @@
+<script setup lang="ts">
+import { useAuthStore } from '@/auth/model/auth.store'
+import { useRouter } from 'vue-router'
+
+const authStore = useAuthStore()
+const router = useRouter()
+
+async function onLogout() {
+  await authStore.logout()
+  router.push({ name: 'login' })
+}
+</script>
+
 <template>
   <section>
     <header>
       <h1>Workspace</h1>
       <p>The starting point for daily routines, follow-up, documents, and reporting.</p>
+      <button @click="onLogout" style="cursor: pointer">Log out</button>
     </header>
 
     <p>

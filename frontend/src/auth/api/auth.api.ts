@@ -53,6 +53,13 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
   })
 }
 
+export async function logout(): Promise<void> {
+  await fetch(buildApiUrl('/api/v1/auth/logout'), {
+    method: 'POST',
+    credentials: 'include',
+  })
+}
+
 export async function refreshSession(): Promise<AuthSession> {
   return requestSession('/api/v1/auth/refresh')
 }
