@@ -1,11 +1,13 @@
 <script setup lang="ts">
+    import { useAuthStore } from '@/auth/model/auth.store'
+
+    const authStore = useAuthStore()
 </script>
 
 <template>
 <div class="profile-container">
-    <p>
-        empty dawg
-    </p>
+    <p>{{ authStore.user.firstName }} {{ authStore.user.lastName }}</p>
+    <p>{{ authStore.user.email }}</p>
 </div>
 </template>
 
