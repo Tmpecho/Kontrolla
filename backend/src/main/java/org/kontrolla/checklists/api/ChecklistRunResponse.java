@@ -1,12 +1,12 @@
 package org.kontrolla.checklists.api;
 
-import org.kontrolla.checklists.domain.ChecklistItemDefinition;
 import org.kontrolla.checklists.domain.ChecklistItemResponse;
 import org.kontrolla.checklists.domain.ChecklistResponseType;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
 import org.kontrolla.checklists.domain.ChecklistRunEventType;
+import org.kontrolla.checklists.domain.ChecklistRunItem;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 
@@ -14,14 +14,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public record ChecklistRunResponse(
 		UUID id,
 		UUID checklistDefinitionId,
+		UUID definitionGroupId,
 		UUID establishmentId,
 		ChecklistServiceArea serviceArea,
 		String title,
@@ -40,12 +38,10 @@ public record ChecklistRunResponse(
 ) {
 
 	public static ChecklistRunResponse from(ChecklistRun checklistRun) {
-		Map<UUID, ChecklistItemResponse> responsesByItemId = checklistRun.getItemResponses().stream()
-				.collect(Collectors.toMap(response -> response.getChecklistItemDefinition().getId(), Function.identity()));
-
 		return new ChecklistRunResponse(
 				checklistRun.getId(),
 				checklistRun.getChecklistDefinition().getId(),
+				checklistRun.getDefinitionGroupId(),
 				checklistRun.getEstablishment().getId(),
 				checklistRun.getServiceArea(),
 				checklistRun.getTitleSnapshot(),
@@ -61,9 +57,9 @@ public record ChecklistRunResponse(
 				checklistRun.getAssignments().stream()
 						.map(ChecklistRunAssignmentResponse::from)
 						.toList(),
-				checklistRun.getChecklistDefinition().getItems().stream()
-						.sorted(Comparator.comparingInt(ChecklistItemDefinition::getSortOrder))
-						.map(item -> ChecklistRunItemResponse.from(item, responsesByItemId.get(item.getId())))
+				checklistRun.getRunItems().stream()
+						.sorted(Comparator.comparingInt(ChecklistRunItem::getSortOrder))
+						.map(ChecklistRunItemResponse::from)
 						.toList(),
 				checklistRun.getEvents().stream()
 						.sorted(Comparator.comparing(ChecklistRunEvent::getOccurredAt))
@@ -90,7 +86,8 @@ public record ChecklistRunResponse(
 	}
 
 	public record ChecklistRunItemResponse(
-			UUID checklistItemDefinitionId,
+			UUID checklistRunItemId,
+			UUID sourceChecklistItemDefinitionId,
 			String prompt,
 			String instructionText,
 			ChecklistResponseType responseType,
@@ -102,11 +99,13 @@ public record ChecklistRunResponse(
 			String note
 	) {
 
-		private static ChecklistRunItemResponse from(ChecklistItemDefinition item, ChecklistItemResponse response) {
+		private static ChecklistRunItemResponse from(ChecklistRunItem item) {
+			ChecklistItemResponse response = item.getResponse();
 			return new ChecklistRunItemResponse(
 					item.getId(),
-					item.getPrompt(),
-					item.getInstructionText(),
+					item.getSourceChecklistItemDefinition() == null ? null : item.getSourceChecklistItemDefinition().getId(),
+					item.getPromptSnapshot(),
+					item.getInstructionTextSnapshot(),
 					item.getResponseType(),
 					item.isRequired(),
 					item.getSortOrder(),

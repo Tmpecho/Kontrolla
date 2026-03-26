@@ -1,6 +1,11 @@
 package org.kontrolla.checklists.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
@@ -12,13 +17,9 @@ import java.math.BigDecimal;
 @Table(name = "checklist_item_responses")
 public class ChecklistItemResponse extends AbstractAuditableUuidEntity {
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "checklist_run_id", nullable = false)
-	private ChecklistRun checklistRun;
-
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "checklist_item_definition_id", nullable = false)
-	private ChecklistItemDefinition checklistItemDefinition;
+	@OneToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "checklist_run_item_id", nullable = false, unique = true)
+	private ChecklistRunItem checklistRunItem;
 
 	@Setter
 	@Column(name = "boolean_value")
@@ -40,20 +41,19 @@ public class ChecklistItemResponse extends AbstractAuditableUuidEntity {
 	}
 
 	public ChecklistItemResponse(
-			ChecklistItemDefinition checklistItemDefinition,
 			Boolean booleanValue,
 			String textValue,
 			BigDecimal numberValue,
 			String note
 	) {
-		this.checklistItemDefinition = checklistItemDefinition;
 		this.booleanValue = booleanValue;
 		this.textValue = textValue;
 		this.numberValue = numberValue;
 		this.note = note;
 	}
 
-	void attachTo(ChecklistRun checklistRun) {
-		this.checklistRun = checklistRun;
+	public void attachTo(ChecklistRunItem checklistRunItem) {
+		this.checklistRunItem = checklistRunItem;
+		checklistRunItem.attachResponse(this);
 	}
 }

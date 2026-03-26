@@ -17,12 +17,13 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 
 	@EntityGraph(attributePaths = {
 			"checklistDefinition",
-			"checklistDefinition.items",
+			"establishment",
+			"runItems",
+			"runItems.response",
+			"runItems.sourceChecklistItemDefinition",
 			"assignments",
 			"assignments.assignedUser",
 			"assignments.assignedByUser",
-			"itemResponses",
-			"itemResponses.checklistItemDefinition",
 			"events",
 			"completedByUser",
 			"createdByUser"
@@ -38,5 +39,9 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			Pageable pageable
 	);
 
-	long countByEstablishmentIdAndStatusInAndDueAtBefore(UUID establishmentId, Collection<ChecklistRunStatus> statuses, Instant dueAt);
+	long countByEstablishmentIdAndStatusInAndDueAtBefore(
+			UUID establishmentId,
+			Collection<ChecklistRunStatus> statuses,
+			Instant dueAt
+	);
 }

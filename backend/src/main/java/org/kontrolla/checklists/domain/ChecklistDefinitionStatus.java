@@ -1,6 +1,8 @@
 package org.kontrolla.checklists.domain;
 
 public enum ChecklistDefinitionStatus {
+	DRAFT,
 	ACTIVE,
-	INACTIVE
+	SUPERSEDED,
+	ARCHIVED
 }

@@ -17,11 +17,15 @@ import java.util.UUID;
 
 public record ChecklistDefinitionResponse(
 		UUID id,
+		UUID definitionGroupId,
+		int versionNumber,
 		UUID establishmentId,
 		ChecklistServiceArea serviceArea,
 		String title,
 		String description,
 		ChecklistDefinitionStatus status,
+		Instant effectiveFrom,
+		Instant effectiveTo,
 		UUID createdByUserId,
 		UUID updatedByUserId,
 		Instant createdAt,
@@ -33,11 +37,15 @@ public record ChecklistDefinitionResponse(
 	public static ChecklistDefinitionResponse from(ChecklistDefinition checklistDefinition) {
 		return new ChecklistDefinitionResponse(
 				checklistDefinition.getId(),
+				checklistDefinition.getDefinitionGroupId(),
+				checklistDefinition.getVersionNumber(),
 				checklistDefinition.getEstablishment().getId(),
 				checklistDefinition.getServiceArea(),
 				checklistDefinition.getTitle(),
 				checklistDefinition.getDescription(),
 				checklistDefinition.getStatus(),
+				checklistDefinition.getEffectiveFrom(),
+				checklistDefinition.getEffectiveTo(),
 				checklistDefinition.getCreatedByUser().getId(),
 				checklistDefinition.getUpdatedByUser().getId(),
 				checklistDefinition.getCreatedAt(),
@@ -81,6 +89,7 @@ public record ChecklistDefinitionResponse(
 			LocalTime dueTime,
 			Integer weekdayMask,
 			Integer dayOfMonth,
+			String timezone,
 			boolean active,
 			UUID createdByUserId,
 			UUID updatedByUserId
@@ -95,6 +104,7 @@ public record ChecklistDefinitionResponse(
 					schedule.getDueTime(),
 					schedule.getWeekdayMask(),
 					schedule.getDayOfMonth(),
+					schedule.getTimezone(),
 					schedule.isActive(),
 					schedule.getCreatedByUser().getId(),
 					schedule.getUpdatedByUser().getId()

@@ -1,15 +1,30 @@
 package org.kontrolla.checklists.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.domain.User;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Getter
 @Entity
@@ -19,6 +34,10 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "checklist_definition_id", nullable = false)
 	private ChecklistDefinition checklistDefinition;
+
+	@JdbcTypeCode(SqlTypes.CHAR)
+	@Column(name = "definition_group_id", nullable = false, updatable = false, length = 36)
+	private UUID definitionGroupId;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "establishment_id", nullable = false)
@@ -64,19 +83,21 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 	private User createdByUser;
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
-	private final List<ChecklistRunAssignment> assignments = new ArrayList<>();
+	@OrderBy("sortOrder ASC")
+	private final List<ChecklistRunItem> runItems = new ArrayList<>();
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
-	private final List<ChecklistRunEvent> events = new ArrayList<>();
+	private final Set<ChecklistRunAssignment> assignments = new LinkedHashSet<>();
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
-	private final List<ChecklistItemResponse> itemResponses = new ArrayList<>();
+	private final Set<ChecklistRunEvent> events = new LinkedHashSet<>();
 
 	protected ChecklistRun() {
 	}
 
 	public ChecklistRun(
 			ChecklistDefinition checklistDefinition,
+			UUID definitionGroupId,
 			Establishment establishment,
 			ChecklistServiceArea serviceArea,
 			String titleSnapshot,
@@ -86,6 +107,7 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 			User createdByUser
 	) {
 		this.checklistDefinition = checklistDefinition;
+		this.definitionGroupId = definitionGroupId;
 		this.establishment = establishment;
 		this.serviceArea = serviceArea;
 		this.titleSnapshot = titleSnapshot;
@@ -93,6 +115,20 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 		this.dueAt = dueAt;
 		this.status = status;
 		this.createdByUser = createdByUser;
+	}
+
+	public void replaceRunItems(List<ChecklistRunItem> runItems) {
+		this.runItems.clear();
+		runItems.forEach(this::addRunItem);
+	}
+
+	public void addRunItem(ChecklistRunItem runItem) {
+		runItem.attachTo(this);
+		this.runItems.add(runItem);
+	}
+
+	public void snapshotItemsFromDefinition(List<ChecklistItemDefinition> items) {
+		replaceRunItems(items.stream().map(ChecklistRunItem::fromDefinitionItem).toList());
 	}
 
 	public void replaceAssignments(List<ChecklistRunAssignment> assignments) {
@@ -103,16 +139,6 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 	public void addAssignment(ChecklistRunAssignment assignment) {
 		assignment.attachTo(this);
 		this.assignments.add(assignment);
-	}
-
-	public void replaceItemResponses(List<ChecklistItemResponse> itemResponses) {
-		this.itemResponses.clear();
-		itemResponses.forEach(this::addItemResponse);
-	}
-
-	public void addItemResponse(ChecklistItemResponse itemResponse) {
-		itemResponse.attachTo(this);
-		this.itemResponses.add(itemResponse);
 	}
 
 	public void addEvent(ChecklistRunEvent event) {
