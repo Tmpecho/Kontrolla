@@ -377,7 +377,8 @@ public class ChecklistRunService {
 
 	private List<ChecklistItemSubmissionInput> normalizeResponses(List<ChecklistItemSubmissionInput> responses) {
 		Map<UUID, ChecklistItemSubmissionInput> responsesByItemId = new LinkedHashMap<>();
-		responses.stream().filter(response -> responsesByItemId.put(response.checklistRunItemId(), response) != null).forEach(response -> {
+		responses.stream().filter(response ->
+				responsesByItemId.put(response.checklistRunItemId(), response) != null).forEach(_ -> {
 			throw new ConflictException(
 					"checklist_run_duplicate_response",
 					"Checklist run responses may only contain one entry per run item"
@@ -439,7 +440,9 @@ public class ChecklistRunService {
 	}
 
 	private void validateRequiredRunItemsCompleted(List<ChecklistRunItem> runItems) {
-		runItems.stream().filter(ChecklistRunItem::isRequired).filter(runItem -> !hasResponseValue(runItem)).forEach(runItem -> {
+		runItems.stream().filter(ChecklistRunItem::isRequired)
+				.filter(runItem -> !hasResponseValue(runItem))
+				.forEach(_ -> {
 			throw new ConflictException(
 					"checklist_run_required_response_missing",
 					"All required checklist items must be completed before submission"

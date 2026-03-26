@@ -7,7 +7,6 @@ import org.kontrolla.checklists.domain.ChecklistRunEvent;
 import org.kontrolla.checklists.domain.ChecklistRunEventType;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistSchedule;
-import org.kontrolla.checklists.domain.ChecklistScheduleType;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.establishments.application.EstablishmentService;
