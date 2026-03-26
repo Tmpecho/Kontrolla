@@ -25,10 +25,10 @@ export type ChecklistRunItem = {
   responseType: 'BOOLEAN' | 'TEXT' | 'NUMBER'
   required: boolean
   sortOrder: number
-  booleanValue: boolean | null
-  textValue: string | null
-  numberValue: number | null
-  note: string | null
+  answerBoolean: boolean | null
+  answerText: string | null
+  answerNumber: number | null
+  answerNote: string | null
 }
 
 export type ChecklistRunEvent = {

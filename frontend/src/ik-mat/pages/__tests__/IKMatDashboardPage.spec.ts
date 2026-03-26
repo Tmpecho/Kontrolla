@@ -88,7 +88,21 @@ describe('IKMatDashboardPage', () => {
               assignedAt: '2026-03-26T07:05:00Z',
             },
           ],
-          items: [],
+          items: [
+            {
+              checklistRunItemId: 'run-item-1',
+              sourceChecklistItemDefinitionId: 'definition-item-1',
+              prompt: 'Check fridge temperature',
+              instructionText: 'Record the opening fridge reading',
+              responseType: 'BOOLEAN',
+              required: true,
+              sortOrder: 0,
+              booleanValue: null,
+              textValue: null,
+              numberValue: null,
+              note: null,
+            },
+          ],
           events: [],
         },
       ],
@@ -104,6 +118,7 @@ describe('IKMatDashboardPage', () => {
     expect(wrapper.text()).toContain('Morning shift')
     expect(wrapper.text()).toContain('Status: Pending')
     expect(wrapper.text()).toContain('Assignments: 1')
+    expect(wrapper.text()).toContain('Check fridge temperature')
   })
 
   it('renders an empty state when no checklist runs are returned', async () => {
