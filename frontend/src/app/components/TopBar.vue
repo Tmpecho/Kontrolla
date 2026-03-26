@@ -30,7 +30,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="top-bar-container" ref="popupArea">
+    <div class="top-bar-container">
         <div class="left-container">
             <h1 class="app-title">
                 <RouterLink :to="{ name: 'workspace-home' }">Kontrolla</RouterLink>
@@ -68,7 +68,7 @@ onBeforeUnmount(() => {
                 />
             </div>
 
-            <div class="popup-wrapper">
+            <div class="popup-wrapper" ref="popupArea">
                 <ProfilePopup v-if="activePopup === 'profile'" />
                 <SettingsPopup v-if="activePopup === 'settings'" />
                 <NotificationsPopup v-if="activePopup === 'notifications'" />
