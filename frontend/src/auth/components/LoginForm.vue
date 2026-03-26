@@ -45,16 +45,10 @@ async function onSubmit() {
 
       <div class="input-wrapper">
         <Input id="email" label="Email address" type="email" v-model="form.email" />
-        <a href="#" class="text-link forgot-link">Forgot ID?</a>
       </div>
 
       <div class="input-wrapper">
         <Input id="password" label="Password" type="password" v-model="form.password" />
-      </div>
-
-      <div class="checkbox-wrapper">
-        <input type="checkbox" id="remember" class="custom-checkbox" />
-        <label for="remember" class="checkbox-label">Remember ID</label>
       </div>
     </div>
 
@@ -120,24 +114,6 @@ async function onSubmit() {
 
 .forgot-link:hover {
   text-decoration: underline;
-}
-
-.checkbox-wrapper {
-  display: flex;
-  align-items: center;
-  margin-top: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.custom-checkbox {
-  margin: 0;
-}
-
-.checkbox-label {
-  margin-left: 0.5rem;
-  font-size: 0.875rem;
-  color: #161616;
-  cursor: pointer;
 }
 
 .form-actions {
