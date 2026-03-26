@@ -22,10 +22,6 @@ import { appEnv } from '@/shared/config/env'
 
         <LoginForm />
       </div>
-
-      <div class="help-footer">
-        Need help? <a href="#" class="text-link">Contact the help desk</a>
-      </div>
     </div>
   </div>
 </template>
@@ -91,11 +87,5 @@ import { appEnv } from '@/shared/config/env'
   padding: 0.75rem 1rem;
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
-}
-
-.help-footer {
-  margin-top: 1rem;
-  font-size: 0.875rem;
-  color: #525252;
 }
 </style>
