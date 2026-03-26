@@ -33,7 +33,7 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden; /* This kills the scroll globally on this page */
+  overflow: hidden;
 }
 
 #app {
