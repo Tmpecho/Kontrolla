@@ -148,7 +148,7 @@ public class ChecklistRunController {
 						organizationId,
 						establishmentId,
 						checklistRunId,
-						toChecklistItemSubmissionInputs(request.responses()),
+						toChecklistTaskExecutionInputs(request.tasks()),
 						currentUser
 				)
 		);
@@ -188,16 +188,17 @@ public class ChecklistRunController {
 		);
 	}
 
-	private List<ChecklistRunService.ChecklistItemSubmissionInput> toChecklistItemSubmissionInputs(
-			List<SubmitChecklistRunRequest.ChecklistItemSubmissionRequest> responses
+	private List<ChecklistRunService.ChecklistTaskExecutionInput> toChecklistTaskExecutionInputs(
+			List<SubmitChecklistRunRequest.ChecklistTaskExecutionRequest> tasks
 	) {
-		return responses.stream()
-				.map(response -> new ChecklistRunService.ChecklistItemSubmissionInput(
-						response.checklistRunItemId(),
-						response.booleanValue(),
-						response.textValue(),
-						response.numberValue(),
-						response.note()
+		return tasks.stream()
+				.map(task -> new ChecklistRunService.ChecklistTaskExecutionInput(
+						task.checklistTaskExecutionId(),
+						task.executionStatus(),
+						task.comment(),
+						task.verificationResult(),
+						task.measuredValue(),
+						task.enteredText()
 				))
 				.toList();
 	}

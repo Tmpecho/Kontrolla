@@ -1,13 +1,14 @@
 package org.kontrolla.checklists.application;
 
-import org.kontrolla.checklists.domain.ChecklistItemResponse;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
 import org.kontrolla.checklists.domain.ChecklistRunEventType;
-import org.kontrolla.checklists.domain.ChecklistRunItem;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
+import org.kontrolla.checklists.domain.ChecklistTaskExecution;
+import org.kontrolla.checklists.domain.ChecklistTaskExecutionStatus;
+import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 import org.kontrolla.checklists.infrastructure.ChecklistRunAssignmentRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.common.exception.ConflictException;
@@ -197,7 +198,7 @@ public class ChecklistRunService {
 			UUID organizationId,
 			UUID establishmentId,
 			UUID checklistRunId,
-			List<ChecklistItemSubmissionInput> responses,
+			List<ChecklistTaskExecutionInput> taskExecutions,
 			CurrentUser currentUser
 	) {
 		ChecklistRun checklistRun = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
@@ -210,23 +211,24 @@ public class ChecklistRunService {
 			throw new ConflictException("checklist_run_completed", "Checklist run is already completed");
 		}
 
-		Map<UUID, ChecklistRunItem> runItemsById = checklistRun.getRunItems().stream()
+		Map<UUID, ChecklistTaskExecution> taskExecutionsById = checklistRun.getTaskExecutions().stream()
 				.collect(LinkedHashMap::new, (map, item) -> map.put(item.getId(), item), Map::putAll);
 
-		List<ChecklistItemSubmissionInput> normalizedResponses = normalizeResponses(responses);
-		normalizedResponses.forEach(response -> {
-			ChecklistRunItem runItem = runItemsById.get(response.checklistRunItemId());
-			if (runItem == null) {
-				throw new ResourceNotFoundException("checklist_run_item_not_found", "Checklist run item not found");
+		List<ChecklistTaskExecutionInput> normalizedTaskExecutions = normalizeTaskExecutions(taskExecutions);
+		User actor = getUserOrThrow(currentUser.userId());
+		Instant now = Instant.now();
+
+		normalizedTaskExecutions.forEach(taskExecutionInput -> {
+			ChecklistTaskExecution taskExecution = taskExecutionsById.get(taskExecutionInput.checklistTaskExecutionId());
+			if (taskExecution == null) {
+				throw new ResourceNotFoundException("checklist_task_execution_not_found", "Checklist task execution not found");
 			}
-			validateResponseForItem(runItem, response);
-			applyResponse(runItem, response);
+			validateTaskExecution(taskExecution, taskExecutionInput);
+			applyTaskExecution(taskExecution, taskExecutionInput, actor, now);
 		});
 
-		validateRequiredRunItemsCompleted(checklistRun.getRunItems());
+		validateRequiredTaskExecutionsCompleted(checklistRun.getTaskExecutions());
 
-		Instant now = Instant.now();
-		User actor = getUserOrThrow(currentUser.userId());
 		if (checklistRun.getStartedAt() == null) {
 			checklistRun.setStartedAt(now);
 		}
@@ -375,100 +377,116 @@ public class ChecklistRunService {
 				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
 	}
 
-	private List<ChecklistItemSubmissionInput> normalizeResponses(List<ChecklistItemSubmissionInput> responses) {
-		Map<UUID, ChecklistItemSubmissionInput> responsesByItemId = new LinkedHashMap<>();
-		responses.stream().filter(response ->
-				responsesByItemId.put(response.checklistRunItemId(), response) != null).forEach(_ -> {
+	private List<ChecklistTaskExecutionInput> normalizeTaskExecutions(List<ChecklistTaskExecutionInput> taskExecutions) {
+		Map<UUID, ChecklistTaskExecutionInput> taskExecutionsById = new LinkedHashMap<>();
+		taskExecutions.stream().filter(taskExecution ->
+				taskExecutionsById.put(taskExecution.checklistTaskExecutionId(), taskExecution) != null).forEach(_ -> {
 			throw new ConflictException(
-					"checklist_run_duplicate_response",
-					"Checklist run responses may only contain one entry per run item"
+					"checklist_task_execution_duplicate_submission",
+					"Checklist task executions may only contain one entry per task"
 			);
 		});
-		return List.copyOf(responsesByItemId.values());
+		return List.copyOf(taskExecutionsById.values());
 	}
 
-	private void applyResponse(ChecklistRunItem runItem, ChecklistItemSubmissionInput response) {
-		ChecklistItemResponse itemResponse = runItem.getResponse();
-		if (itemResponse == null) {
-			itemResponse = new ChecklistItemResponse(
-					response.booleanValue(),
-					response.textValue(),
-					response.numberValue(),
-					response.note()
-			);
-			itemResponse.attachTo(runItem);
+	private void applyTaskExecution(
+			ChecklistTaskExecution taskExecution,
+			ChecklistTaskExecutionInput taskExecutionInput,
+			User actor,
+			Instant now
+	) {
+		taskExecution.setExecutionStatus(taskExecutionInput.executionStatus());
+		taskExecution.setComment(taskExecutionInput.comment());
+		taskExecution.setVerificationResult(taskExecutionInput.verificationResult());
+		taskExecution.setMeasuredValue(taskExecutionInput.measuredValue());
+		taskExecution.setEnteredText(taskExecutionInput.enteredText());
+
+		if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.PENDING) {
+			taskExecution.setResolvedAt(null);
+			taskExecution.setResolvedByUser(null);
 			return;
 		}
 
-		itemResponse.setBooleanValue(response.booleanValue());
-		itemResponse.setTextValue(response.textValue());
-		itemResponse.setNumberValue(response.numberValue());
-		itemResponse.setNote(response.note());
+		taskExecution.setResolvedAt(now);
+		taskExecution.setResolvedByUser(actor);
 	}
 
-	private void validateResponseForItem(ChecklistRunItem runItem, ChecklistItemSubmissionInput response) {
-		boolean hasBoolean = response.booleanValue() != null;
-		boolean hasText = response.textValue() != null && !response.textValue().isBlank();
-		boolean hasNumber = response.numberValue() != null;
+	private void validateTaskExecution(ChecklistTaskExecution taskExecution, ChecklistTaskExecutionInput taskExecutionInput) {
+		if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.SKIPPED && taskExecution.isRequired()) {
+			throw new ConflictException(
+					"checklist_task_execution_required_skip_forbidden",
+					"Required checklist tasks cannot be skipped"
+			);
+		}
 
-		switch (runItem.getResponseType()) {
-			case BOOLEAN -> {
-				if (!hasBoolean || hasText || hasNumber) {
+		boolean hasVerificationResult = taskExecutionInput.verificationResult() != null;
+		boolean hasMeasuredValue = taskExecutionInput.measuredValue() != null;
+		boolean hasEnteredText = taskExecutionInput.enteredText() != null && !taskExecutionInput.enteredText().isBlank();
+
+		if (taskExecutionInput.executionStatus() != ChecklistTaskExecutionStatus.COMPLETED) {
+			if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {
+				throw new ConflictException(
+						"checklist_task_execution_pending_data_forbidden",
+						"Only completed checklist tasks may record verification, measurement, or text data"
+				);
+			}
+			return;
+		}
+
+		switch (taskExecution.getTaskKindSnapshot()) {
+			case ACTION -> {
+				if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {
 					throw new ConflictException(
-							"checklist_run_invalid_boolean_response",
-							"Boolean checklist items require a boolean value and no text or number value"
+							"checklist_task_execution_action_data_invalid",
+							"Action checklist tasks may only record completion and an optional comment"
 					);
 				}
 			}
-			case TEXT -> {
-				if (!hasText || hasBoolean || hasNumber) {
+			case VERIFICATION -> {
+				if (!hasVerificationResult || hasMeasuredValue || hasEnteredText) {
 					throw new ConflictException(
-							"checklist_run_invalid_text_response",
-							"Text checklist items require a text value and no boolean or number value"
+							"checklist_task_execution_verification_invalid",
+							"Verification checklist tasks require a verification result and no measurement or text entry"
 					);
 				}
 			}
-			case NUMBER -> {
-				if (!hasNumber || hasBoolean || hasText) {
+			case MEASUREMENT -> {
+				if (!hasMeasuredValue || hasVerificationResult || hasEnteredText) {
 					throw new ConflictException(
-							"checklist_run_invalid_number_response",
-							"Number checklist items require a number value and no boolean or text value"
+							"checklist_task_execution_measurement_invalid",
+							"Measurement checklist tasks require a measured value and no verification or text entry"
+					);
+				}
+			}
+			case TEXT_ENTRY -> {
+				if (!hasEnteredText || hasVerificationResult || hasMeasuredValue) {
+					throw new ConflictException(
+							"checklist_task_execution_text_entry_invalid",
+							"Text entry checklist tasks require entered text and no verification or measured value"
 					);
 				}
 			}
 		}
 	}
 
-	private void validateRequiredRunItemsCompleted(List<ChecklistRunItem> runItems) {
-		runItems.stream().filter(ChecklistRunItem::isRequired)
-				.filter(runItem -> !hasResponseValue(runItem))
+	private void validateRequiredTaskExecutionsCompleted(List<ChecklistTaskExecution> taskExecutions) {
+		taskExecutions.stream().filter(ChecklistTaskExecution::isRequired)
+				.filter(taskExecution -> taskExecution.getExecutionStatus() != ChecklistTaskExecutionStatus.COMPLETED)
 				.forEach(_ -> {
 			throw new ConflictException(
-					"checklist_run_required_response_missing",
-					"All required checklist items must be completed before submission"
+					"checklist_run_required_task_incomplete",
+					"All required checklist tasks must be completed before submission"
 			);
 		});
 	}
 
-	private boolean hasResponseValue(ChecklistRunItem runItem) {
-		ChecklistItemResponse response = runItem.getResponse();
-		if (response == null) {
-			return false;
-		}
-
-		return switch (runItem.getResponseType()) {
-			case BOOLEAN -> response.getBooleanValue() != null;
-			case TEXT -> response.getTextValue() != null && !response.getTextValue().isBlank();
-			case NUMBER -> response.getNumberValue() != null;
-		};
-	}
-
-	public record ChecklistItemSubmissionInput(
-			UUID checklistRunItemId,
-			Boolean booleanValue,
-			String textValue,
-			BigDecimal numberValue,
-			String note
+	public record ChecklistTaskExecutionInput(
+			UUID checklistTaskExecutionId,
+			ChecklistTaskExecutionStatus executionStatus,
+			String comment,
+			ChecklistVerificationResult verificationResult,
+			BigDecimal measuredValue,
+			String enteredText
 	) {
 	}
 }

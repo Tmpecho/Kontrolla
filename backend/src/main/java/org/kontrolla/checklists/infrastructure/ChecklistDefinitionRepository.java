@@ -14,10 +14,10 @@ import java.util.UUID;
 
 public interface ChecklistDefinitionRepository extends JpaRepository<ChecklistDefinition, UUID> {
 
-	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "items", "schedules"})
+	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "tasks", "schedules"})
 	Optional<ChecklistDefinition> findByIdAndEstablishmentId(UUID id, UUID establishmentId);
 
-	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "items", "schedules"})
+	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "tasks", "schedules"})
 	Page<ChecklistDefinition> findByEstablishmentIdAndServiceAreaAndStatus(
 			UUID establishmentId,
 			ChecklistServiceArea serviceArea,
@@ -25,9 +25,9 @@ public interface ChecklistDefinitionRepository extends JpaRepository<ChecklistDe
 			Pageable pageable
 	);
 
-	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "items", "schedules"})
+	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "tasks", "schedules"})
 	List<ChecklistDefinition> findByDefinitionGroupIdAndEstablishmentIdOrderByVersionNumberAsc(UUID definitionGroupId, UUID establishmentId);
 
-	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "items", "schedules"})
+	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "tasks", "schedules"})
 	List<ChecklistDefinition> findByEstablishmentIdAndStatus(UUID establishmentId, ChecklistDefinitionStatus status);
 }

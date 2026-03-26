@@ -2,12 +2,13 @@ package org.kontrolla.checklists.api;
 
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
-import org.kontrolla.checklists.domain.ChecklistItemDefinition;
-import org.kontrolla.checklists.domain.ChecklistResponseType;
 import org.kontrolla.checklists.domain.ChecklistSchedule;
 import org.kontrolla.checklists.domain.ChecklistScheduleType;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
+import org.kontrolla.checklists.domain.ChecklistTaskDefinition;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -30,7 +31,7 @@ public record ChecklistDefinitionResponse(
 		UUID updatedByUserId,
 		Instant createdAt,
 		Instant updatedAt,
-		List<ChecklistItemDefinitionResponse> items,
+		List<ChecklistTaskDefinitionResponse> tasks,
 		List<ChecklistScheduleResponse> schedules
 ) {
 
@@ -50,9 +51,9 @@ public record ChecklistDefinitionResponse(
 				checklistDefinition.getUpdatedByUser().getId(),
 				checklistDefinition.getCreatedAt(),
 				checklistDefinition.getUpdatedAt(),
-				checklistDefinition.getItems().stream()
-						.sorted(Comparator.comparingInt(ChecklistItemDefinition::getSortOrder))
-						.map(ChecklistItemDefinitionResponse::from)
+				checklistDefinition.getTasks().stream()
+						.sorted(Comparator.comparingInt(ChecklistTaskDefinition::getSortOrder))
+						.map(ChecklistTaskDefinitionResponse::from)
 						.toList(),
 				checklistDefinition.getSchedules().stream()
 						.map(ChecklistScheduleResponse::from)
@@ -60,23 +61,29 @@ public record ChecklistDefinitionResponse(
 		);
 	}
 
-	public record ChecklistItemDefinitionResponse(
+	public record ChecklistTaskDefinitionResponse(
 			UUID id,
-			String prompt,
-			String instructionText,
-			ChecklistResponseType responseType,
+			String title,
+			String details,
+			ChecklistTaskKind taskKind,
 			boolean required,
-			int sortOrder
+			int sortOrder,
+			String measurementUnit,
+			BigDecimal minimumAllowedValue,
+			BigDecimal maximumAllowedValue
 	) {
 
-		private static ChecklistItemDefinitionResponse from(ChecklistItemDefinition item) {
-			return new ChecklistItemDefinitionResponse(
-					item.getId(),
-					item.getPrompt(),
-					item.getInstructionText(),
-					item.getResponseType(),
-					item.isRequired(),
-					item.getSortOrder()
+		private static ChecklistTaskDefinitionResponse from(ChecklistTaskDefinition task) {
+			return new ChecklistTaskDefinitionResponse(
+					task.getId(),
+					task.getTitle(),
+					task.getDetails(),
+					task.getTaskKind(),
+					task.isRequired(),
+					task.getSortOrder(),
+					task.getMeasurementUnit(),
+					task.getMinimumAllowedValue(),
+					task.getMaximumAllowedValue()
 			);
 		}
 	}
