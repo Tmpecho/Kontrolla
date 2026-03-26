@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.kontrolla.checklists.api.ChecklistRunResponse;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
+import org.kontrolla.checklists.domain.ChecklistItemDefinition;
 import org.kontrolla.checklists.domain.ChecklistResponseType;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
@@ -165,7 +166,7 @@ class ChecklistDefinitionVersioningIntegrationTest {
 		assertThat(newVersion.getVersionNumber()).isEqualTo(2);
 		assertThat(newVersion.getStatus()).isEqualTo(ChecklistDefinitionStatus.ACTIVE);
 		assertThat(newVersion.getItems())
-				.extracting(item -> item.getPrompt())
+				.extracting(ChecklistItemDefinition::getPrompt)
 				.containsExactly("Check rice cooker", "Check fish fridge");
 		assertThat(newVersion.getSchedules())
 				.singleElement()

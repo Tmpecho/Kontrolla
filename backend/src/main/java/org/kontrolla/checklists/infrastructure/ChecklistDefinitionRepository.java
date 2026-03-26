@@ -27,4 +27,7 @@ public interface ChecklistDefinitionRepository extends JpaRepository<ChecklistDe
 
 	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "items", "schedules"})
 	List<ChecklistDefinition> findByDefinitionGroupIdAndEstablishmentIdOrderByVersionNumberAsc(UUID definitionGroupId, UUID establishmentId);
+
+	@EntityGraph(attributePaths = {"establishment", "createdByUser", "updatedByUser", "items", "schedules"})
+	List<ChecklistDefinition> findByEstablishmentIdAndStatus(UUID establishmentId, ChecklistDefinitionStatus status);
 }

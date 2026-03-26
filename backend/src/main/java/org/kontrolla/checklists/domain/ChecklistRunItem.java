@@ -1,6 +1,7 @@
 package org.kontrolla.checklists.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -47,7 +48,7 @@ public class ChecklistRunItem extends AbstractAuditableUuidEntity {
 	@Column(name = "sort_order", nullable = false)
 	private int sortOrder;
 
-	@OneToOne(mappedBy = "checklistRunItem", fetch = FetchType.LAZY, optional = true)
+	@OneToOne(mappedBy = "checklistRunItem", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
 	private ChecklistItemResponse response;
 
 	protected ChecklistRunItem() {
