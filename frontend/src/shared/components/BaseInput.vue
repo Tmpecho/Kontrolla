@@ -4,6 +4,8 @@ defineProps<{
   label: string
   modelValue: string
   type?: string
+  autocomplete?: string
+  placeholder?: string
   hint?: string
 }>()
 
@@ -11,55 +13,71 @@ defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <div class="input-wrapper">
-    <label :for="id" class="carbon-label">{{ label }}</label>
-    <div v-if="hint" class="carbon-hint">{{ hint }}</div>
+  <div class="input-container">
+    <div class="label-wrapper">
+      <label :for="id" class="input-label">{{ label }}</label>
+      <div class="aside-content">
+        <slot name="aside"></slot>
+      </div>
+    </div>
     <input
       :id="id"
       :type="type || 'text'"
       :value="modelValue"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-      class="input"
+      :autocomplete="autocomplete"
+      :placeholder="placeholder"
+      class="input-field"
       required
     />
+    <p v-if="hint" class="input-hint">{{ hint }}</p>
   </div>
 </template>
 
 <style scoped>
-.input-wrapper {
-  margin-bottom: 1.5rem;
+.input-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
-.carbon-label {
-  font-size: 0.875rem;
-  font-weight: 400;
-  color: #161616;
-  margin-bottom: 0.375rem;
-}
-
-.carbon-hint {
-  font-size: 0.75rem;
-  color: #525252;
+.label-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   margin-bottom: 0.5rem;
 }
 
-.input {
+.input-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input-field {
   background-color: #f4f4f4;
   border: none;
-  border-bottom: 1px solid #8d8d8d;
-  padding: 0.875rem 1rem;
-  font-size: 0.875rem;
+  border-bottom: 1px solid #a8a8a8;
+  border-radius: 2px;
+  padding: 0.875rem 0.5rem;
+  font-size: 1rem;
   color: #161616;
   width: 100%;
   box-sizing: border-box;
-  transition: background-color 0.1s;
 }
 
-.input:focus {
-  outline: 2px solid #0f62fe;
+.input-field:focus {
+  outline: 2px solid #3763f4;
   outline-offset: -2px;
   border-bottom-color: transparent;
+}
+
+.input-hint {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.5rem 0 0 0;
+  padding-left: 0.25rem;
 }
 </style>
