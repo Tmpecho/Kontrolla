@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { useAuthStore } from '@/auth/model/auth.store.ts'
+import { useAuthStore } from '@/auth/model/auth.store'
 
 const authStore = useAuthStore()
 </script>

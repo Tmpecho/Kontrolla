@@ -45,7 +45,7 @@ select {
 }
 
 p {
-  font-size: small;
+  font-size: 0.875rem;
 }
 
 #app {
