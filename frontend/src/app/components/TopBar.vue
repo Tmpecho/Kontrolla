@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import NotificationsPopup from '@/shared/components/NotificationsPopup.vue'
-import SettingsPopup from '@/shared/components/SettingsPopup.vue'
-import ProfilePopup from '@/shared/components/ProfilePopup.vue'
+import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
+import SettingsPopup from '@/app/components/SettingsPopup.vue'
+import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
 const activePopup = ref<null | 'notifications' | 'settings' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
@@ -83,7 +83,7 @@ onBeforeUnmount(() => {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 30px;
+  padding: 14px 30px;
   background-color: var(--color-white);
 }
 
@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
 
 .app-title :deep(a) {
   margin: 0;
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   font-size: 20px;
   text-decoration: none;
 }
