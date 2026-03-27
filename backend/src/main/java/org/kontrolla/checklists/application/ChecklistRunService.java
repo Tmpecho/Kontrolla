@@ -489,7 +489,7 @@ public class ChecklistRunService {
 		}
 	}
 
-	private void validateRequiredTaskExecutionsCompleted(List<ChecklistTaskExecution> taskExecutions) {
+	private void validateRequiredTaskExecutionsCompleted(Collection<ChecklistTaskExecution> taskExecutions) {
 		taskExecutions.stream().filter(ChecklistTaskExecution::isRequired)
 				.filter(taskExecution -> taskExecution.getExecutionStatus() != ChecklistTaskExecutionStatus.COMPLETED)
 				.forEach(_ -> {

@@ -112,7 +112,7 @@ class ChecklistRunServiceIntegrationTest {
 		assertThat(startedRun.getStatus()).isEqualTo(ChecklistRunStatus.IN_PROGRESS);
 		assertThat(startedRun.getStartedAt()).isNotNull();
 
-		UUID taskExecutionId = startedRun.getTaskExecutions().getFirst().getId();
+		UUID taskExecutionId = startedRun.getTaskExecutions().iterator().next().getId();
 		ChecklistRun completedRun = checklistRunService.submitChecklistRun(
 				organization.getId(),
 				establishment.getId(),
@@ -250,7 +250,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				List.of(new ChecklistRunService.ChecklistTaskExecutionInput(
-						run.getTaskExecutions().getFirst().getId(),
+						run.getTaskExecutions().iterator().next().getId(),
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Soap was missing",
 						ChecklistVerificationResult.NOT_VERIFIED,
