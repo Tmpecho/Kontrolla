@@ -110,9 +110,7 @@ public class AuthService {
 
 	private UserAppContext resolveAppContext(java.util.UUID userId) {
 		Optional<OrganizationMembership> membership = organizationMembershipRepository
-				.findByUserIdAndActiveTrueOrderByCreatedAtAsc(userId)
-				.stream()
-				.findFirst();
+				.findFirstByUserIdAndActiveTrueOrderByCreatedAtAsc(userId);
 
 		if (membership.isEmpty()) {
 			return new UserAppContext(null, null, null, null);
