@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -110,5 +111,40 @@ class AuthControllerIntegrationTest {
 				.andExpect(jsonPath("$.email").value("alice@example.com"))
 				.andExpect(jsonPath("$.firstName").value("Alice"))
 				.andExpect(jsonPath("$.lastName").value("Example"));
+	}
+
+	@Test
+	void refreshReturnsSessionWithAppContext() throws Exception {
+		User user = new User("alice@example.com", "Alice", "Example", passwordEncoder.encode("password123"), true, Set.of());
+		userRepository.saveAndFlush(user);
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
+		establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Alice Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
+
+		String loginBody = """
+				{
+				  "email": "alice@example.com",
+				  "password": "password123"
+				}
+				""";
+
+		MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(loginBody))
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String refreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
+				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
 	}
 }
