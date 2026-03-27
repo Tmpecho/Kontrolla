@@ -1,29 +1,33 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/auth/model/auth.store'
 import TopBar from '@/app/components/TopBar.vue'
-
-const authStore = useAuthStore()
+import Sidebar from '@/app/components/Sidebar.vue'
 </script>
 
 <template>
-  <div>
-
-    <TopBar/>
-    
-    <header>
-      <div>
-        <p>Kontrolla</p>
-        <p>Signed-in application</p>
-      </div>
-
-      <div v-if="authStore.user">
-        <p>{{ authStore.user.firstName }} {{ authStore.user.lastName }}</p>
-        <p>{{ authStore.user.email }}</p>
-      </div>
-    </header>
-
-    <main>
-      <RouterView />
-    </main>
+  <div class="app-shell">
+    <TopBar />
+    <div class="app-body">
+      <Sidebar/>
+      <main class="app-content">
+        <RouterView />
+      </main>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.app-shell {
+  min-height: 100vh;
+  background-color: var(--color-surface);
+}
+
+.app-body {
+  display: flex;
+  min-height: calc(100vh - 77px);
+}
+
+.app-content {
+  flex: 1;
+  padding: 24px;
+}
+</style>
