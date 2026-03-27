@@ -14,11 +14,6 @@
     </p>
   </section>
 
-  <p>
-    <RouterLink :to="{ name: 'ik-mat-dashboard'}">IK-mat</RouterLink>
-    <RouterLink :to="{ name: 'ik-alkohol-dashboard'}">IK-alkohol</RouterLink>
-  </p>
-
   <section>
     <h2>Daily work</h2>
     <p>Routine execution, checklists, temperature logs, and shift-level tasks will live here.</p>
