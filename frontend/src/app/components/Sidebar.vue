@@ -13,7 +13,7 @@ defineOptions({
 
 type NavigationItem = {
   label: string
-  routeName: 'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard'
+  routeName?: 'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard'
 }
 
 const authStore = useAuthStore()
@@ -45,6 +45,9 @@ const navigationItems = computed<NavigationItem[]>(() => {
         {
           label: 'Dashboard',
           routeName: 'ik-mat-dashboard',
+        },
+        {
+          label: 'Placeholder',
         },
       ]
     case 'ik-alkohol':
@@ -158,11 +161,18 @@ async function onLogout() {
 
       <nav aria-label="App navigation" class="subservices">
         <ul>
-          <!-- TODO: add icons for the links -->
-          <li v-for="navigationItem in navigationItems" :key="navigationItem.routeName">
-            <RouterLink :to="{ name: navigationItem.routeName }" class="nav-link">
+          <li
+            v-for="navigationItem in navigationItems"
+            :key="navigationItem.routeName ?? navigationItem.label"
+          >
+            <RouterLink
+              v-if="navigationItem.routeName"
+              :to="{ name: navigationItem.routeName }"
+              class="nav-link"
+            >
               {{ navigationItem.label }}
             </RouterLink>
+            <span v-else class="nav-link nav-link-placeholder">{{ navigationItem.label }}</span>
           </li>
         </ul>
       </nav>
@@ -240,8 +250,13 @@ async function onLogout() {
 }
 
 .nav-link.router-link-active {
+  background-color: var(--color-surface);
   color: var(--color-text-primary);
-  font-weight: 600;
+  font-weight: 500;
+}
+
+.nav-link-placeholder {
+  color: var(--color-text-secondary);
 }
 
 .info-container {
