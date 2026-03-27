@@ -1,11 +1,39 @@
 <script setup lang="ts">
-import type { ChecklistRun } from '@/checklists/model/checklist.types'
+import type { ChecklistRun, ChecklistTaskExecution } from '@/checklists/model/checklist.types'
+import {
+  startChecklistRun,
+  cancelChecklistRun,
+  reopenChecklistRun,
+  submitChecklistRun,
+  type SubmitChecklistRunTaskInput,
+} from '@/checklists/api/checklist-runs.api'
 import ChecklistTaskItem from './ChecklistTaskItem.vue'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
   run: ChecklistRun
+  organizationId: string
+  establishmentId: string
 }>()
+
+const emit = defineEmits<{
+  (e: 'update:run', run: ChecklistRun): void
+}>()
+
+const workingTasks = ref<ChecklistTaskExecution[]>([])
+const isSaving = ref(false)
+
+watch(
+  () => props.run,
+  (newRun) => {
+    workingTasks.value = JSON.parse(JSON.stringify(newRun.tasks))
+  },
+  { immediate: true },
+)
+
+const isPending = computed(() => props.run.status === 'PENDING')
+const isInProgress = computed(() => props.run.status === 'IN_PROGRESS')
+const isCompleted = computed(() => props.run.status === 'COMPLETED')
 
 const formattedDueDate = computed(() => {
   return new Intl.DateTimeFormat('nb-NO', {
@@ -20,13 +48,94 @@ const statusMeta = computed(() => {
     label: status.replace(/_/g, ' '),
     class: 'status-default',
   }
-
   if (status === 'COMPLETED') return { ...base, class: 'status-success' }
   if (status === 'OVERDUE') return { ...base, class: 'status-critical' }
   if (status === 'IN_PROGRESS') return { ...base, class: 'status-primary' }
-
   return base
 })
+
+async function handleStart() {
+  isSaving.value = true
+  try {
+    const updated = await startChecklistRun({
+      organizationId: props.organizationId,
+      establishmentId: props.establishmentId,
+      checklistRunId: props.run.id,
+    })
+    emit('update:run', updated)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function handleCancel() {
+  isSaving.value = true
+  try {
+    const updated = await cancelChecklistRun({
+      organizationId: props.organizationId,
+      establishmentId: props.establishmentId,
+      checklistRunId: props.run.id,
+    })
+    emit('update:run', updated)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function handleReopen() {
+  isSaving.value = true
+  try {
+    const updated = await reopenChecklistRun({
+      organizationId: props.organizationId,
+      establishmentId: props.establishmentId,
+      checklistRunId: props.run.id,
+    })
+    emit('update:run', updated)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+function toggleTask(taskId: string) {
+  const task = workingTasks.value.find((t) => t.checklistTaskExecutionId === taskId)
+  if (task) {
+    task.executionStatus = task.executionStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
+  }
+}
+
+async function handleSubmit() {
+  isSaving.value = true
+  try {
+    const taskInputs: SubmitChecklistRunTaskInput[] = workingTasks.value.map((t) => ({
+      checklistTaskExecutionId: t.checklistTaskExecutionId,
+      executionStatus: t.executionStatus,
+      comment: t.comment,
+      verificationResult: t.verificationResult,
+      measuredValue: t.measuredValue,
+      enteredText: t.enteredText,
+    }))
+
+    const updated = await submitChecklistRun(
+      {
+        organizationId: props.organizationId,
+        establishmentId: props.establishmentId,
+        checklistRunId: props.run.id,
+      },
+      { tasks: taskInputs },
+    )
+    emit('update:run', updated)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -52,22 +161,50 @@ const statusMeta = computed(() => {
       </div>
     </div>
 
-    <!-- Nested Task List -->
+    <!-- Tasks Section -->
     <div class="tasks-container">
       <h4 class="tasks-heading">Tasks ({{ run.tasks.length }})</h4>
-      <div v-if="run.tasks.length > 0" class="tasks-list">
+
+      <div v-if="workingTasks.length > 0" class="tasks-list">
         <ChecklistTaskItem
-          v-for="task in run.tasks"
+          v-for="task in workingTasks"
           :key="task.checklistTaskExecutionId"
           :task="task"
+          :editable="isInProgress"
+          @toggle="toggleTask"
         />
       </div>
       <p v-else class="empty-text">No tasks defined for this run.</p>
     </div>
+
+    <!-- Action Footer -->
+    <footer class="run-footer">
+      <!-- PENDING STATE -->
+      <template v-if="isPending">
+        <button class="btn btn-primary" @click="handleStart" :disabled="isSaving">Start Run</button>
+        <button class="btn btn-ghost" @click="handleCancel" :disabled="isSaving">Cancel</button>
+      </template>
+
+      <!-- IN PROGRESS STATE -->
+      <template v-else-if="isInProgress">
+        <button class="btn btn-primary" @click="handleSubmit" :disabled="isSaving">
+          Submit Results
+        </button>
+        <button class="btn btn-danger" @click="handleCancel" :disabled="isSaving">
+          Cancel Run
+        </button>
+      </template>
+
+      <!-- COMPLETED STATE -->
+      <template v-else-if="isCompleted">
+        <button class="btn btn-secondary" @click="handleReopen" :disabled="isSaving">Reopen</button>
+      </template>
+    </footer>
   </article>
 </template>
 
 <style scoped>
+/* Card Container */
 .run-card {
   background-color: var(--color-container);
   border-radius: 0.75rem;
@@ -75,8 +212,10 @@ const statusMeta = computed(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--color-border-muted);
 }
 
+/* Header */
 .run-header {
   padding: 1.5rem 1.5rem 1rem;
   border-bottom: 1px solid var(--color-border-muted);
@@ -105,6 +244,7 @@ const statusMeta = computed(() => {
   line-height: 1.5;
 }
 
+/* Status Badges */
 .status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
@@ -132,9 +272,10 @@ const statusMeta = computed(() => {
   color: var(--color-critical);
 }
 
+/* Meta Grid */
 .run-meta-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
   padding: 1rem 1.5rem;
   background-color: var(--color-surface);
@@ -161,6 +302,7 @@ const statusMeta = computed(() => {
   color: var(--color-text-primary);
 }
 
+/* Tasks Section */
 .tasks-container {
   padding: 1rem 1.5rem 1.5rem;
 }
@@ -184,5 +326,65 @@ const statusMeta = computed(() => {
   color: var(--color-text-secondary);
   text-align: center;
   padding: 1rem;
+}
+
+/* Footer & Buttons */
+.run-footer {
+  padding: 1rem 1.5rem;
+  background-color: var(--color-white);
+  border-top: 1px solid var(--color-border-muted);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.btn {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #004a94;
+}
+
+.btn-secondary {
+  background-color: white;
+  color: var(--color-text-primary);
+  border-color: var(--color-border-muted);
+}
+
+.btn-danger {
+  background-color: white;
+  color: var(--color-critical);
+  border-color: var(--color-critical);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #fef2f2;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: #f1f5f9;
 }
 </style>

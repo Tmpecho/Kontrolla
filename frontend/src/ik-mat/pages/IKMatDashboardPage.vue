@@ -50,6 +50,14 @@ async function loadChecklistRuns(): Promise<void> {
 onMounted(async () => {
   await loadChecklistRuns()
 })
+
+function handleRunUpdate(updatedRun: ChecklistRun) {
+  const index = checklistRuns.value.findIndex((r) => r.id === updatedRun.id)
+  if (index !== -1) {
+    // Replace the old run with the updated one to trigger reactivity
+    checklistRuns.value[index] = updatedRun
+  }
+}
 </script>
 
 <template>
@@ -75,7 +83,14 @@ onMounted(async () => {
 
     <!-- Main Content -->
     <div v-else-if="checklistRuns.length > 0" class="runs-grid">
-      <ChecklistRunCard v-for="run in checklistRuns" :key="run.id" :run="run" />
+      <ChecklistRunCard
+        v-for="run in checklistRuns"
+        :key="run.id"
+        :run="run"
+        :organization-id="appEnv.defaultOrganizationId!"
+        :establishment-id="appEnv.defaultEstablishmentId!"
+        @update:run="handleRunUpdate"
+      />
     </div>
 
     <div v-else class="state-card">
