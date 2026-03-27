@@ -5,7 +5,6 @@
   <div class="workspace-page">
     <section class="workspace-section">
       <header class="workspace-header">
-        <p class="workspace-eyebrow">Workspace</p>
         <h1>Workspace</h1>
         <p>The starting point for daily routines, follow-up, documents, and reporting.</p>
       </header>
@@ -91,7 +90,7 @@
   gap: 16px;
   padding: 24px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 8px;
+  border-radius: 4px;
   background-color: var(--color-container);
   color: var(--color-text-primary);
   text-decoration: none;

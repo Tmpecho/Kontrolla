@@ -47,7 +47,10 @@ const navigationItems = computed<NavigationItem[]>(() => {
           routeName: 'ik-mat-dashboard',
         },
         {
-          label: 'Placeholder',
+          label: 'Checklists',
+        },
+        {
+          label: 'Reports',
         },
       ]
     case 'ik-alkohol':
@@ -55,6 +58,9 @@ const navigationItems = computed<NavigationItem[]>(() => {
         {
           label: 'Dashboard',
           routeName: 'ik-alkohol-dashboard',
+        },
+        {
+          label: 'Important Documents',
         },
       ]
     default:

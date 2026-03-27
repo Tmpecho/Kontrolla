@@ -44,6 +44,10 @@ select {
   font-family: var(--font-sans);
 }
 
+p {
+  font-size: small;
+}
+
 #app {
   min-height: 100vh;
 }
