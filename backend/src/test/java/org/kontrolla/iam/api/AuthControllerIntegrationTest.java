@@ -7,6 +7,16 @@ import org.junit.jupiter.api.Test;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
+import org.kontrolla.organizations.domain.Organization;
+import org.kontrolla.organizations.domain.OrganizationMembership;
+import org.kontrolla.organizations.domain.OrganizationRole;
+import org.kontrolla.organizations.domain.OrganizationStatus;
+import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
+import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.domain.EstablishmentStatus;
+import org.kontrolla.establishments.domain.EstablishmentType;
+import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,9 +52,21 @@ class AuthControllerIntegrationTest {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private OrganizationRepository organizationRepository;
+
+	@Autowired
+	private OrganizationMembershipRepository organizationMembershipRepository;
+
+	@Autowired
+	private EstablishmentRepository establishmentRepository;
+
 	@BeforeEach
 	void setUp() {
 		refreshTokenRepository.deleteAll();
+		organizationMembershipRepository.deleteAll();
+		establishmentRepository.deleteAll();
+		organizationRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 
@@ -52,6 +74,12 @@ class AuthControllerIntegrationTest {
 	void loginAndMeReturnAuthenticatedUser() throws Exception {
 		User user = new User("alice@example.com", "Alice", "Example", passwordEncoder.encode("password123"), true, Set.of());
 		userRepository.saveAndFlush(user);
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
+		establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Alice Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
 
 		String loginBody = """
 				{
@@ -67,6 +95,8 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andExpect(jsonPath("$.accessToken").isString())
 				.andExpect(jsonPath("$.user.email").value("alice@example.com"))
+				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
+				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"))
 				.andReturn()
 				.getResponse()
 				.getContentAsString();

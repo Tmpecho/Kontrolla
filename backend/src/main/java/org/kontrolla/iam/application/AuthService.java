@@ -1,5 +1,7 @@
 package org.kontrolla.iam.application;
 
+import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.common.exception.UnauthorizedException;
 import org.kontrolla.iam.domain.RefreshToken;
 import org.kontrolla.iam.domain.User;
@@ -9,6 +11,8 @@ import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.iam.security.JwtService;
 import org.kontrolla.iam.security.JwtService.IssuedAccessToken;
+import org.kontrolla.organizations.domain.OrganizationMembership;
+import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +23,15 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Optional;
 
 @Service
 public class AuthService {
 
 	private final UserRepository userRepository;
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final OrganizationMembershipRepository organizationMembershipRepository;
+	private final EstablishmentRepository establishmentRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final AppSecurityProperties securityProperties;
@@ -32,12 +39,16 @@ public class AuthService {
 	public AuthService(
 			UserRepository userRepository,
 			RefreshTokenRepository refreshTokenRepository,
+			OrganizationMembershipRepository organizationMembershipRepository,
+			EstablishmentRepository establishmentRepository,
 			PasswordEncoder passwordEncoder,
 			JwtService jwtService,
 			AppSecurityProperties securityProperties
 	) {
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
+		this.organizationMembershipRepository = organizationMembershipRepository;
+		this.establishmentRepository = establishmentRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.securityProperties = securityProperties;
@@ -88,7 +99,35 @@ public class AuthService {
 		RefreshToken refreshToken = new RefreshToken(user, tokenHash, now.plus(securityProperties.getRefresh().getTtl()));
 		refreshTokenRepository.save(refreshToken);
 
-		return new AuthSession(user, accessToken.token(), accessToken.expiresInSeconds(), rawRefreshToken);
+		return new AuthSession(
+				user,
+				accessToken.token(),
+				accessToken.expiresInSeconds(),
+				rawRefreshToken,
+				resolveAppContext(user.getId())
+		);
+	}
+
+	private UserAppContext resolveAppContext(java.util.UUID userId) {
+		Optional<OrganizationMembership> membership = organizationMembershipRepository
+				.findByUserIdAndActiveTrueOrderByCreatedAtAsc(userId)
+				.stream()
+				.findFirst();
+
+		if (membership.isEmpty()) {
+			return new UserAppContext(null, null, null, null);
+		}
+
+		OrganizationMembership activeMembership = membership.get();
+		Optional<Establishment> establishment = establishmentRepository
+				.findFirstByOrganizationIdOrderByCreatedAtAsc(activeMembership.getOrganization().getId());
+
+		return new UserAppContext(
+				activeMembership.getOrganization().getId(),
+				activeMembership.getOrganization().getName(),
+				establishment.map(Establishment::getId).orElse(null),
+				establishment.map(Establishment::getName).orElse(null)
+		);
 	}
 
 	private RefreshToken resolveActiveRefreshToken(String rawRefreshToken, Instant now) {

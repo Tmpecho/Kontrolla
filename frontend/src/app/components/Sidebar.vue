@@ -1,11 +1,8 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
-import { getEstablishment } from '@/establishments/api/establishments.api'
-import { getOrganization } from '@/organizations/api/organizations.api'
-import { appEnv } from '@/shared/config/env'
 
 defineOptions({
   name: 'AppSidebar',
@@ -19,10 +16,6 @@ type NavigationItem = {
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const organizationName = ref<string | null>(null)
-const establishmentName = ref<string | null>(null)
-const isContextLoading = ref(false)
-const contextErrorMessage = ref<string | null>(null)
 
 const currentAppSection = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
@@ -74,81 +67,28 @@ const navigationItems = computed<NavigationItem[]>(() => {
 })
 
 const displayOrganizationName = computed(() => {
-  if (organizationName.value) {
-    return organizationName.value
+  if (!authStore.isSessionReady) {
+    return 'Loading organization...'
   }
 
-  if (isContextLoading.value) {
-    return 'Loading organization...'
+  if (authStore.appContext?.organizationName) {
+    return authStore.appContext.organizationName
   }
 
   return 'Organization unavailable'
 })
 
 const displayEstablishmentName = computed(() => {
-  if (establishmentName.value) {
-    return establishmentName.value
+  if (!authStore.isSessionReady) {
+    return 'Loading establishment...'
   }
 
-  if (isContextLoading.value) {
-    return 'Loading establishment...'
+  if (authStore.appContext?.establishmentName) {
+    return authStore.appContext.establishmentName
   }
 
   return 'Establishment unavailable'
 })
-
-async function loadContext(organizationId: string, establishmentId: string) {
-  isContextLoading.value = true
-  contextErrorMessage.value = null
-
-  try {
-    const [organization, establishment] = await Promise.all([
-      getOrganization(organizationId),
-      getEstablishment(organizationId, establishmentId),
-    ])
-
-    organizationName.value = organization.name
-    establishmentName.value = establishment.name
-  } catch (error) {
-    contextErrorMessage.value =
-      error instanceof Error ? error.message : 'Unable to load app context.'
-  } finally {
-    isContextLoading.value = false
-  }
-}
-
-function resetContext() {
-  organizationName.value = null
-  establishmentName.value = null
-  isContextLoading.value = false
-}
-
-watch(
-  () =>
-    [
-      authStore.isAuthenticated,
-      appEnv.defaultOrganizationId,
-      appEnv.defaultEstablishmentId,
-    ] as const,
-  ([isAuthenticated, organizationId, establishmentId]) => {
-    resetContext()
-
-    if (!isAuthenticated) {
-      contextErrorMessage.value = null
-      return
-    }
-
-    if (!organizationId || !establishmentId) {
-      contextErrorMessage.value = appEnv.isDevelopment
-        ? 'Set default organization and establishment IDs to load app context.'
-        : 'Organization context is unavailable.'
-      return
-    }
-
-    void loadContext(organizationId, establishmentId)
-  },
-  { immediate: true },
-)
 
 async function onLogout() {
   await authStore.logout()
@@ -162,7 +102,6 @@ async function onLogout() {
       <div class="establishment-info">
         <h2>{{ displayOrganizationName }}</h2>
         <p>{{ displayEstablishmentName }}</p>
-        <p v-if="contextErrorMessage" class="sidebar-meta">{{ contextErrorMessage }}</p>
       </div>
 
       <nav aria-label="App navigation" class="subservices">

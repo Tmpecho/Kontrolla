@@ -38,7 +38,8 @@ public class AuthController {
 								AuthUserResponse.from(session.user()),
 								session.accessToken(),
 								"Bearer",
-								session.expiresInSeconds()));
+								session.expiresInSeconds(),
+								UserAppContextResponse.from(session.appContext())));
 	}
 
 	@PostMapping("/refresh")
@@ -51,7 +52,8 @@ public class AuthController {
 								AuthUserResponse.from(session.user()),
 								session.accessToken(),
 								"Bearer",
-								session.expiresInSeconds()));
+								session.expiresInSeconds(),
+								UserAppContextResponse.from(session.appContext())));
 	}
 
 	@PostMapping("/logout")
