@@ -17,13 +17,16 @@ import Sidebar from '@/app/components/Sidebar.vue'
 
 <style scoped>
 .app-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background-color: var(--color-surface);
 }
 
 .app-body {
   display: flex;
-  min-height: calc(100vh - 77px);
+  flex: 1;
+  min-height: 0;
 }
 
 .app-content {
