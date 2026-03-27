@@ -7,7 +7,7 @@ import {
   refreshSession,
   logout as logoutRequest,
 } from '@/auth/api/auth.api'
-import type { AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
+import type { AuthAppContext, AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
 
 let currentAccessToken: string | null = null
 
@@ -20,6 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null)
   const tokenType = ref<string | null>(null)
   const expiresIn = ref<number | null>(null)
+  const appContext = ref<AuthAppContext | null>(null)
   const isSessionReady = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
@@ -29,6 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = session.accessToken
     tokenType.value = session.tokenType
     expiresIn.value = session.expiresIn
+    appContext.value = session.appContext
     currentAccessToken = session.accessToken
   }
 
@@ -37,6 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     tokenType.value = null
     expiresIn.value = null
+    appContext.value = null
     currentAccessToken = null
   }
 
@@ -71,6 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     tokenType,
     expiresIn,
+    appContext,
     isSessionReady,
     isAuthenticated,
     setSession,

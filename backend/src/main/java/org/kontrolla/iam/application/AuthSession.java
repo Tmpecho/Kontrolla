@@ -6,6 +6,7 @@ public record AuthSession(
 		User user,
 		String accessToken,
 		long expiresInSeconds,
-		String refreshToken
+		String refreshToken,
+		UserAppContext appContext
 ) {
 }

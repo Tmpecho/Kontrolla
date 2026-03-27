@@ -4,6 +4,7 @@ public record LoginResponse(
 		AuthUserResponse user,
 		String accessToken,
 		String tokenType,
-		long expiresIn
+		long expiresIn,
+		UserAppContextResponse appContext
 ) {
 }
