@@ -36,16 +36,24 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { defineProps, defineEmits } from 'vue'
+
+interface Option {
+  id: string
+  value: string | number
+  label: string
+  hint?: string
+  indeterminate?: boolean
+}
 
 const props = defineProps({
   modelValue: {
-    type: Array,
+    type: Array as () => (string | number)[],
     default: () => [],
   },
   options: {
-    type: Array,
+    type: Array as () => Option[],
     required: true,
   },
   legend: String,
@@ -55,7 +63,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const toggle = (value) => {
+const toggle = (value: string | number) => {
   const newValue = [...props.modelValue]
   const index = newValue.indexOf(value)
   if (index > -1) {
@@ -68,11 +76,6 @@ const toggle = (value) => {
 </script>
 
 <style scoped>
-/* 
-  Note: This component relies on the global styles you provided 
-  (Manrope font, CSS variables). 
-  We map the component styles to your specific variable names.
-*/
 
 .hybrid-checklist {
   font-family: var(--font-sans);
@@ -87,7 +90,6 @@ const toggle = (value) => {
   margin: 0;
 }
 
-/* --- Legend --- */
 .hybrid-checklist__legend {
   font-size: 1rem;
   font-weight: 600;
@@ -96,7 +98,6 @@ const toggle = (value) => {
   margin-bottom: 0.5rem;
 }
 
-/* --- Helper Text --- */
 .hybrid-checklist__helper {
   font-size: 1rem;
   line-height: 1.5;
@@ -104,7 +105,6 @@ const toggle = (value) => {
   margin-bottom: 1rem;
 }
 
-/* --- Error State --- */
 .hybrid-checklist__validation {
   margin-bottom: 1rem;
 }
@@ -123,14 +123,12 @@ const toggle = (value) => {
   font-size: 1rem;
 }
 
-/* --- Checkbox Group Layout --- */
 .hybrid-checklist__group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-/* --- Checkbox Component Structure --- */
 .hybrid-checkbox {
   position: relative;
   display: flex;
@@ -139,7 +137,6 @@ const toggle = (value) => {
   margin-bottom: 0.25rem;
 }
 
-/* The Input (Opacity 0, used for state) */
 .hybrid-checkbox__input {
   position: absolute;
   opacity: 0;
@@ -150,25 +147,23 @@ const toggle = (value) => {
   z-index: 1;
 }
 
-/* The Visual Box (18px Box) */
 .hybrid-checkbox__input + .hybrid-checkbox__label::before {
   content: '';
   position: absolute;
-  top: 2px; /* Align with text baseline */
+  top: 2px;
   left: 0;
   width: 18px;
   height: 18px;
   background: var(--color-white);
   border: 1px solid var(--color-border-muted);
-  border-radius: 2px; /* Slight rounding fits Manrope aesthetic */
+  border-radius: 2px;
   box-sizing: border-box;
   transition: all 70ms cubic-bezier(0.2, 0, 0.38, 0.9);
 }
 
-/* The Label */
 .hybrid-checkbox__label {
   position: relative;
-  padding-left: 26px; /* 18px box + 8px gap */
+  padding-left: 26px;
   font-size: 1rem;
   line-height: 1.5;
   color: var(--color-text-primary);
