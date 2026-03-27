@@ -4,52 +4,29 @@ import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 import { computed, onMounted, ref } from 'vue'
+import ChecklistRunCard from '@/checklists/components/ChecklistRunCard.vue'
 
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
-const hasChecklistContext = computed(
-  () => Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
+
+const hasChecklistContext = computed(() =>
+  Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
 )
 
 const missingContextMessage = computed(() => {
-  if (hasChecklistContext.value) {
-    return null
-  }
-
+  if (hasChecklistContext.value) return null
   if (!appEnv.isDevelopment) {
     return 'Checklist runs cannot be loaded until organization and establishment context is available.'
   }
-
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs in development.'
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs.'
 })
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('nb-NO', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
-function formatStatus(status: ChecklistRun['status']): string {
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function formatTaskExecutionStatus(status: ChecklistRun['tasks'][number]['executionStatus']): string {
-  return status === 'COMPLETED' ? 'Completed' : status === 'SKIPPED' ? 'Skipped' : 'Pending'
-}
 
 async function loadChecklistRuns(): Promise<void> {
   const organizationId = appEnv.defaultOrganizationId
   const establishmentId = appEnv.defaultEstablishmentId
 
-  if (!organizationId || !establishmentId) {
-    return
-  }
+  if (!organizationId || !establishmentId) return
 
   isLoading.value = true
   errorMessage.value = null
@@ -61,7 +38,6 @@ async function loadChecklistRuns(): Promise<void> {
       serviceArea: 'IK_MAT',
       size: 10,
     })
-
     checklistRuns.value = page.items
   } catch (error) {
     errorMessage.value =
@@ -77,35 +53,100 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section>
-    <h1>IK-mat Dashboard</h1>
-    <p>Overview over food compliance.</p>
-  </section>
+  <div class="page-container">
+    <header class="page-header">
+      <h1>IK-mat Dashboard</h1>
+      <p>Overview of food safety compliance routines.</p>
+    </header>
 
-  <section>
-    <h2>Checklist runs</h2>
+    <!-- Loading & Error States -->
+    <div v-if="missingContextMessage" class="state-card">
+      <p>{{ missingContextMessage }}</p>
+    </div>
 
-    <p v-if="missingContextMessage">{{ missingContextMessage }}</p>
-    <p v-else-if="isLoading">Loading checklist runs...</p>
-    <p v-else-if="errorMessage">{{ errorMessage }}</p>
-    <p v-else-if="checklistRuns.length === 0">No checklist runs found.</p>
+    <div v-else-if="isLoading" class="state-card loading">
+      <div class="spinner" />
+      <p>Loading checklist runs...</p>
+    </div>
 
-    <ul v-else style="padding-left: 1.25rem">
-      <li v-for="run in checklistRuns" :key="run.id" style="margin-bottom: 0.75rem">
-        <strong>{{ run.title }}</strong>
-        <div>Due: {{ formatDateTime(run.dueAt) }}</div>
-        <div>Status: {{ formatStatus(run.status) }}</div>
-        <div>Assignments: {{ run.assignments.length }}</div>
+    <div v-else-if="errorMessage" class="state-card error">
+      <p>{{ errorMessage }}</p>
+    </div>
 
-        <div v-if="run.tasks.length > 0" style="margin-top: 0.5rem">
-          <div>Tasks:</div>
-          <ul style="padding-left: 1.25rem; margin-top: 0.25rem">
-            <li v-for="task in run.tasks" :key="task.checklistTaskExecutionId">
-              {{ task.title }} - {{ formatTaskExecutionStatus(task.executionStatus) }}
-            </li>
-          </ul>
-        </div>
-      </li>
-    </ul>
-  </section>
+    <!-- Main Content -->
+    <div v-else-if="checklistRuns.length > 0" class="runs-grid">
+      <ChecklistRunCard v-for="run in checklistRuns" :key="run.id" :run="run" />
+    </div>
+
+    <div v-else class="state-card">
+      <p>No checklist runs found.</p>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.page-container {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.page-header {
+  margin-bottom: 2.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.page-header p {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.runs-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.state-card {
+  background: var(--color-container);
+  padding: 2rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.state-card.error {
+  border: 1px solid var(--color-critical);
+  color: var(--color-critical);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--color-border-muted);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
