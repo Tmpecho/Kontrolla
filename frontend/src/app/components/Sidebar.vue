@@ -46,10 +46,6 @@ const navigationItems = computed<NavigationItem[]>(() => {
           label: 'Dashboard',
           routeName: 'ik-mat-dashboard',
         },
-        {
-          label: 'Placeholder',
-          routeName: 'ik-alkohol-dashboard', // fixme: Here so it's not selected.
-        },
       ]
     case 'ik-alkohol':
       return [
@@ -238,14 +234,14 @@ async function onLogout() {
   display: block;
   padding: 10px 12px;
   border-radius: 4px;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   font-size: small;
   text-decoration: none;
 }
 
 .nav-link.router-link-active {
-  background-color: var(--color-surface);
-  color: var(--color-primary);
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .info-container {
