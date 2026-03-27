@@ -131,6 +131,11 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
 }
 
+.nav-link.router-link-active {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
 .nav-link:hover {
   color: var(--color-text-primary);
 }
