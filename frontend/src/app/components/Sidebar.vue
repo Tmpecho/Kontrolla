@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { getEstablishment } from '@/establishments/api/establishments.api'
@@ -17,28 +17,82 @@ type NavigationItem = {
 }
 
 const authStore = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 const organizationName = ref<string | null>(null)
 const establishmentName = ref<string | null>(null)
 const isContextLoading = ref(false)
 const contextErrorMessage = ref<string | null>(null)
 
-const navigationItems: NavigationItem[] = []
+const currentAppSection = computed(() => {
+  const routeName = typeof route.name === 'string' ? route.name : ''
 
-const resolvedOrganizationName = computed(() => organizationName.value ?? 'Organization')
-const resolvedEstablishmentName = computed(() => establishmentName.value ?? 'Establishment')
-
-async function loadContext() {
-  const organizationId = appEnv.defaultOrganizationId
-  const establishmentId = appEnv.defaultEstablishmentId
-
-  if (!organizationId || !establishmentId) {
-    contextErrorMessage.value = appEnv.isDevelopment
-      ? 'Set default organization and establishment IDs to load app context.'
-      : 'Organization context is unavailable.'
-    return
+  if (routeName.startsWith('ik-mat-')) {
+    return 'ik-mat'
   }
 
+  if (routeName.startsWith('ik-alkohol-')) {
+    return 'ik-alkohol'
+  }
+
+  return 'workspace'
+})
+
+const navigationItems = computed<NavigationItem[]>(() => {
+  switch (currentAppSection.value) {
+    case 'ik-mat':
+      return [
+        {
+          label: 'Dashboard',
+          routeName: 'ik-mat-dashboard',
+        },
+        {
+          label: 'Placeholder',
+          routeName: 'ik-alkohol-dashboard', // fixme: Here so it's not selected.
+        },
+      ]
+    case 'ik-alkohol':
+      return [
+        {
+          label: 'Dashboard',
+          routeName: 'ik-alkohol-dashboard',
+        },
+      ]
+    default:
+      return [
+        {
+          label: 'Dashboard',
+          routeName: 'workspace-home',
+        },
+      ]
+  }
+})
+
+const displayOrganizationName = computed(() => {
+  if (organizationName.value) {
+    return organizationName.value
+  }
+
+  if (isContextLoading.value) {
+    return 'Loading organization...'
+  }
+
+  return 'Organization unavailable'
+})
+
+const displayEstablishmentName = computed(() => {
+  if (establishmentName.value) {
+    return establishmentName.value
+  }
+
+  if (isContextLoading.value) {
+    return 'Loading establishment...'
+  }
+
+  return 'Establishment unavailable'
+})
+
+async function loadContext(organizationId: string, establishmentId: string) {
   isContextLoading.value = true
   contextErrorMessage.value = null
 
@@ -58,34 +112,65 @@ async function loadContext() {
   }
 }
 
+function resetContext() {
+  organizationName.value = null
+  establishmentName.value = null
+  isContextLoading.value = false
+}
+
+watch(
+  () =>
+    [
+      authStore.isAuthenticated,
+      appEnv.defaultOrganizationId,
+      appEnv.defaultEstablishmentId,
+    ] as const,
+  ([isAuthenticated, organizationId, establishmentId]) => {
+    resetContext()
+
+    if (!isAuthenticated) {
+      contextErrorMessage.value = null
+      return
+    }
+
+    if (!organizationId || !establishmentId) {
+      contextErrorMessage.value = appEnv.isDevelopment
+        ? 'Set default organization and establishment IDs to load app context.'
+        : 'Organization context is unavailable.'
+      return
+    }
+
+    void loadContext(organizationId, establishmentId)
+  },
+  { immediate: true },
+)
+
 async function onLogout() {
   await authStore.logout()
   await router.push({ name: 'login' })
 }
-
-onMounted(() => {
-  void loadContext()
-})
 </script>
 
 <template>
   <div class="sidebar-container">
-    <div class="establishment-info">
-      <h2>{{ resolvedOrganizationName }}</h2>
-      <p>{{ resolvedEstablishmentName }}</p>
-      <p v-if="isContextLoading" class="sidebar-meta">Loading context...</p>
-      <p v-else-if="contextErrorMessage" class="sidebar-meta">{{ contextErrorMessage }}</p>
-    </div>
+    <div class="sidebar-content">
+      <div class="establishment-info">
+        <h2>{{ displayOrganizationName }}</h2>
+        <p>{{ displayEstablishmentName }}</p>
+        <p v-if="contextErrorMessage" class="sidebar-meta">{{ contextErrorMessage }}</p>
+      </div>
 
-    <nav aria-label="App navigation" class="subservices">
-      <ul>
-        <li v-for="navigationItem in navigationItems" :key="navigationItem.routeName">
-          <RouterLink :to="{ name: navigationItem.routeName }" class="nav-link">
-            {{ navigationItem.label }}
-          </RouterLink>
-        </li>
-      </ul>
-    </nav>
+      <nav aria-label="App navigation" class="subservices">
+        <ul>
+          <!-- TODO: add icons for the links -->
+          <li v-for="navigationItem in navigationItems" :key="navigationItem.routeName">
+            <RouterLink :to="{ name: navigationItem.routeName }" class="nav-link">
+              {{ navigationItem.label }}
+            </RouterLink>
+          </li>
+        </ul>
+      </nav>
+    </div>
 
     <div class="info-container">
       <div>
@@ -109,8 +194,18 @@ onMounted(() => {
   background-color: var(--color-white);
 }
 
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .establishment-info h2 {
   color: var(--color-primary);
+}
+
+.establishment-info p {
+  font-size: small;
 }
 
 .establishment-info h2,
@@ -133,7 +228,7 @@ onMounted(() => {
 .subservices ul {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -142,8 +237,9 @@ onMounted(() => {
 .nav-link {
   display: block;
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--color-text-primary);
+  font-size: small;
   text-decoration: none;
 }
 
@@ -153,6 +249,7 @@ onMounted(() => {
 }
 
 .info-container {
+  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
