@@ -54,6 +54,7 @@ const navigationItems = computed<NavigationItem[]>(() => {
         },
         {
           label: 'Important Documents',
+          routeName: 'ik-alkohol-documents'
         },
       ]
     default:
