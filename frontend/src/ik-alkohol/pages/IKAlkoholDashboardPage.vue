@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import ServingHoursTile from '@/ik-alkohol/components/ServingHoursTile.vue'
+  import DiviationsTile from '@/ik-alkohol/components/DiviationsTile.vue'
 </script>
 
 <template>
@@ -18,13 +19,8 @@
       </div>
     </section>
 
-      <section class="dashboard-section">
-      
-
-      <div class="dashboard-tile">
-        <h2>Diviations</h2>
-        <p>Diviations ...</p>
-      </div>
+    <section class="dashboard-section">
+      <DiviationsTile class="dashboard-tile"/>
     </section>
 
     <div class="row-container">
