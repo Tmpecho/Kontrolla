@@ -4,8 +4,10 @@
 <template>
   <div class="dashboard-page">
     <section class="dashboard-section">
+      <div>
         <h1>IK-alkohol Dashboard</h1>
         <p>Overview over alchohol compliance.</p>
+      </div>
     </section>
 
     <section class="dashboard-section">
@@ -16,25 +18,32 @@
     </section>
 
       <section class="dashboard-section">
-      <div class="dashboard-tile">
-        <h2>Serving Hours</h2>
-        <p>Serving hours.</p>
-      </div>
-    </section>
+      
 
-    <section class="dashboard-section">
-      <div class="dashboard-tile">
-        <h2>Documents</h2>
-        <p>Overview over alchohol compliance.</p>
-      </div>
-    </section>
-
-    <section class="dashboard-section">
       <div class="dashboard-tile">
         <h2>Diviations</h2>
-        <p>Overview over alchohol compliance.</p>
+        <p>Diviations ...</p>
       </div>
     </section>
+
+    <div class="row-container">
+      <section class="dashboard-section">
+        <RouterLink :to="{ name: 'ik-alkohol-documents' }" class="tile-link">
+          <div class="dashboard-tile dashboard-tile-link">
+            <h2>Documents</h2>
+            <p>Overview over alchohol compliance.</p>
+          </div>
+        </RouterLink>
+      </section>
+
+      <section class="dashboard-section">
+        <div class="dashboard-tile">
+          <h2>Serving Hours</h2>
+          <p>Serving hours.</p>
+        </div>
+      </section>
+    </div>
+
   </div>
 </template>
 
@@ -50,6 +59,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
 }
 
 .dashboard-tile {
@@ -64,6 +74,20 @@
   background-color: var(--color-container);
   color: var(--color-text-primary);
   text-decoration: none;
+}
+
+.tile-link {
+  text-decoration: none;
+}
+
+.dashboard-tile-link:hover {
+  border-color: var(--color-primary);
+}
+
+.row-container {
+  display: flex;
+  flex-direction: row;
+  gap: 24px
 }
 
 </style>

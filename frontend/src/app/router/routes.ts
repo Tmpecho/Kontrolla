@@ -8,6 +8,7 @@ import LandingPage from '@/marketing/pages/LandingPage.vue'
 import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
+import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -56,6 +57,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol',
         name: 'ik-alkohol-dashboard',
         component: IKAlkoholDashboardPage,
+      },
+      {
+        path: 'ik-alkohol/documents',
+        name: 'ik-alkohol-documents',
+        component: IKAlkoholDocumentsPage,
       },
     ],
   },
