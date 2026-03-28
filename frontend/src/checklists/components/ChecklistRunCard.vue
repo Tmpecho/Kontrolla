@@ -5,6 +5,7 @@ import {
   cancelChecklistRun,
   reopenChecklistRun,
   submitChecklistRun,
+  resetChecklistRun,
   type SubmitChecklistRunTaskInput,
 } from '@/checklists/api/checklist-runs.api'
 import ChecklistTaskItem from './ChecklistTaskItem.vue'
@@ -26,7 +27,9 @@ const isSaving = ref(false)
 watch(
   () => props.run,
   (newRun) => {
-    workingTasks.value = JSON.parse(JSON.stringify(newRun.tasks))
+    if (newRun && newRun.tasks) {
+      workingTasks.value = JSON.parse(JSON.stringify(newRun.tasks))
+    }
   },
   { immediate: true },
 )
@@ -34,6 +37,8 @@ watch(
 const isPending = computed(() => props.run.status === 'PENDING')
 const isInProgress = computed(() => props.run.status === 'IN_PROGRESS')
 const isCompleted = computed(() => props.run.status === 'COMPLETED')
+const isCancelled = computed(() => props.run.status === 'CANCELLED')
+const isOverdue = computed(() => props.run.status === 'OVERDUE')
 
 const formattedDueDate = computed(() => {
   return new Intl.DateTimeFormat('nb-NO', {
@@ -51,13 +56,32 @@ const statusMeta = computed(() => {
   if (status === 'COMPLETED') return { ...base, class: 'status-success' }
   if (status === 'OVERDUE') return { ...base, class: 'status-critical' }
   if (status === 'IN_PROGRESS') return { ...base, class: 'status-primary' }
+  if (status === 'CANCELLED') return { ...base, class: 'status-default' }
   return base
 })
+
+// --- Actions ---
 
 async function handleStart() {
   isSaving.value = true
   try {
     const updated = await startChecklistRun({
+      organizationId: props.organizationId,
+      establishmentId: props.establishmentId,
+      checklistRunId: props.run.id,
+    })
+    emit('update:run', updated)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function handleResetRun() {
+  isSaving.value = true
+  try {
+    const updated = await resetChecklistRun({
       organizationId: props.organizationId,
       establishmentId: props.establishmentId,
       checklistRunId: props.run.id,
@@ -102,10 +126,17 @@ async function handleReopen() {
   }
 }
 
-function toggleTask(taskId: string) {
-  const task = workingTasks.value.find((t) => t.checklistTaskExecutionId === taskId)
-  if (task) {
-    task.executionStatus = task.executionStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
+function handleResetEdits() {
+  workingTasks.value = JSON.parse(JSON.stringify(props.run.tasks))
+}
+
+// Updated to receive the full modified task
+function handleTaskUpdate(updatedTask: ChecklistTaskExecution) {
+  const index = workingTasks.value.findIndex(
+    (t) => t.checklistTaskExecutionId === updatedTask.checklistTaskExecutionId,
+  )
+  if (index !== -1) {
+    workingTasks.value[index] = updatedTask
   }
 }
 
@@ -116,6 +147,7 @@ async function handleSubmit() {
       checklistTaskExecutionId: t.checklistTaskExecutionId,
       executionStatus: t.executionStatus,
       comment: t.comment,
+      // Include the specific data fields required by backend validation
       verificationResult: t.verificationResult,
       measuredValue: t.measuredValue,
       enteredText: t.enteredText,
@@ -167,11 +199,11 @@ async function handleSubmit() {
 
       <div v-if="workingTasks.length > 0" class="tasks-list">
         <ChecklistTaskItem
-          v-for="task in workingTasks"
-          :key="task.checklistTaskExecutionId"
+          v-for="(task, index) in workingTasks"
+          :key="task.checklistTaskExecutionId || `task-${index}`"
           :task="task"
           :editable="isInProgress"
-          @toggle="toggleTask"
+          @update:task="handleTaskUpdate"
         />
       </div>
       <p v-else class="empty-text">No tasks defined for this run.</p>
@@ -181,23 +213,68 @@ async function handleSubmit() {
     <footer class="run-footer">
       <!-- PENDING STATE -->
       <template v-if="isPending">
-        <button class="btn btn-primary" @click="handleStart" :disabled="isSaving">Start Run</button>
-        <button class="btn btn-ghost" @click="handleCancel" :disabled="isSaving">Cancel</button>
+        <div class="footer-left">
+          <button class="btn btn-danger-ghost" @click="handleCancel" :disabled="isSaving">
+            Cancel Run
+          </button>
+        </div>
+        <div class="footer-right">
+          <button class="btn btn-primary" @click="handleStart" :disabled="isSaving">
+            Start Run
+          </button>
+        </div>
       </template>
 
       <!-- IN PROGRESS STATE -->
       <template v-else-if="isInProgress">
-        <button class="btn btn-primary" @click="handleSubmit" :disabled="isSaving">
-          Submit Results
-        </button>
-        <button class="btn btn-danger" @click="handleCancel" :disabled="isSaving">
-          Cancel Run
-        </button>
+        <div class="footer-left">
+          <button class="btn btn-danger-ghost" @click="handleResetRun" :disabled="isSaving">
+            Reset to Pending
+          </button>
+          <button class="btn btn-danger-ghost" @click="handleCancel" :disabled="isSaving">
+            Cancel Run
+          </button>
+        </div>
+        <div class="footer-right">
+          <button class="btn btn-secondary" @click="handleResetEdits" :disabled="isSaving">
+            Undo Edits
+          </button>
+          <button class="btn btn-primary" @click="handleSubmit" :disabled="isSaving">
+            Submit Results
+          </button>
+        </div>
+      </template>
+
+      <!-- OVERDUE STATE -->
+      <template v-else-if="isOverdue">
+        <div class="footer-left">
+          <button class="btn btn-danger-ghost" @click="handleCancel" :disabled="isSaving">
+            Cancel Run
+          </button>
+        </div>
+        <div class="footer-right">
+          <button class="btn btn-primary" @click="handleStart" :disabled="isSaving">
+            Start Run
+          </button>
+        </div>
       </template>
 
       <!-- COMPLETED STATE -->
       <template v-else-if="isCompleted">
-        <button class="btn btn-secondary" @click="handleReopen" :disabled="isSaving">Reopen</button>
+        <div class="footer-right" style="margin-left: auto">
+          <button class="btn btn-secondary" @click="handleReopen" :disabled="isSaving">
+            Reopen
+          </button>
+        </div>
+      </template>
+
+      <!-- CANCELLED STATE -->
+      <template v-else-if="isCancelled">
+        <div class="footer-right" style="margin-left: auto">
+          <button class="btn btn-secondary" @click="handleReopen" :disabled="isSaving">
+            Reopen
+          </button>
+        </div>
       </template>
     </footer>
   </article>
@@ -334,10 +411,25 @@ async function handleSubmit() {
   background-color: var(--color-white);
   border-top: 1px solid var(--color-border-muted);
   display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
+.footer-left {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.footer-right {
+  display: flex;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+/* Button System */
 .btn {
   font-family: var(--font-sans);
   font-weight: 600;
@@ -353,38 +445,27 @@ async function handleSubmit() {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 .btn-primary {
   background-color: var(--color-primary);
   color: white;
 }
-
 .btn-primary:hover:not(:disabled) {
   background-color: #004a94;
 }
-
 .btn-secondary {
   background-color: white;
   color: var(--color-text-primary);
   border-color: var(--color-border-muted);
 }
-
-.btn-danger {
-  background-color: white;
-  color: var(--color-critical);
-  border-color: var(--color-critical);
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-surface);
 }
-
-.btn-danger:hover:not(:disabled) {
-  background-color: #fef2f2;
-}
-
-.btn-ghost {
+.btn-danger-ghost {
   background-color: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-critical);
+  border-color: transparent;
 }
-
-.btn-ghost:hover:not(:disabled) {
-  background-color: #f1f5f9;
+.btn-danger-ghost:hover:not(:disabled) {
+  background-color: #fef2f2;
 }
 </style>

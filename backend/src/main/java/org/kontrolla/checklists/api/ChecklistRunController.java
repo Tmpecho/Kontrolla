@@ -188,6 +188,23 @@ public class ChecklistRunController {
 		);
 	}
 
+	@PostMapping("/{checklistRunId}/reset")
+	public ChecklistRunResponse resetChecklistRun(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID establishmentId,
+			@PathVariable UUID checklistRunId,
+			@AuthenticationPrincipal CurrentUser currentUser
+	) {
+		return ChecklistRunResponse.from(
+				checklistRunService.resetChecklistRun(
+						organizationId,
+						establishmentId,
+						checklistRunId,
+						currentUser
+				)
+		);
+	}
+
 	private List<ChecklistRunService.ChecklistTaskExecutionInput> toChecklistTaskExecutionInputs(
 			List<SubmitChecklistRunRequest.ChecklistTaskExecutionRequest> tasks
 	) {

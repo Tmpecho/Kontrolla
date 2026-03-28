@@ -129,3 +129,11 @@ export async function cancelChecklistRun(
     method: 'POST',
   })
 }
+
+export async function resetChecklistRun(
+  params: ContextParams & { checklistRunId: string },
+): Promise<ChecklistRun> {
+  return requestJson<ChecklistRun>(`${getBaseUrl(params)}/${params.checklistRunId}/reset`, {
+    method: 'POST',
+  })
+}

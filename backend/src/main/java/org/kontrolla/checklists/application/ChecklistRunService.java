@@ -324,6 +324,20 @@ public class ChecklistRunService {
 		return updatedRuns;
 	}
 
+	@Transactional
+	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+
+		if (run.getStatus() != ChecklistRunStatus.IN_PROGRESS) {
+			throw new IllegalStateException("Can only reset a run that is currently in progress.");
+		}
+
+		run.setStatus(ChecklistRunStatus.PENDING);
+		run.setStartedAt(null);
+
+		return run;
+	}
+
 	private UUID resolveAssignedUserFilter(
 			UUID organizationId,
 			UUID assignedUserId,
