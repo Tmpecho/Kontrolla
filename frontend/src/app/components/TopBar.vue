@@ -1,11 +1,22 @@
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import SettingsPopup from '@/app/components/SettingsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
+const route = useRoute()
+
 const activePopup = ref<null | 'notifications' | 'settings' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
+
+const isIkMatActive = computed(() => {
+  return typeof route.name === 'string' && route.name.startsWith('ik-mat-')
+})
+
+const isIkAlkoholActive = computed(() => {
+  return typeof route.name === 'string' && route.name.startsWith('ik-alkohol-')
+})
 
 function togglePopup(type: 'notifications' | 'settings' | 'profile') {
   activePopup.value = activePopup.value === type ? null : type
@@ -36,8 +47,21 @@ onBeforeUnmount(() => {
         <RouterLink :to="{ name: 'workspace-home' }">Kontrolla</RouterLink>
       </h1>
 
-      <RouterLink class="nav-link" :to="{name: 'ik-mat-dashboard' }">IK-Mat</RouterLink>
-      <RouterLink class="nav-link" :to="{name: 'ik-alkohol-dashboard' }">IK-Alkohol</RouterLink>
+      <RouterLink
+        class="nav-link"
+        :class="{ 'nav-link-active': isIkMatActive }"
+        :to="{ name: 'ik-mat-dashboard' }"
+      >
+        IK-Mat
+      </RouterLink>
+
+      <RouterLink
+        class="nav-link"
+        :class="{ 'nav-link-active': isIkAlkoholActive }"
+        :to="{ name: 'ik-alkohol-dashboard' }"
+      >
+        IK-Alkohol
+      </RouterLink>
     </div>
 
     <div class="right-container icons-container">
@@ -131,7 +155,7 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
 }
 
-.nav-link.router-link-active {
+.nav-link-active {
   color: var(--color-text-primary);
   font-weight: 500;
 }
