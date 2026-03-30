@@ -24,12 +24,13 @@ const emit = defineEmits<{
 const workingTasks = ref<ChecklistTaskExecution[]>([])
 const isSaving = ref(false)
 
+const cloneTasks = (tasks?: ChecklistTaskExecution[]) =>
+  tasks ? JSON.parse(JSON.stringify(tasks)) : []
+
 watch(
-  () => props.run,
-  (newRun) => {
-    if (newRun && newRun.tasks) {
-      workingTasks.value = JSON.parse(JSON.stringify(newRun.tasks))
-    }
+  () => props.run.tasks,
+  (tasks) => {
+    workingTasks.value = cloneTasks(tasks)
   },
   { immediate: true },
 )
@@ -40,37 +41,35 @@ const isCompleted = computed(() => props.run.status === 'COMPLETED')
 const isCancelled = computed(() => props.run.status === 'CANCELLED')
 const isOverdue = computed(() => props.run.status === 'OVERDUE')
 
-const formattedDueDate = computed(() => {
-  return new Intl.DateTimeFormat('nb-NO', {
+const formattedDueDate = computed(() =>
+  new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'long',
     timeStyle: 'short',
-  }).format(new Date(props.run.dueAt))
-})
+  }).format(new Date(props.run.dueAt)),
+)
 
-const statusMeta = computed(() => {
-  const status = props.run.status
-  const base = {
-    label: status.replace(/_/g, ' '),
-    class: 'status-default',
-  }
-  if (status === 'COMPLETED') return { ...base, class: 'status-success' }
-  if (status === 'OVERDUE') return { ...base, class: 'status-critical' }
-  if (status === 'IN_PROGRESS') return { ...base, class: 'status-primary' }
-  if (status === 'CANCELLED') return { ...base, class: 'status-default' }
-  return base
-})
+const STATUS_CLASSES: Record<string, string> = {
+  COMPLETED: 'status-success',
+  OVERDUE: 'status-critical',
+  IN_PROGRESS: 'status-primary',
+  CANCELLED: 'status-default',
+}
 
-// --- Actions ---
+const statusMeta = computed(() => ({
+  label: props.run.status.replace(/_/g, ' '),
+  class: STATUS_CLASSES[props.run.status] ?? 'status-default',
+}))
 
-async function handleStart() {
+const baseParams = computed(() => ({
+  organizationId: props.organizationId,
+  establishmentId: props.establishmentId,
+  checklistRunId: props.run.id,
+}))
+
+const withLoading = (apiAction: () => Promise<ChecklistRun>) => async () => {
   isSaving.value = true
   try {
-    const updated = await startChecklistRun({
-      organizationId: props.organizationId,
-      establishmentId: props.establishmentId,
-      checklistRunId: props.run.id,
-    })
-    emit('update:run', updated)
+    emit('update:run', await apiAction())
   } catch (e) {
     console.error(e)
   } finally {
@@ -78,96 +77,35 @@ async function handleStart() {
   }
 }
 
-async function handleResetRun() {
-  isSaving.value = true
-  try {
-    const updated = await resetChecklistRun({
-      organizationId: props.organizationId,
-      establishmentId: props.establishmentId,
-      checklistRunId: props.run.id,
-    })
-    emit('update:run', updated)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isSaving.value = false
-  }
+const handleStart = withLoading(() => startChecklistRun(baseParams.value))
+const handleResetRun = withLoading(() => resetChecklistRun(baseParams.value))
+const handleCancel = withLoading(() => cancelChecklistRun(baseParams.value))
+const handleReopen = withLoading(() => reopenChecklistRun(baseParams.value))
+
+const handleResetEdits = () => {
+  workingTasks.value = cloneTasks(props.run.tasks)
 }
 
-async function handleCancel() {
-  isSaving.value = true
-  try {
-    const updated = await cancelChecklistRun({
-      organizationId: props.organizationId,
-      establishmentId: props.establishmentId,
-      checklistRunId: props.run.id,
-    })
-    emit('update:run', updated)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isSaving.value = false
-  }
-}
-
-async function handleReopen() {
-  isSaving.value = true
-  try {
-    const updated = await reopenChecklistRun({
-      organizationId: props.organizationId,
-      establishmentId: props.establishmentId,
-      checklistRunId: props.run.id,
-    })
-    emit('update:run', updated)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isSaving.value = false
-  }
-}
-
-function handleResetEdits() {
-  workingTasks.value = JSON.parse(JSON.stringify(props.run.tasks))
-}
-
-// Updated to receive the full modified task
-function handleTaskUpdate(updatedTask: ChecklistTaskExecution) {
-  const index = workingTasks.value.findIndex(
-    (t) => t.checklistTaskExecutionId === updatedTask.checklistTaskExecutionId,
+const handleTaskUpdate = (updatedTask: ChecklistTaskExecution) => {
+  workingTasks.value = workingTasks.value.map((task) =>
+    task.checklistTaskExecutionId === updatedTask.checklistTaskExecutionId ? updatedTask : task,
   )
-  if (index !== -1) {
-    workingTasks.value[index] = updatedTask
-  }
 }
 
-async function handleSubmit() {
-  isSaving.value = true
-  try {
-    const taskInputs: SubmitChecklistRunTaskInput[] = workingTasks.value.map((t) => ({
-      checklistTaskExecutionId: t.checklistTaskExecutionId,
-      executionStatus: t.executionStatus,
-      comment: t.comment,
-      // Include the specific data fields required by backend validation
-      verificationResult: t.verificationResult,
-      measuredValue: t.measuredValue,
-      enteredText: t.enteredText,
-    }))
+const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInput => ({
+  checklistTaskExecutionId: task.checklistTaskExecutionId,
+  executionStatus: task.executionStatus,
+  comment: task.comment,
+  verificationResult: task.verificationResult,
+  measuredValue: task.measuredValue,
+  enteredText: task.enteredText,
+})
 
-    const updated = await submitChecklistRun(
-      {
-        organizationId: props.organizationId,
-        establishmentId: props.establishmentId,
-        checklistRunId: props.run.id,
-      },
-      { tasks: taskInputs },
-    )
-    emit('update:run', updated)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isSaving.value = false
-  }
-}
+const handleSubmit = withLoading(() =>
+  submitChecklistRun(baseParams.value, {
+    tasks: workingTasks.value.map(toSubmitInput),
+  }),
+)
 </script>
 
 <template>
@@ -281,29 +219,65 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-/* Card Container */
 .run-card {
-  background-color: var(--color-container);
+  background: var(--color-container);
+  border: 1px solid var(--color-border-muted);
   border-radius: 0.75rem;
   box-shadow: var(--shadow-elevated);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border-muted);
+  overflow: hidden;
 }
-
-/* Header */
+.run-header,
+.tasks-container,
+.run-footer {
+  padding: 1rem 1.5rem;
+}
 .run-header {
-  padding: 1.5rem 1.5rem 1rem;
+  padding-top: 1.5rem;
   border-bottom: 1px solid var(--color-border-muted);
 }
+.run-footer {
+  background: var(--color-white);
+  border-top: 1px solid var(--color-border-muted);
+  flex-wrap: wrap;
+}
+.tasks-container {
+  padding-bottom: 1.5rem;
+}
 
-.header-top {
+.header-top,
+.run-footer {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
+}
+.header-top {
+  align-items: flex-start;
   margin-bottom: 0.5rem;
+}
+.footer-left,
+.footer-right {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+.footer-right {
+  margin-left: auto;
+}
+.run-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-muted);
+}
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .run-title {
@@ -313,25 +287,46 @@ async function handleSubmit() {
   margin: 0;
   line-height: 1.3;
 }
-
 .run-description {
   margin: 0;
   font-size: 0.9375rem;
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
+.meta-value {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.empty-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 1rem;
+}
 
-/* Status Badges */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+.status-badge,
+.meta-label,
+.tasks-heading {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  white-space: nowrap;
+  font-size: 0.75rem;
+}
+.meta-label,
+.tasks-heading {
+  color: var(--color-text-secondary);
+}
+.tasks-heading {
+  font-size: 0.8125rem;
+  margin: 0 0 0.5rem;
 }
 
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  white-space: nowrap;
+}
 .status-default {
   background: var(--color-surface);
   color: var(--color-text-secondary);
@@ -349,123 +344,43 @@ async function handleSubmit() {
   color: var(--color-critical);
 }
 
-/* Meta Grid */
-.run-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-muted);
-}
-
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.meta-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-secondary);
-}
-
-.meta-value {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-/* Tasks Section */
-.tasks-container {
-  padding: 1rem 1.5rem 1.5rem;
-}
-
-.tasks-heading {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-secondary);
-  margin: 0 0 0.5rem;
-}
-
 .tasks-list {
   border-top: 1px solid var(--color-border-muted);
   margin-top: 0.5rem;
 }
 
-.empty-text {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-  padding: 1rem;
-}
-
-/* Footer & Buttons */
-.run-footer {
-  padding: 1rem 1.5rem;
-  background-color: var(--color-white);
-  border-top: 1px solid var(--color-border-muted);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.footer-left {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.footer-right {
-  display: flex;
-  gap: 0.75rem;
-  margin-left: auto;
-}
-
-/* Button System */
 .btn {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.875rem;
+  font: 600 0.875rem var(--font-sans, inherit);
   padding: 0.625rem 1.25rem;
   border-radius: 0.5rem;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: 0.15s;
 }
-
 .btn:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  pointer-events: none;
 }
 .btn-primary {
-  background-color: var(--color-primary);
-  color: white;
+  background: var(--color-primary);
+  color: #fff;
 }
-.btn-primary:hover:not(:disabled) {
-  background-color: #004a94;
+.btn-primary:hover {
+  background: #004a94;
 }
 .btn-secondary {
-  background-color: white;
+  background: #fff;
   color: var(--color-text-primary);
   border-color: var(--color-border-muted);
 }
-.btn-secondary:hover:not(:disabled) {
-  background-color: var(--color-surface);
+.btn-secondary:hover {
+  background: var(--color-surface);
 }
 .btn-danger-ghost {
-  background-color: transparent;
+  background: transparent;
   color: var(--color-critical);
-  border-color: transparent;
 }
-.btn-danger-ghost:hover:not(:disabled) {
-  background-color: #fef2f2;
+.btn-danger-ghost:hover {
+  background: #fef2f2;
 }
 </style>
