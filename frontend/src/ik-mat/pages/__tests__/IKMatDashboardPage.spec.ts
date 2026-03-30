@@ -127,8 +127,8 @@ describe('IKMatDashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Morning shift')
-    expect(wrapper.text()).toContain('Status: Pending')
-    expect(wrapper.text()).toContain('Assignments: 1')
+    expect(wrapper.text()).toContain('PENDING')
+    expect(wrapper.text()).toContain('Assignees1')
     expect(wrapper.text()).toContain('Prepare oven for first shift')
     expect(wrapper.text()).toContain('Pending')
   })
