@@ -139,10 +139,12 @@ async function onLogout() {
 .sidebar-container {
   display: flex;
   width: 200px;
-  min-height: 100%;
+  height: 100%;
+  flex-shrink: 0;
   flex-direction: column;
   padding: 24px 20px;
   background-color: var(--color-white);
+  overflow: hidden;
 }
 
 .sidebar-content {
