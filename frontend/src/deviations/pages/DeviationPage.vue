@@ -114,7 +114,8 @@ function goToDeviationPage() {
 }
 
 function getQueryWithoutSelection() {
-  const { deviationId: _deviationId, ...remainingQuery } = route.query
+  const remainingQuery = { ...route.query }
+  delete remainingQuery.deviationId
   return remainingQuery
 }
 
