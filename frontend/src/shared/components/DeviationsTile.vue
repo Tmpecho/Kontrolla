@@ -35,6 +35,15 @@ function formatSeverity(severity: DeviationSeverity) {
 function formatStatus(status: DeviationStatus) {
   return status.toLowerCase().replace('_', ' ')
 }
+
+function getDeviationLink(deviationId: string) {
+  return {
+    path: props.deviationPageTo,
+    query: {
+      deviationId,
+    },
+  }
+}
 </script>
 
 <template>
@@ -49,20 +58,22 @@ function formatStatus(status: DeviationStatus) {
 
     <ul class="recent-deviation-list">
       <li v-for="deviation in recentDeviations" :key="deviation.id" class="recent-deviation-item">
-        <div class="recent-deviation-header">
-          <p class="recent-deviation-title">{{ deviation.title }}</p>
-          <div class="deviation-tags">
-            <span :data-tone="formatSeverity(deviation.severity)" class="deviation-tag">
-              {{ formatSeverity(deviation.severity) }}
-            </span>
-            <span :data-tone="formatStatus(deviation.status)" class="deviation-tag">
-              {{ formatStatus(deviation.status) }}
-            </span>
+        <RouterLink :to="getDeviationLink(deviation.id)" class="recent-deviation-link">
+          <div class="recent-deviation-header">
+            <p class="recent-deviation-title">{{ deviation.title }}</p>
+            <div class="deviation-tags">
+              <span :data-tone="formatSeverity(deviation.severity)" class="deviation-tag">
+                {{ formatSeverity(deviation.severity) }}
+              </span>
+              <span :data-tone="formatStatus(deviation.status)" class="deviation-tag">
+                {{ formatStatus(deviation.status) }}
+              </span>
+            </div>
           </div>
-        </div>
-        <p class="recent-deviation-meta">
-          {{ deviation.category }} · {{ formatDateTime(deviation.reportedAt) }}
-        </p>
+          <p class="recent-deviation-meta">
+            {{ deviation.category }} · {{ formatDateTime(deviation.reportedAt) }}
+          </p>
+        </RouterLink>
       </li>
     </ul>
 
@@ -127,12 +138,27 @@ function formatStatus(status: DeviationStatus) {
 
 .recent-deviation-item {
   display: flex;
+}
+
+.recent-deviation-link {
+  display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.recent-deviation-link:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-container);
 }
 
 .recent-deviation-header {

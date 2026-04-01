@@ -206,7 +206,22 @@ function markAsResolved() {
           aria-label="Close deviation details"
           @click="$emit('close')"
         >
-          ×
+          <svg aria-hidden="true" class="close-button-icon" viewBox="0 0 20 20">
+            <path
+              d="M5 5l10 10"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+            />
+            <path
+              d="M15 5L5 15"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+            />
+          </svg>
         </button>
       </div>
     </header>
@@ -408,9 +423,13 @@ function markAsResolved() {
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 1.25rem;
-  line-height: 1;
   cursor: pointer;
+}
+
+.close-button-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .detail-metadata {

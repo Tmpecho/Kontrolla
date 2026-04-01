@@ -311,7 +311,12 @@ onBeforeUnmount(() => {
       </div>
 
       <aside v-if="selectedDeviation" class="detail-panel-shell">
-        <DeviationDetailPanel :deviation="selectedDeviation" @update="handleDeviationUpdate" />
+        <DeviationDetailPanel
+          :deviation="selectedDeviation"
+          :show-close-button="true"
+          @close="clearSelectedDeviation"
+          @update="handleDeviationUpdate"
+        />
       </aside>
     </div>
 
