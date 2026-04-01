@@ -1,14 +1,19 @@
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
-import SettingsPopup from '@/app/components/SettingsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
-const activePopup = ref<null | 'notifications' | 'settings' | 'profile'>(null)
+const activePopup = ref<null | 'notifications' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
+const route = useRoute()
 
-function togglePopup(type: 'notifications' | 'settings' | 'profile') {
+function togglePopup(type: 'notifications' | 'profile') {
   activePopup.value = activePopup.value === type ? null : type
+}
+
+function closePopup() {
+  activePopup.value = null
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -16,17 +21,32 @@ function handleClickOutside(event: MouseEvent) {
 
   const target = event.target as Node
   if (!popupArea.value.contains(target)) {
-    activePopup.value = null
+    closePopup()
+  }
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closePopup()
   }
 }
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleEscape)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleEscape)
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    closePopup()
+  },
+)
 </script>
 
 <template>
@@ -40,7 +60,7 @@ onBeforeUnmount(() => {
       <RouterLink class="nav-link" :to="{name: 'ik-alkohol-dashboard' }">IK-Alkohol</RouterLink>
     </div>
 
-    <div class="right-container icons-container">
+    <div ref="popupArea" class="right-container icons-container">
       <div class="icon-wrapper">
         <img
           alt="Notifications"
@@ -48,30 +68,17 @@ onBeforeUnmount(() => {
           src="@/assets/icons/notification.png"
           @click.stop="togglePopup('notifications')"
         />
+        <NotificationsPopup v-if="activePopup === 'notifications'" />
       </div>
 
-      <div class="icon-wrapper">
-        <img
-          alt="Settings"
-          class="top-bar-img"
-          src="@/assets/icons/settings.png"
-          @click.stop="togglePopup('settings')"
-        />
-      </div>
-
-      <div class="icon-wrapper">
+      <div class="icon-wrapper icon-wrapper-profile">
         <img
           alt="Profile"
           class="top-bar-img"
           src="@/assets/icons/profile.png"
           @click.stop="togglePopup('profile')"
         />
-      </div>
-
-      <div ref="popupArea" class="popup-wrapper">
-        <ProfilePopup v-if="activePopup === 'profile'" />
-        <SettingsPopup v-if="activePopup === 'settings'" />
-        <NotificationsPopup v-if="activePopup === 'notifications'" />
+        <ProfilePopup v-if="activePopup === 'profile'" @close="closePopup" />
       </div>
     </div>
   </div>
@@ -109,6 +116,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
+}
+
+.icon-wrapper-profile {
+  z-index: 1;
 }
 
 .app-title {
