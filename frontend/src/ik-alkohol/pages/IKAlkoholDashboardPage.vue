@@ -8,7 +8,7 @@
     <section class="dashboard-section">
       <div>
         <h1>IK-alkohol Dashboard</h1>
-        <p>Overview over alchohol compliance.</p>
+        <p>Overview over alcohol compliance.</p>
       </div>
     </section>
 
