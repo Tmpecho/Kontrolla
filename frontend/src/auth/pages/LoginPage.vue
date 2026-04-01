@@ -33,7 +33,7 @@ import { appEnv } from '@/shared/config/env'
   </div>
 </template>
 
-<style>
+<style scoped>
 html,
 body {
   margin: 0;
@@ -41,9 +41,7 @@ body {
   height: 100%;
   overflow: hidden;
 }
-</style>
 
-<style scoped>
 .page-layout {
   min-height: 100dvh;
   display: flex;
