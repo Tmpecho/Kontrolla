@@ -2,7 +2,7 @@
   <div class="settings-page">
     <header class="page-header">
       <h1>Settings</h1>
-      <p>Application and account settings will be added here.</p>
+      <p>Application and account settings.</p>
     </header>
 
     <section class="placeholder-panel">

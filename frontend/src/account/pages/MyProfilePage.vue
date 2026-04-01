@@ -18,7 +18,7 @@ const fullName = computed(() => {
   <div class="account-page">
     <header class="page-header">
       <h1>My profile</h1>
-      <p>Personal account information for the current signed-in user.</p>
+      <p>Your personal account information.</p>
     </header>
 
     <section class="details-panel">
