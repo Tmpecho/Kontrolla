@@ -17,6 +17,14 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+function isNavigationItemActive(routeName?: NavigationItem['routeName']) {
+  if (!routeName) {
+    return false
+  }
+
+  return route.name === routeName
+}
+
 const currentAppSection = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
 
@@ -114,6 +122,7 @@ async function onLogout() {
               v-if="navigationItem.routeName"
               :to="{ name: navigationItem.routeName }"
               class="nav-link"
+              :data-active="isNavigationItemActive(navigationItem.routeName)"
             >
               {{ navigationItem.label }}
             </RouterLink>
@@ -127,7 +136,7 @@ async function onLogout() {
       <!-- Maybe change this to normal svg icons -->
       <button type="button" class="sidebar-action sidebar-action-support">
         <span class="sidebar-action-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="none">
+          <svg viewBox="0 0 20 20">
             <path
               d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"
               stroke="currentColor"
@@ -156,7 +165,7 @@ async function onLogout() {
 
       <button type="button" class="sidebar-action sidebar-action-signout" @click="onLogout">
         <span class="sidebar-action-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="none">
+          <svg viewBox="0 0 20 20">
             <path
               d="M8 4H5.75A1.75 1.75 0 0 0 4 5.75v8.5A1.75 1.75 0 0 0 5.75 16H8"
               stroke="currentColor"
@@ -247,7 +256,7 @@ async function onLogout() {
   text-decoration: none;
 }
 
-.nav-link.router-link-active {
+.nav-link[data-active='true'] {
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   font-weight: 500;
@@ -290,6 +299,7 @@ async function onLogout() {
 .sidebar-action-icon svg {
   width: 100%;
   height: 100%;
+  fill: none;
 }
 
 .sidebar-action-support {

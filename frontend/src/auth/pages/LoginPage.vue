@@ -7,7 +7,7 @@ import { appEnv } from '@/shared/config/env'
     <div class="main-content">
       <header class="brand-header">
         <div class="brand-icon-wrapper">
-          <svg class="brand-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="brand-icon" viewBox="0 0 24 24" stroke="currentColor">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -78,6 +78,7 @@ body {
   width: 28px;
   height: 28px;
   color: var(--color-primary);
+  fill: none;
 }
 
 .brand-title {
