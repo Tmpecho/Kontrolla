@@ -1,6 +1,6 @@
 import type { DeviationListItem, DeviationServiceArea } from '@/deviations/model/deviation.types'
 
-export const deviationsByService: Record<DeviationServiceArea, DeviationListItem[]> = {
+const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]> = {
   IK_MAT: [
     {
       id: 'ik-mat-1',
@@ -19,6 +19,12 @@ export const deviationsByService: Record<DeviationServiceArea, DeviationListItem
           createdAt: '2026-04-01T09:18:00+02:00',
           authorName: 'Nora Johansen',
           note: 'Delivery isolated in cold storage pending manager review.',
+        },
+        {
+          id: 'ik-mat-1-entry-2',
+          createdAt: '2026-04-01T09:19:00+02:00',
+          authorName: 'Nora Johansen',
+          note: 'Contacted manager.',
         },
       ],
     },
@@ -166,3 +172,22 @@ export const deviationsByService: Record<DeviationServiceArea, DeviationListItem
     },
   ],
 }
+
+function cloneDeviation(deviation: DeviationListItem): DeviationListItem {
+  return {
+    ...deviation,
+    assignedTo: [...deviation.assignedTo],
+    timeline: deviation.timeline.map((entry) => ({
+      ...entry,
+    })),
+  }
+}
+
+export function createDeviationDataset(): Record<DeviationServiceArea, DeviationListItem[]> {
+  return {
+    IK_MAT: baseDeviationsByService.IK_MAT.map(cloneDeviation),
+    IK_ALKOHOL: baseDeviationsByService.IK_ALKOHOL.map(cloneDeviation),
+  }
+}
+
+export const deviationsByService = createDeviationDataset()
