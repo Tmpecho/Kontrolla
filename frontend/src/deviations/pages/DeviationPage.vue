@@ -432,9 +432,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
   min-width: 0;
   min-height: 0;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 4px;
+  background-color: var(--color-container);
   overflow: hidden;
 }
 
@@ -444,7 +446,8 @@ onBeforeUnmount(() => {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding: 0;
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border-muted);
 }
 
 .search-field {
@@ -512,10 +515,13 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 12px;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 4px 0 0;
+  padding: 0;
+}
+
+.deviation-list-item + .deviation-list-item {
+  border-top: 1px solid #e2e8f0;
 }
 
 .deviation-row {
@@ -523,27 +529,25 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 16px;
   padding: 18px 20px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
   background-color: var(--color-container);
   cursor: pointer;
   transition:
     background-color 0.2s ease,
-    border-color 0.2s ease;
+    box-shadow 0.2s ease;
 }
 
 .deviation-row:hover {
-  border-color: var(--color-primary);
+  background-color: #f8fafc;
 }
 
 .deviation-row:focus-visible {
   outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 .deviation-row[data-selected='true'] {
-  border-color: var(--color-primary);
   background-color: var(--color-surface);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .deviation-row-header {
@@ -629,9 +633,6 @@ onBeforeUnmount(() => {
 
 .empty-state {
   padding: 32px 20px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .empty-state p {
