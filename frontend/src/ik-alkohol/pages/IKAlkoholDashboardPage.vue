@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import ServingHoursTile from '@/ik-alkohol/components/ServingHoursTile.vue'
-  import DiviationsTile from '@/ik-alkohol/components/DiviationsTile.vue'
+  import DiviationsTile from '@/shared/components/DiviationsTile.vue'
 </script>
 
 <template>

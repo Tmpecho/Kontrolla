@@ -7,6 +7,7 @@ import LoginPage from '@/auth/pages/LoginPage.vue'
 import LandingPage from '@/marketing/pages/LandingPage.vue'
 import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
+import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
 
@@ -52,6 +53,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-mat',
         name: 'ik-mat-dashboard',
         component: IKMatDashboardPage,
+      },
+      {
+        path: 'ik-mat/documents',
+        name: 'ik-mat-documents',
+        component: IKMatDocumentsPage,
       },
       {
         path: 'ik-alkohol',

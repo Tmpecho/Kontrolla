@@ -43,7 +43,8 @@ const navigationItems = computed<NavigationItem[]>(() => {
           label: 'Checklists',
         },
         {
-          label: 'Reports',
+          label: 'Important Documents',
+          routeName: 'ik-mat-documents'
         },
       ]
     case 'ik-alkohol':
