@@ -12,6 +12,8 @@ import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vu
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
 import DeviationPage from '@/deviations/pages/DeviationPage.vue'
 import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
+import MyProfilePage from '@/account/pages/MyProfilePage.vue'
+import SettingsPage from '@/account/pages/SettingsPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -90,6 +92,14 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol/documents',
         name: 'ik-alkohol-documents',
         component: IKAlkoholDocumentsPage,
+        path: 'my-profile',
+        name: 'my-profile',
+        component: MyProfilePage,
+      },
+      {
+        path: 'settings',
+        name: 'settings',
+        component: SettingsPage,
       },
     ],
   },

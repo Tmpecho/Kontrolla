@@ -1,25 +1,41 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
-import SettingsPopup from '@/app/components/SettingsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
+const activePopup = ref<null | 'notifications' | 'profile'>(null)
+const popupArea = ref<HTMLElement | null>(null)
+const notificationsButton = ref<HTMLButtonElement | null>(null)
+const profileButton = ref<HTMLButtonElement | null>(null)
+const notificationsPopup = ref<InstanceType<typeof NotificationsPopup> | null>(null)
+const profilePopup = ref<InstanceType<typeof ProfilePopup> | null>(null)
 const route = useRoute()
 
-const activePopup = ref<null | 'notifications' | 'settings' | 'profile'>(null)
-const popupArea = ref<HTMLElement | null>(null)
+function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
+  const routeName = typeof route.name === 'string' ? route.name : ''
+  return routeName.startsWith(`${section}-`)
+}
 
-const isIkMatActive = computed(() => {
-  return typeof route.name === 'string' && route.name.startsWith('ik-mat-')
-})
+async function togglePopup(type: 'notifications' | 'profile') {
+  if (activePopup.value === type) {
+    closePopup()
+    return
+  }
 
-const isIkAlkoholActive = computed(() => {
-  return typeof route.name === 'string' && route.name.startsWith('ik-alkohol-')
-})
+  activePopup.value = type
+  await nextTick()
 
-function togglePopup(type: 'notifications' | 'settings' | 'profile') {
-  activePopup.value = activePopup.value === type ? null : type
+  if (type === 'notifications') {
+    notificationsPopup.value?.focusPopup()
+    return
+  }
+
+  profilePopup.value?.focusFirstAction()
+}
+
+function closePopup() {
+  activePopup.value = null
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -27,17 +43,40 @@ function handleClickOutside(event: MouseEvent) {
 
   const target = event.target as Node
   if (!popupArea.value.contains(target)) {
-    activePopup.value = null
+    closePopup()
+  }
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    if (activePopup.value === 'notifications') {
+      notificationsButton.value?.focus()
+    }
+
+    if (activePopup.value === 'profile') {
+      profileButton.value?.focus()
+    }
+
+    closePopup()
   }
 }
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleEscape)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleEscape)
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    closePopup()
+  },
+)
 </script>
 
 <template>
@@ -49,53 +88,60 @@ onBeforeUnmount(() => {
 
       <RouterLink
         class="nav-link"
-        :class="{ 'nav-link-active': isIkMatActive }"
+        :data-active="isServiceActive('ik-mat')"
         :to="{ name: 'ik-mat-dashboard' }"
       >
         IK-Mat
       </RouterLink>
-
       <RouterLink
         class="nav-link"
-        :class="{ 'nav-link-active': isIkAlkoholActive }"
+        :data-active="isServiceActive('ik-alkohol')"
         :to="{ name: 'ik-alkohol-dashboard' }"
       >
         IK-Alkohol
       </RouterLink>
     </div>
 
-    <div class="right-container icons-container">
+    <div ref="popupArea" class="right-container icons-container">
       <div class="icon-wrapper">
-        <img
-          alt="Notifications"
-          class="top-bar-img"
-          src="@/assets/icons/notification.png"
+        <button
+          id="notifications-trigger"
+          ref="notificationsButton"
+          type="button"
+          class="icon-button"
+          aria-label="Notifications"
+          aria-haspopup="dialog"
+          :aria-expanded="activePopup === 'notifications'"
+          aria-controls="notifications-popup"
           @click.stop="togglePopup('notifications')"
+        >
+          <img alt="" class="top-bar-img" src="@/assets/icons/notification.png" />
+        </button>
+        <NotificationsPopup
+          v-if="activePopup === 'notifications'"
+          ref="notificationsPopup"
         />
       </div>
 
-      <div class="icon-wrapper">
-        <img
-          alt="Settings"
-          class="top-bar-img"
-          src="@/assets/icons/settings.png"
-          @click.stop="togglePopup('settings')"
-        />
-      </div>
-
-      <div class="icon-wrapper">
-        <img
-          alt="Profile"
-          class="top-bar-img"
-          src="@/assets/icons/profile.png"
+      <div class="icon-wrapper icon-wrapper-profile">
+        <button
+          id="profile-trigger"
+          ref="profileButton"
+          type="button"
+          class="icon-button"
+          aria-label="User menu"
+          aria-haspopup="dialog"
+          :aria-expanded="activePopup === 'profile'"
+          aria-controls="profile-popup"
           @click.stop="togglePopup('profile')"
+        >
+          <img alt="" class="top-bar-img" src="@/assets/icons/profile.png" />
+        </button>
+        <ProfilePopup
+          v-if="activePopup === 'profile'"
+          ref="profilePopup"
+          @close="closePopup"
         />
-      </div>
-
-      <div ref="popupArea" class="popup-wrapper">
-        <ProfilePopup v-if="activePopup === 'profile'" />
-        <SettingsPopup v-if="activePopup === 'settings'" />
-        <NotificationsPopup v-if="activePopup === 'notifications'" />
       </div>
     </div>
   </div>
@@ -135,6 +181,26 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.icon-wrapper-profile {
+  z-index: 1;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .app-title {
   margin: 0;
   display: flex;
@@ -155,7 +221,7 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
 }
 
-.nav-link-active {
+.nav-link[data-active='true'] {
   color: var(--color-text-primary);
   font-weight: 500;
 }

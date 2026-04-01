@@ -17,6 +17,14 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+function isNavigationItemActive(routeName?: NavigationItem['routeName']) {
+  if (!routeName) {
+    return false
+  }
+
+  return route.name === routeName
+}
+
 const currentAppSection = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
 
@@ -124,6 +132,7 @@ async function onLogout() {
               v-if="navigationItem.routeName"
               :to="{ name: navigationItem.routeName }"
               class="nav-link"
+              :data-active="isNavigationItemActive(navigationItem.routeName)"
             >
               {{ navigationItem.label }}
             </RouterLink>
@@ -134,13 +143,64 @@ async function onLogout() {
     </div>
 
     <div class="info-container">
-      <div>
-        <button type="button">Support</button>
-      </div>
+      <!-- Maybe change this to normal svg icons -->
+      <button type="button" class="sidebar-action sidebar-action-support">
+        <span class="sidebar-action-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20">
+            <path
+              d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+            <path
+              d="M7.9 7.5a2.35 2.35 0 1 1 4.2 1.45c-.45.56-1.1.94-1.6 1.42-.33.3-.5.63-.5 1.13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+            <path
+              d="M10 14h.01"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </svg>
+        </span>
+        <span>Support</span>
+      </button>
 
-      <div>
-        <button type="button" @click="onLogout">Sign out</button>
-      </div>
+      <button type="button" class="sidebar-action sidebar-action-signout" @click="onLogout">
+        <span class="sidebar-action-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20">
+            <path
+              d="M8 4H5.75A1.75 1.75 0 0 0 4 5.75v8.5A1.75 1.75 0 0 0 5.75 16H8"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+            <path
+              d="M11.5 6.5 15 10l-3.5 3.5"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+            <path
+              d="M8 10h7"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+          </svg>
+        </span>
+        <span>Sign out</span>
+      </button>
     </div>
   </div>
 </template>
@@ -149,10 +209,12 @@ async function onLogout() {
 .sidebar-container {
   display: flex;
   width: 200px;
-  min-height: 100%;
+  height: 100%;
+  flex-shrink: 0;
   flex-direction: column;
   padding: 24px 20px;
   background-color: var(--color-white);
+  overflow: hidden;
 }
 
 .sidebar-content {
@@ -180,12 +242,6 @@ async function onLogout() {
   gap: 8px;
 }
 
-.sidebar-eyebrow,
-.sidebar-meta {
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-}
-
 .subservices ul {
   display: flex;
   flex-direction: column;
@@ -204,7 +260,7 @@ async function onLogout() {
   text-decoration: none;
 }
 
-.nav-link.router-link-active {
+.nav-link[data-active='true'] {
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   font-weight: 500;
@@ -218,10 +274,47 @@ async function onLogout() {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-muted);
 }
 
-.info-container button {
+.sidebar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-action-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.sidebar-action-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+}
+
+.sidebar-action-support {
+  color: var(--color-text-secondary);
+}
+
+.sidebar-action-support:hover {
+  color: var(--color-text-primary);
+}
+
+.sidebar-action-signout {
+  color: var(--color-critical);
 }
 </style>

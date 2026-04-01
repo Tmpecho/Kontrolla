@@ -19,18 +19,22 @@ import Sidebar from '@/app/components/Sidebar.vue'
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   background-color: var(--color-surface);
+  overflow: hidden;
 }
 
 .app-body {
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .app-content {
   flex: 1;
   padding: 24px;
+  min-width: 0;
+  overflow-y: auto;
 }
 </style>
