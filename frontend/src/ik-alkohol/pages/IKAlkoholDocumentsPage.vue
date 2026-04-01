@@ -3,9 +3,9 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
+import { expiryWarningDays, formatDocumentStatus, getDocumentsWithStatus } from '@/ik-alkohol/model/document.utils'
 import type {
   ImportantDocumentListItem,
-  ImportantDocumentRecord,
   ImportantDocumentStatus,
 } from '@/ik-alkohol/model/document.types'
 import BaseButton from '@/shared/components/BaseButton.vue'
@@ -14,7 +14,6 @@ const router = useRouter()
 const searchQuery = ref('')
 const activeFilter = ref<'ALL' | ImportantDocumentStatus>('ALL')
 const documents = createImportantDocuments()
-const expiryWarningDays = 30
 
 const filterOptions = [
   { value: 'ALL', label: 'All' },
@@ -24,12 +23,7 @@ const filterOptions = [
 ] as const
 
 const documentsWithStatus = computed<ImportantDocumentListItem[]>(() => {
-  return documents
-    .map((documentRecord) => ({
-      ...documentRecord,
-      status: getDocumentStatus(documentRecord),
-    }))
-    .sort((left, right) => new Date(left.renewalDate).getTime() - new Date(right.renewalDate).getTime())
+  return getDocumentsWithStatus(documents, expiryWarningDays)
 })
 
 const filteredDocuments = computed(() => {
@@ -95,46 +89,10 @@ const emptyStateMessage = computed(() => {
   return 'No documents registered yet.'
 })
 
-function startOfToday() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
-}
-
-function getDocumentStatus(documentRecord: ImportantDocumentRecord): ImportantDocumentStatus {
-  const today = startOfToday()
-  const renewalDate = new Date(documentRecord.renewalDate)
-  renewalDate.setHours(0, 0, 0, 0)
-
-  if (renewalDate < today) {
-    return 'EXPIRED'
-  }
-
-  const warningDate = new Date(today)
-  warningDate.setDate(warningDate.getDate() + expiryWarningDays)
-
-  if (renewalDate <= warningDate) {
-    return 'EXPIRING'
-  }
-
-  return 'VALID'
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'medium',
   }).format(new Date(value))
-}
-
-function formatStatus(status: ImportantDocumentStatus) {
-  switch (status) {
-    case 'VALID':
-      return 'Valid'
-    case 'EXPIRING':
-      return 'Expiring'
-    case 'EXPIRED':
-      return 'Expired'
-  }
 }
 
 function goToUploadPage() {
@@ -243,7 +201,7 @@ function goToUploadPage() {
               <div class="document-cell">
                 <span class="document-cell-label">Status</span>
                 <span class="status-badge" :data-status="documentRecord.status">
-                  {{ formatStatus(documentRecord.status) }}
+                  {{ formatDocumentStatus(documentRecord.status) }}
                 </span>
               </div>
 
