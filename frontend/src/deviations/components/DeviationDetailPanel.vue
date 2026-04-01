@@ -91,6 +91,30 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
+function formatTimelineMoment(value: string) {
+  const entryDate = new Date(value)
+  const now = new Date()
+
+  const isSameDay =
+    entryDate.getFullYear() === now.getFullYear() &&
+    entryDate.getMonth() === now.getMonth() &&
+    entryDate.getDate() === now.getDate()
+
+  const dateLabel = isSameDay
+    ? 'Today'
+    : new Intl.DateTimeFormat('nb-NO', {
+        day: 'numeric',
+        month: 'short',
+      }).format(entryDate)
+
+  const timeLabel = new Intl.DateTimeFormat('nb-NO', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(entryDate)
+
+  return `${dateLabel}, ${timeLabel}`.toUpperCase()
+}
+
 function formatStatus(status: DeviationStatus) {
   return status.toLowerCase().replace('_', ' ')
 }
@@ -336,11 +360,16 @@ function markAsResolved() {
           :key="timelineEntry.id"
           class="timeline-entry"
         >
-          <div class="timeline-entry-header">
-            <p class="timeline-author">{{ timelineEntry.authorName }}</p>
-            <p class="timeline-date">{{ formatDateTime(timelineEntry.createdAt) }}</p>
+          <div class="timeline-marker" aria-hidden="true">
+            <span class="timeline-dot"></span>
+            <span class="timeline-line"></span>
           </div>
-          <p class="timeline-note">{{ timelineEntry.note }}</p>
+
+          <div class="timeline-entry-content">
+            <p class="timeline-date">{{ formatTimelineMoment(timelineEntry.createdAt) }}</p>
+            <p class="timeline-note">{{ timelineEntry.note }}</p>
+            <p class="timeline-author">Added by {{ timelineEntry.authorName }}</p>
+          </div>
         </li>
       </ol>
     </section>
@@ -400,9 +429,9 @@ function markAsResolved() {
 .detail-section h3,
 .detail-body,
 .field-helper,
-.timeline-author,
 .timeline-date,
-.timeline-note {
+.timeline-note,
+.timeline-author {
   margin: 0;
 }
 
@@ -508,7 +537,7 @@ function markAsResolved() {
 .timeline-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -516,23 +545,65 @@ function markAsResolved() {
 
 .timeline-entry {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-surface);
+  align-items: stretch;
+  gap: 14px;
+  padding: 0 0 20px;
 }
 
-.timeline-entry-header {
+.timeline-marker {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  width: 18px;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-container);
+}
+
+.timeline-line {
+  width: 1px;
+  flex: 1;
+  min-height: 24px;
+  margin-top: 6px;
+  background-color: var(--color-border-muted);
+}
+
+.timeline-entry:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-entry:last-child .timeline-line {
+  display: none;
+}
+
+.timeline-entry-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-date {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.timeline-note {
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .timeline-author {
-  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .edit-fieldset {
@@ -610,7 +681,6 @@ function markAsResolved() {
     grid-template-columns: 1fr;
   }
 
-  .timeline-entry-header,
   .detail-header {
     flex-direction: column;
   }
