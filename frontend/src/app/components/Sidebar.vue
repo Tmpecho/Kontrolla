@@ -10,7 +10,7 @@ defineOptions({
 
 type NavigationItem = {
   label: string
-  routeName?: 'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard'
+  routeName?: 'workspace-home' | 'ik-mat-dashboard' | 'ik-mat-documents' | 'ik-alkohol-dashboard' | 'ik-alkohol-documents'
 }
 
 const authStore = useAuthStore()
