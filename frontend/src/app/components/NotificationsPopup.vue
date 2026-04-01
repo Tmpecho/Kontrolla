@@ -1,9 +1,31 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+
 import AppPopupShell from '@/app/components/AppPopupShell.vue'
+
+const popupRef = ref<InstanceType<typeof AppPopupShell> | null>(null)
+
+function focusPopup() {
+  const popupElement = popupRef.value?.$el as HTMLElement | undefined
+  popupElement?.focus()
+}
+
+defineExpose({
+  focusPopup,
+})
+
+onMounted(() => {
+  focusPopup()
+})
 </script>
 
 <template>
-  <AppPopupShell aria-label="Notifications">
+  <AppPopupShell
+    id="notifications-popup"
+    ref="popupRef"
+    aria-label="Notifications"
+    role="dialog"
+  >
     <div class="notifications-container">
       <p>No notifications</p>
     </div>

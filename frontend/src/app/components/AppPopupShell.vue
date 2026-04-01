@@ -1,20 +1,31 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
+    id?: string
     minWidth?: string
     role?: string
     ariaLabel?: string
+    tabIndex?: number
   }>(),
   {
+    id: undefined,
     minWidth: '240px',
     role: 'dialog',
     ariaLabel: undefined,
+    tabIndex: -1,
   },
 )
 </script>
 
 <template>
-  <div class="popup-shell" :style="{ minWidth }" :role="role" :aria-label="ariaLabel">
+  <div
+    :id="id"
+    class="popup-shell"
+    :style="{ minWidth }"
+    :role="role"
+    :aria-label="ariaLabel"
+    :tabindex="tabIndex"
+  >
     <slot />
   </div>
 </template>
