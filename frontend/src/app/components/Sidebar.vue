@@ -243,8 +243,8 @@ async function onLogout() {
         <p>{{ displayEstablishmentName }}</p>
       </div>
 
-      <nav v-if="variant === 'mobile'" aria-label="Main areas" class="navigation-group">
-        <p class="nav-group-label">Main areas</p>
+      <nav v-if="variant === 'mobile'" aria-label="Services" class="navigation-group">
+        <p class="nav-group-label">Services</p>
         <ul>
           <li v-for="mainAreaItem in mainAreaItems" :key="mainAreaItem.label">
             <button
