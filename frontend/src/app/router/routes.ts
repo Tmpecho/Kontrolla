@@ -5,6 +5,7 @@ import AuthLayout from '@/app/layouts/AuthLayout.vue'
 import PublicLayout from '@/app/layouts/PublicLayout.vue'
 import LoginPage from '@/auth/pages/LoginPage.vue'
 import LandingPage from '@/marketing/pages/LandingPage.vue'
+import NotFoundPage from '@/shared/pages/NotFoundPage.vue'
 import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
@@ -24,6 +25,11 @@ export const routes: RouteRecordRaw[] = [
         path: '',
         name: 'landing',
         component: LandingPage,
+      },
+      {
+        path: ':pathMatch(.*)*',
+        name: 'not-found',
+        component: NotFoundPage,
       },
     ],
   },
@@ -102,6 +108,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings',
         name: 'settings',
         component: SettingsPage,
+      },
+      {
+        path: ':pathMatch(.*)*',
+        name: 'app-not-found',
+        component: NotFoundPage,
       },
     ],
   },
