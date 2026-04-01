@@ -25,13 +25,13 @@ const cutoffTwenty = getCutoffDate(20)
     </div>
 
     <div class="cutoff-grid">
-      <div class="cutoff-card">
+      <div class="cutoff-card" data-tone="eighteen">
         <p class="cutoff-label">18 years</p>
         <p class="cutoff-date">{{ formatDate(cutoffEighteen) }}</p>
         <p class="cutoff-hint">Beer and wine.</p>
       </div>
 
-      <div class="cutoff-card">
+      <div class="cutoff-card" data-tone="twenty">
         <p class="cutoff-label">20 years</p>
         <p class="cutoff-date">{{ formatDate(cutoffTwenty) }}</p>
         <p class="cutoff-hint">Spirits.</p>
@@ -72,6 +72,7 @@ const cutoffTwenty = getCutoffDate(20)
 }
 
 .cutoff-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -79,6 +80,25 @@ const cutoffTwenty = getCutoffDate(20)
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+.cutoff-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background-color: var(--color-border-muted);
+}
+
+.cutoff-card[data-tone='eighteen']::before {
+  background-color: var(--color-primary);
+}
+
+.cutoff-card[data-tone='twenty']::before {
+  background-color: var(--color-warning);
 }
 
 .cutoff-label {
@@ -93,6 +113,14 @@ const cutoffTwenty = getCutoffDate(20)
   color: var(--color-text-primary);
   font-size: 1rem;
   font-weight: 600;
+}
+
+.cutoff-card[data-tone='eighteen'] .cutoff-label {
+  color: var(--color-primary);
+}
+
+.cutoff-card[data-tone='twenty'] .cutoff-label {
+  color: var(--color-warning);
 }
 
 @media (max-width: 720px) {
