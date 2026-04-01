@@ -1,16 +1,49 @@
 <script lang="ts" setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
+const props = withDefaults(
+  defineProps<{
+    mobileNavOpen?: boolean
+  }>(),
+  {
+    mobileNavOpen: false,
+  },
+)
+
+const emit = defineEmits<{
+  (e: 'toggle-mobile-nav'): void
+}>()
+
 const activePopup = ref<null | 'notifications' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
+const mobileNavButton = ref<HTMLButtonElement | null>(null)
 const notificationsButton = ref<HTMLButtonElement | null>(null)
 const profileButton = ref<HTMLButtonElement | null>(null)
 const notificationsPopup = ref<InstanceType<typeof NotificationsPopup> | null>(null)
 const profilePopup = ref<InstanceType<typeof ProfilePopup> | null>(null)
 const route = useRoute()
+
+const currentSectionLabel = computed(() => {
+  const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName === 'my-profile' || routeName === 'settings') {
+    return 'Account'
+  }
+
+  if (routeName.startsWith('ik-mat-')) {
+    return 'IK-mat'
+  }
+
+  if (routeName.startsWith('ik-alkohol-')) {
+    return 'IK-alkohol'
+  }
+
+  return 'Workspace'
+})
 
 function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
   const routeName = typeof route.name === 'string' ? route.name : ''
@@ -36,6 +69,10 @@ async function togglePopup(type: 'notifications' | 'profile') {
 
 function closePopup() {
   activePopup.value = null
+}
+
+function focusMobileNavTrigger() {
+  mobileNavButton.value?.focus()
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -77,33 +114,96 @@ watch(
     closePopup()
   },
 )
+
+defineExpose({
+  focusMobileNavTrigger,
+})
 </script>
 
 <template>
   <div class="top-bar-container">
     <div class="left-container">
-      <h1 class="app-title">
-        <RouterLink :to="{ name: 'workspace-home' }">Kontrolla</RouterLink>
-      </h1>
+      <button
+        id="mobile-nav-trigger"
+        ref="mobileNavButton"
+        type="button"
+        class="mobile-menu-button"
+        :aria-label="props.mobileNavOpen ? 'Close app navigation' : 'Open app navigation'"
+        aria-haspopup="dialog"
+        :aria-expanded="props.mobileNavOpen"
+        aria-controls="mobile-navigation"
+        @click="emit('toggle-mobile-nav')"
+      >
+        <svg aria-hidden="true" class="mobile-menu-icon" viewBox="0 0 20 20">
+          <template v-if="props.mobileNavOpen">
+            <path
+              d="m5.5 5.5 9 9"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="m14.5 5.5-9 9"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </template>
+          <template v-else>
+            <path
+              d="M3.5 5.5h13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M3.5 10h13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M3.5 14.5h13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </template>
+        </svg>
+      </button>
 
-      <RouterLink
-        class="nav-link"
-        :data-active="isServiceActive('ik-mat')"
-        :to="{ name: 'ik-mat-dashboard' }"
-      >
-        IK-Mat
-      </RouterLink>
-      <RouterLink
-        class="nav-link"
-        :data-active="isServiceActive('ik-alkohol')"
-        :to="{ name: 'ik-alkohol-dashboard' }"
-      >
-        IK-Alkohol
-      </RouterLink>
+      <div class="brand-group">
+        <h1 class="app-title">
+          <RouterLink :to="{ name: 'workspace-home' }">Kontrolla</RouterLink>
+        </h1>
+        <p class="mobile-context-label">{{ currentSectionLabel }}</p>
+      </div>
+
+      <div class="desktop-service-links">
+        <RouterLink
+          class="nav-link"
+          :data-active="isServiceActive('ik-mat')"
+          :to="{ name: 'ik-mat-dashboard' }"
+        >
+          IK-Mat
+        </RouterLink>
+        <RouterLink
+          class="nav-link"
+          :data-active="isServiceActive('ik-alkohol')"
+          :to="{ name: 'ik-alkohol-dashboard' }"
+        >
+          IK-Alkohol
+        </RouterLink>
+      </div>
     </div>
 
     <div ref="popupArea" class="right-container icons-container">
-      <div class="icon-wrapper">
+      <div class="icon-wrapper icon-wrapper-notifications">
         <button
           id="notifications-trigger"
           ref="notificationsButton"
@@ -161,6 +261,20 @@ watch(
   display: flex;
   flex-direction: row;
   align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+.brand-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.desktop-service-links {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 50px;
 }
 
@@ -185,6 +299,7 @@ watch(
   z-index: 1;
 }
 
+.mobile-menu-button,
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -195,6 +310,20 @@ watch(
   cursor: pointer;
 }
 
+.mobile-menu-button {
+  display: none;
+  width: 32px;
+  height: 32px;
+  color: var(--color-text-primary);
+}
+
+.mobile-menu-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.mobile-menu-button:focus-visible,
 .icon-button:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 3px;
@@ -213,6 +342,16 @@ watch(
   color: var(--color-text-primary);
   font-size: 20px;
   text-decoration: none;
+}
+
+.mobile-context-label {
+  display: none;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .nav-link {
@@ -234,5 +373,29 @@ watch(
   width: 25px;
   height: 25px;
   cursor: pointer;
+}
+
+@media (max-width: 960px) {
+  .top-bar-container {
+    padding: 12px 16px;
+  }
+
+  .mobile-menu-button,
+  .mobile-context-label {
+    display: inline-flex;
+  }
+
+  .desktop-service-links,
+  .icon-wrapper-notifications {
+    display: none;
+  }
+
+  .left-container {
+    gap: 12px;
+  }
+
+  .right-container {
+    gap: 16px;
+  }
 }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
@@ -8,16 +8,48 @@ defineOptions({
   name: 'AppSidebar',
 })
 
+type AppRouteName =
+  | 'workspace-home'
+  | 'ik-mat-dashboard'
+  | 'ik-mat-documents'
+  | 'ik-mat-deviation'
+  | 'ik-alkohol-dashboard'
+  | 'ik-alkohol-documents'
+  | 'ik-alkohol-deviation'
+  | 'my-profile'
+  | 'settings'
+
+type AppSection = 'workspace' | 'ik-mat' | 'ik-alkohol' | 'account'
+
 type NavigationItem = {
   label: string
-  routeName?: 'workspace-home' | 'ik-mat-dashboard' | 'ik-mat-documents' | 'ik-mat-deviation' | 'ik-alkohol-dashboard' | 'ik-alkohol-documents' | 'ik-alkohol-deviation'
+  routeName?: AppRouteName
 }
+
+type MainAreaItem = {
+  label: string
+  routeName: Extract<AppRouteName, 'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard'>
+  section: Exclude<AppSection, 'account'>
+}
+
+const props = withDefaults(
+  defineProps<{
+    variant?: 'desktop' | 'mobile'
+  }>(),
+  {
+    variant: 'desktop',
+  },
+)
+
+const emit = defineEmits<{
+  (e: 'navigate'): void
+}>()
 
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
-const activeRouteNamesByNavigationRoute = {
+const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'workspace-home': ['workspace-home'],
   'ik-mat-dashboard': ['ik-mat-dashboard'],
   'ik-mat-documents': ['ik-mat-documents'],
@@ -25,21 +57,16 @@ const activeRouteNamesByNavigationRoute = {
   'ik-alkohol-dashboard': ['ik-alkohol-dashboard'],
   'ik-alkohol-documents': ['ik-alkohol-documents', 'ik-alkohol-documents-upload'],
   'ik-alkohol-deviation': ['ik-alkohol-deviation', 'ik-alkohol-deviation-form'],
-} as const
-
-function isNavigationItemActive(routeName?: NavigationItem['routeName']) {
-  if (!routeName) {
-    return false
-  }
-
-  const currentRouteName = typeof route.name === 'string' ? route.name : ''
-  return activeRouteNamesByNavigationRoute[routeName].some(
-    (candidateRouteName) => candidateRouteName === currentRouteName,
-  )
+  'my-profile': ['my-profile'],
+  settings: ['settings'],
 }
 
-const currentAppSection = computed(() => {
+const currentAppSection = computed<AppSection>(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName === 'my-profile' || routeName === 'settings') {
+    return 'account'
+  }
 
   if (routeName.startsWith('ik-mat-')) {
     return 'ik-mat'
@@ -52,8 +79,53 @@ const currentAppSection = computed(() => {
   return 'workspace'
 })
 
+const mainAreaItems: MainAreaItem[] = [
+  {
+    label: 'Workspace',
+    routeName: 'workspace-home',
+    section: 'workspace',
+  },
+  {
+    label: 'IK-mat',
+    routeName: 'ik-mat-dashboard',
+    section: 'ik-mat',
+  },
+  {
+    label: 'IK-alkohol',
+    routeName: 'ik-alkohol-dashboard',
+    section: 'ik-alkohol',
+  },
+]
+
+const currentSectionLabel = computed(() => {
+  switch (visibleSection.value) {
+    case 'ik-mat':
+      return 'IK-mat'
+    case 'ik-alkohol':
+      return 'IK-alkohol'
+    case 'account':
+      return 'Account'
+    default:
+      return 'Workspace'
+  }
+})
+
+const expandedMobileSection = ref<AppSection>(currentAppSection.value)
+
+watch(currentAppSection, (section) => {
+  expandedMobileSection.value = section
+})
+
+const visibleSection = computed<AppSection>(() => {
+  if (props.variant === 'mobile') {
+    return expandedMobileSection.value
+  }
+
+  return currentAppSection.value
+})
+
 const navigationItems = computed<NavigationItem[]>(() => {
-  switch (currentAppSection.value) {
+  switch (visibleSection.value) {
     case 'ik-mat':
       return [
         {
@@ -65,11 +137,11 @@ const navigationItems = computed<NavigationItem[]>(() => {
         },
         {
           label: 'Important Documents',
-          routeName: 'ik-mat-documents'
+          routeName: 'ik-mat-documents',
         },
         {
           label: 'Deviations',
-          routeName: 'ik-mat-deviation'
+          routeName: 'ik-mat-deviation',
         },
       ]
     case 'ik-alkohol':
@@ -80,11 +152,22 @@ const navigationItems = computed<NavigationItem[]>(() => {
         },
         {
           label: 'Important Documents',
-          routeName: 'ik-alkohol-documents'
+          routeName: 'ik-alkohol-documents',
         },
         {
           label: 'Deviations',
-          routeName: 'ik-alkohol-deviation'
+          routeName: 'ik-alkohol-deviation',
+        },
+      ]
+    case 'account':
+      return [
+        {
+          label: 'My profile',
+          routeName: 'my-profile',
+        },
+        {
+          label: 'Settings',
+          routeName: 'settings',
         },
       ]
     default:
@@ -121,21 +204,64 @@ const displayEstablishmentName = computed(() => {
   return 'Establishment unavailable'
 })
 
+function isNavigationItemActive(routeName?: AppRouteName) {
+  if (!routeName) {
+    return false
+  }
+
+  const currentRouteName = typeof route.name === 'string' ? route.name : ''
+
+  return activeRouteNamesByNavigationRoute[routeName].some(
+    (candidateRouteName) => candidateRouteName === currentRouteName,
+  )
+}
+
+function selectMobileSection(section: Exclude<AppSection, 'account'>) {
+  if (props.variant !== 'mobile') {
+    return
+  }
+
+  expandedMobileSection.value = section
+}
+
+function onNavigation() {
+  emit('navigate')
+}
+
 async function onLogout() {
   await authStore.logout()
+  emit('navigate')
   await router.push({ name: 'login' })
 }
 </script>
 
 <template>
-  <div class="sidebar-container">
-    <div class="sidebar-content">
+  <div class="sidebar-container" :data-variant="variant">
+    <div class="sidebar-scroll">
       <div class="establishment-info">
         <h2>{{ displayOrganizationName }}</h2>
         <p>{{ displayEstablishmentName }}</p>
       </div>
 
-      <nav aria-label="App navigation" class="subservices">
+      <nav v-if="variant === 'mobile'" aria-label="Services" class="navigation-group">
+        <p class="nav-group-label">Services</p>
+        <ul>
+          <li v-for="mainAreaItem in mainAreaItems" :key="mainAreaItem.label">
+            <button
+              type="button"
+              class="nav-link nav-link-main nav-link-button"
+              :data-active="visibleSection === mainAreaItem.section"
+              :aria-pressed="visibleSection === mainAreaItem.section"
+              @click="selectMobileSection(mainAreaItem.section)"
+            >
+              {{ mainAreaItem.label }}
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <nav aria-label="App navigation" class="navigation-group subservices">
+        <p v-if="variant === 'mobile'" class="nav-group-label">{{ currentSectionLabel }}</p>
         <ul>
           <li
             v-for="navigationItem in navigationItems"
@@ -146,6 +272,7 @@ async function onLogout() {
               :to="{ name: navigationItem.routeName }"
               class="nav-link"
               :data-active="isNavigationItemActive(navigationItem.routeName)"
+              @click="onNavigation"
             >
               {{ navigationItem.label }}
             </RouterLink>
@@ -156,7 +283,6 @@ async function onLogout() {
     </div>
 
     <div class="info-container">
-      <!-- Maybe change this to normal svg icons -->
       <button type="button" class="sidebar-action sidebar-action-support">
         <span class="sidebar-action-icon" aria-hidden="true">
           <svg viewBox="0 0 20 20">
@@ -221,19 +347,56 @@ async function onLogout() {
 <style scoped>
 .sidebar-container {
   display: flex;
-  width: 200px;
-  height: 100%;
   flex-shrink: 0;
   flex-direction: column;
+  height: 100%;
   padding: 24px 20px;
   background-color: var(--color-white);
   overflow: hidden;
 }
 
-.sidebar-content {
+.sidebar-container[data-variant='desktop'] {
+  width: 200px;
+}
+
+.sidebar-container[data-variant='mobile'] {
+  width: 100%;
+  padding: 20px 18px;
+}
+
+.sidebar-scroll {
   display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 24px;
+  overflow-y: auto;
+}
+
+.navigation-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-group-label {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.establishment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.establishment-info h2,
+.establishment-info p {
+  margin: 0;
 }
 
 .establishment-info h2 {
@@ -244,18 +407,7 @@ async function onLogout() {
   font-size: small;
 }
 
-.establishment-info h2,
-.establishment-info p {
-  margin: 0;
-}
-
-.establishment-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.subservices ul {
+.navigation-group ul {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -273,9 +425,22 @@ async function onLogout() {
   text-decoration: none;
 }
 
+.nav-link-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .nav-link[data-active='true'] {
   background-color: var(--color-surface);
   color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.nav-link-main {
   font-weight: 500;
 }
 
@@ -284,10 +449,10 @@ async function onLogout() {
 }
 
 .info-container {
-  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: auto;
   padding-top: 20px;
   border-top: 1px solid var(--color-border-muted);
 }
