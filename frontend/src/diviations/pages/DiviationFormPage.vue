@@ -41,7 +41,7 @@ async function onSubmit() {
             />
         </div>
         <div class="btn-wrapper">
-            <BaseButton>Submit</BaseButton>
+            <BaseButton type="submit">Submit</BaseButton>
         </div>
     </form>
 
