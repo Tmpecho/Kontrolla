@@ -4,11 +4,6 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
 
 <template>
   <div class="landing-page">
-    <header id="top" class="topbar">
-      <RouterLink :to="{ name: 'landing' }" class="brand">Kontrolla</RouterLink>
-      <RouterLink :to="{ name: 'login' }" class="login-link">Sign in</RouterLink>
-    </header>
-
     <main class="landing-main">
       <section class="hero">
         <div class="hero-copy">
@@ -23,9 +18,9 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
           </p>
 
           <div class="hero-actions">
-            <a class="primary-action" href="#price-offer">
+            <RouterLink :to="{ name: 'price-offer' }" class="primary-action">
               Get a price offer
-            </a>
+            </RouterLink>
             <RouterLink :to="{ name: 'login' }" class="secondary-action">
               Sign in
             </RouterLink>
@@ -80,7 +75,7 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
         </div>
       </section>
 
-      <section id="price-offer" class="cta-section cta-accent-section">
+      <section class="cta-section cta-accent-section">
         <div class="cta-copy">
           <h2>Need a price offer?</h2>
           <p>
@@ -94,63 +89,25 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
         </div>
 
         <div class="cta-actions">
-          <a class="primary-action" href="#top">Review the offer basis</a>
+          <RouterLink :to="{ name: 'price-offer' }" class="primary-action">
+            Get a price offer
+          </RouterLink>
           <RouterLink :to="{ name: 'login' }" class="secondary-action">
             Sign in
           </RouterLink>
         </div>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <div class="footer-branding">
-        <p class="footer-name">Kontrolla</p>
-        <p class="footer-description">
-          Compliance management for food safety and alcohol control across hospitality operations.
-        </p>
-        <p class="footer-copyright">© 2026 Kontrolla. All rights reserved.</p>
-      </div>
-
-      <div class="footer-links">
-        <a class="footer-link" href="#price-offer">Get a price offer</a>
-        <RouterLink :to="{ name: 'login' }" class="footer-link">Sign in</RouterLink>
-      </div>
-    </footer>
   </div>
 </template>
 
 <style scoped>
 .landing-page {
-  min-height: 100vh;
-  padding: 20px;
   color: var(--color-text-primary);
 }
 
-.topbar,
 .landing-main {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-}
-
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 28px;
-}
-
-.brand {
-  color: var(--color-text-primary);
-  font-size: 1rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.login-link {
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  text-decoration: none;
+  width: 100%;
 }
 
 .landing-main {
@@ -340,54 +297,6 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
   max-width: 64ch;
 }
 
-.site-footer {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px 0 12px;
-  border-top: 1px solid var(--color-border-muted);
-}
-
-.footer-branding,
-.footer-links {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.footer-name,
-.footer-description,
-.footer-copyright {
-  margin: 0;
-}
-
-.footer-name {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.footer-description {
-  max-width: 48ch;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-}
-
-.footer-copyright {
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border-muted);
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-}
-
-.footer-link {
-  color: var(--color-text-primary);
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-
 @media (max-width: 920px) {
   .hero,
   .cta-section {
@@ -406,21 +315,9 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
   .feature-grid {
     grid-template-columns: 1fr;
   }
-
-  .site-footer {
-    flex-direction: column;
-  }
 }
 
 @media (max-width: 640px) {
-  .landing-page {
-    padding: 16px;
-  }
-
-  .topbar {
-    padding-bottom: 20px;
-  }
-
   .hero-copy h1 {
     max-width: 100%;
   }
