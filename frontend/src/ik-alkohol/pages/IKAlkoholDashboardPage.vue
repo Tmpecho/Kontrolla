@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import AgeVerificationTile from '@/ik-alkohol/components/AgeVerificationTile.vue'
   import ServingHoursTile from '@/ik-alkohol/components/ServingHoursTile.vue'
   import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 </script>
@@ -36,6 +37,10 @@
             <p>Overview over alcohol compliance.</p>
           </div>
         </RouterLink>
+      </section>
+
+      <section class="dashboard-section">
+        <AgeVerificationTile class="dashboard-tile" />
       </section>
 
       <section class="dashboard-section">
@@ -89,6 +94,12 @@
   display: flex;
   flex-direction: row;
   gap: 24px
+}
+
+@media (max-width: 960px) {
+  .row-container {
+    flex-direction: column;
+  }
 }
 
 </style>
