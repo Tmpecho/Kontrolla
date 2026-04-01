@@ -384,7 +384,10 @@ function goToUploadPage() {
 .documents-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 4px;
+  background-color: var(--color-container);
+  overflow: hidden;
 }
 
 .list-toolbar {
@@ -393,6 +396,8 @@ function goToUploadPage() {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border-muted);
 }
 
 .search-field {
@@ -458,7 +463,6 @@ function goToUploadPage() {
 .documents-table {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 .documents-table-header,
@@ -469,7 +473,8 @@ function goToUploadPage() {
 }
 
 .documents-table-header {
-  padding: 0 12px;
+  padding: 14px 20px;
+  background-color: #e2e8f0;
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -484,18 +489,24 @@ function goToUploadPage() {
 .documents-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.documents-list-item + .documents-list-item {
+  border-top: 1px solid #e2e8f0;
+}
+
 .document-row {
   align-items: center;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  padding: 18px 20px;
   background-color: var(--color-container);
+  transition: background-color 120ms ease;
+}
+
+.document-row:hover {
+  background-color: #f8fafc;
 }
 
 .document-cell {
@@ -522,7 +533,6 @@ function goToUploadPage() {
   display: inline-flex;
   align-self: flex-start;
   padding: 0.25rem 0.5rem;
-  border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-surface);
   font-size: 0.75rem;
@@ -530,15 +540,18 @@ function goToUploadPage() {
 }
 
 .status-badge[data-status='VALID'] {
-  color: var(--color-success);
+  background-color: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-badge[data-status='EXPIRING'] {
-  color: var(--color-warning);
+  background-color: #e0e7ff;
+  color: #4c51bf;
 }
 
 .status-badge[data-status='EXPIRED'] {
-  color: var(--color-critical);
+  background-color: #fecaca;
+  color: #991b1b;
 }
 
 .document-cell-actions {
@@ -550,16 +563,17 @@ function goToUploadPage() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--color-border-muted);
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: 4px;
-  background-color: var(--color-surface);
+  background-color: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .action-button:hover {
+  background-color: var(--color-surface);
   color: var(--color-text-primary);
 }
 
@@ -571,9 +585,6 @@ function goToUploadPage() {
 
 .empty-state {
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
   color: var(--color-text-secondary);
 }
 
