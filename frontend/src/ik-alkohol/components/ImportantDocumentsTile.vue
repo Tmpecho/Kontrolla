@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
-import { expiryWarningDays, getDocumentsWithStatus } from '@/ik-alkohol/model/document.utils'
+import { expiryWarningDays, getDocumentsWithStatus, parseLocalDate } from '@/ik-alkohol/model/document.utils'
 
 const documents = createImportantDocuments()
 
@@ -16,7 +16,7 @@ const expiringCount = computed(() => {
   return documentsWithStatus.value.filter((documentRecord) => documentRecord.status === 'EXPIRING').length
 })
 
-const validatedCount = computed(() => {
+const readyCount = computed(() => {
   return documentsWithStatus.value.filter((documentRecord) => documentRecord.status !== 'EXPIRED').length
 })
 
@@ -25,7 +25,7 @@ const readinessPercentage = computed(() => {
     return 0
   }
 
-  return Math.round((validatedCount.value / documentsWithStatus.value.length) * 100)
+  return Math.round((readyCount.value / documentsWithStatus.value.length) * 100)
 })
 
 const nextRenewalDocument = computed(() => documentsWithStatus.value[0] ?? null)
@@ -33,7 +33,7 @@ const nextRenewalDocument = computed(() => documentsWithStatus.value[0] ?? null)
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'medium',
-  }).format(new Date(value))
+  }).format(parseLocalDate(value))
 }
 </script>
 
@@ -60,7 +60,7 @@ function formatDate(value: string) {
         <p class="summary-label">Audit readiness</p>
         <p class="summary-value">{{ readinessPercentage }}%</p>
         <p class="summary-hint">
-          {{ validatedCount }}/{{ documentsWithStatus.length }} documents currently valid
+          {{ readyCount }}/{{ documentsWithStatus.length }} documents ready for audit
         </p>
       </div>
     </div>

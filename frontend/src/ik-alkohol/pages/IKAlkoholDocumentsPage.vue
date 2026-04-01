@@ -3,7 +3,12 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
-import { expiryWarningDays, formatDocumentStatus, getDocumentsWithStatus } from '@/ik-alkohol/model/document.utils'
+import {
+  expiryWarningDays,
+  formatDocumentStatus,
+  getDocumentsWithStatus,
+  parseLocalDate,
+} from '@/ik-alkohol/model/document.utils'
 import type {
   ImportantDocumentListItem,
   ImportantDocumentStatus,
@@ -57,7 +62,7 @@ const expiringCount = computed(() => {
 
 const criticalCount = computed(() => expiredCount.value + expiringCount.value)
 
-const validatedCount = computed(() => {
+const readyForAuditCount = computed(() => {
   return documentsWithStatus.value.filter((documentRecord) => documentRecord.status !== 'EXPIRED').length
 })
 
@@ -66,7 +71,7 @@ const readinessPercentage = computed(() => {
     return 0
   }
 
-  return Math.round((validatedCount.value / documentsWithStatus.value.length) * 100)
+  return Math.round((readyForAuditCount.value / documentsWithStatus.value.length) * 100)
 })
 
 const emptyStateMessage = computed(() => {
@@ -92,7 +97,7 @@ const emptyStateMessage = computed(() => {
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'medium',
-  }).format(new Date(value))
+  }).format(parseLocalDate(value))
 }
 
 function goToUploadPage() {
@@ -133,7 +138,7 @@ function goToUploadPage() {
           <span :style="{ width: `${readinessPercentage}%` }"></span>
         </div>
         <p class="summary-support">
-          {{ validatedCount }}/{{ documentsWithStatus.length }} documents validated.
+          {{ readyForAuditCount }}/{{ documentsWithStatus.length }} documents ready for audit.
         </p>
       </article>
     </section>
@@ -165,64 +170,64 @@ function goToUploadPage() {
         </div>
       </div>
 
-      <div v-if="filteredDocuments.length > 0" class="documents-table">
-        <div class="documents-table-header">
-          <span>Document title</span>
-          <span>Staff/entity</span>
-          <span>Issue date</span>
-          <span>Renewal date</span>
-          <span>Status</span>
-          <span class="actions-column">Actions</span>
-        </div>
+      <table v-if="filteredDocuments.length > 0" class="documents-table">
+        <thead class="documents-table-header">
+          <tr>
+            <th scope="col">Document title</th>
+            <th scope="col">Staff/entity</th>
+            <th scope="col">Issue date</th>
+            <th scope="col">Renewal date</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="actions-column">Actions</th>
+          </tr>
+        </thead>
 
-        <ul class="documents-list">
-          <li v-for="documentRecord in filteredDocuments" :key="documentRecord.id" class="documents-list-item">
-            <article class="document-row">
-              <div class="document-cell document-cell-title">
-                <span class="document-cell-label">Document title</span>
-                <p class="document-primary">{{ documentRecord.title }}</p>
-              </div>
+        <tbody class="documents-list">
+          <tr v-for="documentRecord in filteredDocuments" :key="documentRecord.id" class="documents-list-item">
+            <th scope="row" class="document-cell document-cell-title">
+              <span class="document-cell-label">Document title</span>
+              <span class="document-primary">{{ documentRecord.title }}</span>
+            </th>
 
-              <div class="document-cell">
-                <span class="document-cell-label">Staff/entity</span>
-                <p>{{ documentRecord.holderName }}</p>
-              </div>
+            <td class="document-cell">
+              <span class="document-cell-label">Staff/entity</span>
+              <span>{{ documentRecord.holderName }}</span>
+            </td>
 
-              <div class="document-cell">
-                <span class="document-cell-label">Issue date</span>
-                <p>{{ formatDate(documentRecord.issueDate) }}</p>
-              </div>
+            <td class="document-cell">
+              <span class="document-cell-label">Issue date</span>
+              <span>{{ formatDate(documentRecord.issueDate) }}</span>
+            </td>
 
-              <div class="document-cell">
-                <span class="document-cell-label">Renewal date</span>
-                <p>{{ formatDate(documentRecord.renewalDate) }}</p>
-              </div>
+            <td class="document-cell">
+              <span class="document-cell-label">Renewal date</span>
+              <span>{{ formatDate(documentRecord.renewalDate) }}</span>
+            </td>
 
-              <div class="document-cell">
-                <span class="document-cell-label">Status</span>
-                <span class="status-badge" :data-status="documentRecord.status">
-                  {{ formatDocumentStatus(documentRecord.status) }}
-                </span>
-              </div>
+            <td class="document-cell">
+              <span class="document-cell-label">Status</span>
+              <span class="status-badge" :data-status="documentRecord.status">
+                {{ formatDocumentStatus(documentRecord.status) }}
+              </span>
+            </td>
 
-              <div class="document-cell document-cell-actions">
-                <span class="document-cell-label">Actions</span>
-                <button
-                  type="button"
-                  class="action-button"
-                  :aria-label="`Document actions for ${documentRecord.title}`"
-                >
-                  <svg aria-hidden="true" class="action-icon" viewBox="0 0 20 20">
-                    <circle cx="10" cy="4.5" r="1.5" fill="currentColor" />
-                    <circle cx="10" cy="10" r="1.5" fill="currentColor" />
-                    <circle cx="10" cy="15.5" r="1.5" fill="currentColor" />
-                  </svg>
-                </button>
-              </div>
-            </article>
-          </li>
-        </ul>
-      </div>
+            <td class="document-cell document-cell-actions">
+              <span class="document-cell-label">Actions</span>
+              <button
+                type="button"
+                class="action-button"
+                :aria-label="`Document actions for ${documentRecord.title}`"
+              >
+                <svg aria-hidden="true" class="action-icon" viewBox="0 0 20 20">
+                  <circle cx="10" cy="4.5" r="1.5" fill="currentColor" />
+                  <circle cx="10" cy="10" r="1.5" fill="currentColor" />
+                  <circle cx="10" cy="15.5" r="1.5" fill="currentColor" />
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <div v-else class="empty-state">
         <p>{{ emptyStateMessage }}</p>
@@ -420,19 +425,19 @@ function goToUploadPage() {
 }
 
 .documents-table {
-  display: flex;
-  flex-direction: column;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
-.documents-table-header,
-.document-row {
+.documents-table-header tr,
+.documents-list-item {
   display: grid;
   grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr) 48px;
   column-gap: 16px;
 }
 
 .documents-table-header {
-  padding: 14px 20px;
   background-color: #e2e8f0;
   color: var(--color-text-secondary);
   font-size: 0.75rem;
@@ -441,30 +446,27 @@ function goToUploadPage() {
   text-transform: uppercase;
 }
 
-.actions-column {
-  text-align: center;
+.documents-table-header th {
+  padding: 14px 20px;
+  font: inherit;
+  text-align: left;
 }
 
-.documents-list {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.actions-column {
+  text-align: center;
 }
 
 .documents-list-item + .documents-list-item {
   border-top: 1px solid #e2e8f0;
 }
 
-.document-row {
+.documents-list-item {
   align-items: center;
-  padding: 18px 20px;
   background-color: var(--color-container);
   transition: background-color 120ms ease;
 }
 
-.document-row:hover {
+.documents-list-item:hover {
   background-color: #f8fafc;
 }
 
@@ -473,11 +475,8 @@ function goToUploadPage() {
   min-width: 0;
   flex-direction: column;
   gap: 4px;
-}
-
-.document-cell p {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  padding: 18px 20px;
+  text-align: left;
 }
 
 .document-cell-label {
@@ -485,7 +484,14 @@ function goToUploadPage() {
 }
 
 .document-primary {
+  min-width: 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.document-cell span:not(.document-cell-label):not(.status-badge) {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .status-badge {
@@ -552,7 +558,7 @@ function goToUploadPage() {
     display: none;
   }
 
-  .document-row {
+  .documents-list-item {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 12px;
   }
@@ -585,7 +591,7 @@ function goToUploadPage() {
     grid-template-columns: 1fr;
   }
 
-  .document-row {
+  .documents-list-item {
     grid-template-columns: 1fr;
   }
 }

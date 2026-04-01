@@ -12,13 +12,26 @@ export function startOfToday() {
   return today
 }
 
+export function parseLocalDate(value: string) {
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1])
+    const month = Number(dateOnlyMatch[2])
+    const day = Number(dateOnlyMatch[3])
+
+    return new Date(year, month - 1, day)
+  }
+
+  return new Date(value)
+}
+
 export function getDocumentStatus(
   documentRecord: ImportantDocumentRecord,
   warningDays = expiryWarningDays,
 ): ImportantDocumentStatus {
   const today = startOfToday()
-  const renewalDate = new Date(documentRecord.renewalDate)
-  renewalDate.setHours(0, 0, 0, 0)
+  const renewalDate = parseLocalDate(documentRecord.renewalDate)
 
   if (renewalDate < today) {
     return 'EXPIRED'
@@ -43,7 +56,10 @@ export function getDocumentsWithStatus(
       ...documentRecord,
       status: getDocumentStatus(documentRecord, warningDays),
     }))
-    .sort((left, right) => new Date(left.renewalDate).getTime() - new Date(right.renewalDate).getTime())
+    .sort(
+      (left, right) =>
+        parseLocalDate(left.renewalDate).getTime() - parseLocalDate(right.renewalDate).getTime(),
+    )
 }
 
 export function formatDocumentStatus(status: ImportantDocumentStatus) {
@@ -54,5 +70,9 @@ export function formatDocumentStatus(status: ImportantDocumentStatus) {
       return 'Expiring'
     case 'EXPIRED':
       return 'Expired'
+    default: {
+      const exhaustiveStatus: never = status
+      throw new Error(`Unsupported document status: ${String(exhaustiveStatus)}`)
+    }
   }
 }

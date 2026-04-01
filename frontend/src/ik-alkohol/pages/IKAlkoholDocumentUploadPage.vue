@@ -1,7 +1,3 @@
-<script setup lang="ts">
-import BaseButton from '@/shared/components/BaseButton.vue'
-</script>
-
 <template>
   <div class="upload-page">
     <header class="page-header">
@@ -20,7 +16,7 @@ import BaseButton from '@/shared/components/BaseButton.vue'
       </p>
 
       <RouterLink :to="{ name: 'ik-alkohol-documents' }" class="back-link">
-        <BaseButton class="back-button" type="button">Back to important documents</BaseButton>
+        Back to important documents
       </RouterLink>
     </section>
   </div>
@@ -63,14 +59,15 @@ import BaseButton from '@/shared/components/BaseButton.vue'
   align-self: flex-start;
   margin-top: 8px;
   text-decoration: none;
+  padding: 0.875rem 1rem;
+  border-radius: 4px;
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
-.back-button {
-  width: auto;
-}
-
-.back-button :deep(.button) {
-  width: auto;
-  justify-content: center;
+.back-link:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 88%, black);
 }
 </style>
