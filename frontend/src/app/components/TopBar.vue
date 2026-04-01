@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     mobileNavOpen?: boolean
   }>(),
@@ -13,6 +13,10 @@ withDefaults(
     mobileNavOpen: false,
   },
 )
+
+const emit = defineEmits<{
+  (e: 'toggle-mobile-nav'): void
+}>()
 
 const activePopup = ref<null | 'notifications' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
@@ -124,34 +128,52 @@ defineExpose({
         ref="mobileNavButton"
         type="button"
         class="mobile-menu-button"
-        aria-label="Open app navigation"
+        :aria-label="props.mobileNavOpen ? 'Close app navigation' : 'Open app navigation'"
         aria-haspopup="dialog"
-        :aria-expanded="mobileNavOpen"
+        :aria-expanded="props.mobileNavOpen"
         aria-controls="mobile-navigation"
-        @click="$emit('toggle-mobile-nav')"
+        @click="emit('toggle-mobile-nav')"
       >
         <svg aria-hidden="true" class="mobile-menu-icon" viewBox="0 0 20 20">
-          <path
-            d="M3.5 5.5h13"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.8"
-          />
-          <path
-            d="M3.5 10h13"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.8"
-          />
-          <path
-            d="M3.5 14.5h13"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.8"
-          />
+          <template v-if="props.mobileNavOpen">
+            <path
+              d="m5.5 5.5 9 9"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="m14.5 5.5-9 9"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </template>
+          <template v-else>
+            <path
+              d="M3.5 5.5h13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M3.5 10h13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M3.5 14.5h13"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </template>
         </svg>
       </button>
 

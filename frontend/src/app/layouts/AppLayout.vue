@@ -9,6 +9,7 @@ const route = useRoute()
 const topBar = ref<InstanceType<typeof TopBar> | null>(null)
 const mobileNavigationDrawer = ref<HTMLElement | null>(null)
 const isMobileNavigationOpen = ref(false)
+const previousBodyOverflow = ref<string | null>(null)
 
 function handleMobileNavigationToggle() {
   if (isMobileNavigationOpen.value) {
@@ -39,6 +40,53 @@ function handleEscape(event: KeyboardEvent) {
   }
 }
 
+function getFocusableDrawerElements() {
+  return mobileNavigationDrawer.value?.querySelectorAll<HTMLElement>(
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )
+}
+
+function handleMobileNavigationKeydown(event: KeyboardEvent) {
+  if (!isMobileNavigationOpen.value || event.key !== 'Tab') {
+    return
+  }
+
+  const focusableElements = getFocusableDrawerElements()
+
+  if (!focusableElements || focusableElements.length === 0) {
+    event.preventDefault()
+    mobileNavigationDrawer.value?.focus()
+    return
+  }
+
+  const firstFocusableElement = focusableElements.item(0)
+  const lastFocusableElement = focusableElements.item(focusableElements.length - 1)
+  const activeElement = document.activeElement
+
+  if (!firstFocusableElement || !lastFocusableElement) {
+    event.preventDefault()
+    mobileNavigationDrawer.value?.focus()
+    return
+  }
+
+  if (event.shiftKey && activeElement === mobileNavigationDrawer.value) {
+    event.preventDefault()
+    lastFocusableElement.focus()
+    return
+  }
+
+  if (event.shiftKey && activeElement === firstFocusableElement) {
+    event.preventDefault()
+    lastFocusableElement.focus()
+    return
+  }
+
+  if (!event.shiftKey && activeElement === lastFocusableElement) {
+    event.preventDefault()
+    firstFocusableElement.focus()
+  }
+}
+
 function handleResize() {
   if (window.innerWidth > 960 && isMobileNavigationOpen.value) {
     closeMobileNavigation(false)
@@ -53,7 +101,13 @@ watch(
 )
 
 watch(isMobileNavigationOpen, async (isOpen) => {
-  document.body.style.overflow = isOpen ? 'hidden' : ''
+  if (isOpen) {
+    previousBodyOverflow.value = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  } else if (previousBodyOverflow.value !== null) {
+    document.body.style.overflow = previousBodyOverflow.value
+    previousBodyOverflow.value = null
+  }
 
   if (isOpen) {
     await nextTick()
@@ -69,7 +123,11 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleEscape)
   window.removeEventListener('resize', handleResize)
-  document.body.style.overflow = ''
+
+  if (previousBodyOverflow.value !== null) {
+    document.body.style.overflow = previousBodyOverflow.value
+    previousBodyOverflow.value = null
+  }
 })
 </script>
 
@@ -93,10 +151,11 @@ onBeforeUnmount(() => {
           id="mobile-navigation"
           ref="mobileNavigationDrawer"
           class="mobile-navigation-drawer"
-          role="search"
+          role="dialog"
           aria-modal="true"
           aria-label="App navigation"
           tabindex="-1"
+          @keydown="handleMobileNavigationKeydown"
         >
           <Sidebar variant="mobile" @navigate="closeMobileNavigation(false)" />
         </aside>
