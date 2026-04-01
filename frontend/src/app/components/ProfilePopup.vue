@@ -58,11 +58,10 @@ async function onLogout() {
           </span>
         </div>
       </div>
-      <!-- FIXME: Fix the icons -->
       <div class="actions-section">
         <button type="button" class="menu-action" @click="navigateTo('my-profile')">
           <span class="menu-action-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none">
+            <svg viewBox="0 0 20 20">
               <path
                 d="M10 10a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"
                 stroke="currentColor"
@@ -84,7 +83,7 @@ async function onLogout() {
 
         <button type="button" class="menu-action" @click="navigateTo('settings')">
           <span class="menu-action-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none">
+            <svg viewBox="0 0 20 20">
               <path
                 d="M10 12.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z"
                 stroke="currentColor"
@@ -93,7 +92,7 @@ async function onLogout() {
                 stroke-width="1.5"
               />
               <path
-                d="M16.25 10a1.03 1.03 0 0 0-.21-.63l-1.02-1.33.08-1.67a1.02 1.02 0 0 0-.82-1.01l-1.63-.34-.87-1.42a1.03 1.03 0 0 0-1.56-.21L9 3.85l-1.22-.46a1.03 1.03 0 0 0-1.56.21l-.87 1.42-1.63.34a1.02 1.02 0 0 0-.82 1.01l.08 1.67-1.02 1.33a1.03 1.03 0 0 0 0 1.26l1.02 1.33-.08 1.67a1.02 1.02 0 0 0 .82 1.01l1.63.34.87 1.42a1.03 1.03 0 0 0 1.56.21L9 16.15l1.22.46a1.03 1.03 0 0 0 1.56-.21l.87-1.42 1.63-.34a1.02 1.02 0 0 0 .82-1.01l-.08-1.67 1.02-1.33c.14-.18.21-.4.21-.63Z"
+                d="M16 10c0-.28-.03-.56-.08-.82l1.22-.96-1.2-2.08-1.52.47a5.92 5.92 0 0 0-1.42-.82l-.3-1.57H10.3L10 5.79c-.5.13-.97.33-1.42.58l-1.52-.47-1.2 2.08 1.22.96c-.05.26-.08.54-.08.82s.03.56.08.82l-1.22.96 1.2 2.08 1.52-.47c.45.25.92.45 1.42.58l.3 1.57h2.4l.3-1.57c.5-.13.97-.33 1.42-.58l1.52.47 1.2-2.08-1.22-.96c.05-.26.08-.54.08-.82Z"
                 stroke="currentColor"
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -106,7 +105,7 @@ async function onLogout() {
 
         <button type="button" class="menu-action" @click="onSupport">
           <span class="menu-action-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none">
+            <svg viewBox="0 0 20 20">
               <path
                 d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"
                 stroke="currentColor"
@@ -135,7 +134,7 @@ async function onLogout() {
 
         <button type="button" class="menu-action menu-action-signout" @click="onLogout">
           <span class="menu-action-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none">
+            <svg viewBox="0 0 20 20">
               <path
                 d="M8 4H5.75A1.75 1.75 0 0 0 4 5.75v8.5A1.75 1.75 0 0 0 5.75 16H8"
                 stroke="currentColor"
@@ -254,6 +253,7 @@ async function onLogout() {
 .menu-action-icon svg {
   width: 100%;
   height: 100%;
+  fill: none;
 }
 
 .menu-action-signout {

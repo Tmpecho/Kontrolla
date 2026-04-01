@@ -8,6 +8,11 @@ const activePopup = ref<null | 'notifications' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
 const route = useRoute()
 
+function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
+  const routeName = typeof route.name === 'string' ? route.name : ''
+  return routeName.startsWith(`${section}-`)
+}
+
 function togglePopup(type: 'notifications' | 'profile') {
   activePopup.value = activePopup.value === type ? null : type
 }
@@ -56,8 +61,20 @@ watch(
         <RouterLink :to="{ name: 'workspace-home' }">Kontrolla</RouterLink>
       </h1>
 
-      <RouterLink class="nav-link" :to="{name: 'ik-mat-dashboard' }">IK-Mat</RouterLink>
-      <RouterLink class="nav-link" :to="{name: 'ik-alkohol-dashboard' }">IK-Alkohol</RouterLink>
+      <RouterLink
+        class="nav-link"
+        :data-active="isServiceActive('ik-mat')"
+        :to="{ name: 'ik-mat-dashboard' }"
+      >
+        IK-Mat
+      </RouterLink>
+      <RouterLink
+        class="nav-link"
+        :data-active="isServiceActive('ik-alkohol')"
+        :to="{ name: 'ik-alkohol-dashboard' }"
+      >
+        IK-Alkohol
+      </RouterLink>
     </div>
 
     <div ref="popupArea" class="right-container icons-container">
@@ -142,7 +159,7 @@ watch(
   color: var(--color-text-secondary);
 }
 
-.nav-link.router-link-active {
+.nav-link[data-active='true'] {
   color: var(--color-text-primary);
   font-weight: 500;
 }
