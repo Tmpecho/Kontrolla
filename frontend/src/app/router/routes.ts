@@ -51,14 +51,14 @@ export const routes: RouteRecordRaw[] = [
         component: WorkspaceHomePage,
       },
       {
-        path: 'diviation-form',
-        name: 'diviation-form',
-        component: DiviationFormPage,
-      },
-      {
         path: 'ik-mat',
         name: 'ik-mat-dashboard',
         component: IKMatDashboardPage,
+      },
+      {
+        path: 'ik-mat/diviation-form',
+        name: 'ik-mat-diviation-form',
+        component: DiviationFormPage,
       },
       {
         path: 'ik-mat/documents',
@@ -69,6 +69,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol',
         name: 'ik-alkohol-dashboard',
         component: IKAlkoholDashboardPage,
+      },
+      {
+        path: 'ik-alkohol/diviation-form',
+        name: 'ik-alkohol-diviation-form',
+        component: DiviationFormPage,
       },
       {
         path: 'ik-alkohol/documents',

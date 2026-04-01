@@ -20,7 +20,7 @@
     </section>
 
     <section class="dashboard-section">
-      <DiviationsTile class="dashboard-tile"/>
+      <DiviationsTile class="dashboard-tile" to="/app/ik-alkohol/diviation-form" />
     </section>
 
     <div class="row-container">

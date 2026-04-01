@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import BaseButton from '@/shared/components/BaseButton.vue';
+import BaseButton from '@/shared/components/BaseButton.vue'
+
+const props = defineProps<{
+  to: string
+}>()
 
 const router = useRouter()
 
 function goToDiviationPage() {
-  router.push('diviation-form')
+  router.push(props.to)
 }
 </script>
 
