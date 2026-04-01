@@ -10,6 +10,7 @@ import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
+import DiviationFormPage from '@/diviations/pages/DiviationFormPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -48,6 +49,11 @@ export const routes: RouteRecordRaw[] = [
         path: '',
         name: 'workspace-home',
         component: WorkspaceHomePage,
+      },
+      {
+        path: 'diviation-form',
+        name: 'diviation-form',
+        component: DiviationFormPage,
       },
       {
         path: 'ik-mat',

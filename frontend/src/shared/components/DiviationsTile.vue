@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import BaseButton from '@/shared/components/BaseButton.vue';
+
+const router = useRouter()
+
+function goToDiviationPage() {
+  router.push('diviation-form')
+}
 </script>
 
 <template>
@@ -7,7 +14,7 @@ import BaseButton from '@/shared/components/BaseButton.vue';
     <h2>Diviations</h2>
     <p>Empty</p>
 
-    <BaseButton type="button" class="add-btn">
+    <BaseButton type="button" class="add-btn" @click="goToDiviationPage">
       Add Diviation
     </BaseButton>
   </div>

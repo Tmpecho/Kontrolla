@@ -20,7 +20,19 @@ defineEmits(['update:modelValue'])
         <slot name="aside"></slot>
       </div>
     </div>
+    
+    <textarea
+      v-if="type === 'text-area'"
+      :id="id"
+      :value="modelValue"
+      @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
+      :autocomplete="autocomplete"
+      :placeholder="placeholder"
+      class="input-field textarea-field"
+      required
+    ></textarea>
     <input
+      v-else
       :id="id"
       :type="type || 'text'"
       :value="modelValue"
@@ -72,6 +84,11 @@ defineEmits(['update:modelValue'])
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   border-bottom-color: transparent;
+}
+
+.textarea-field {
+  min-height: 200px;
+  resize: vertical;
 }
 
 .input-hint {
