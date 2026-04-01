@@ -232,12 +232,6 @@ async function onLogout() {
   gap: 8px;
 }
 
-.sidebar-eyebrow,
-.sidebar-meta {
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-}
-
 .subservices ul {
   display: flex;
   flex-direction: column;
