@@ -92,6 +92,8 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol/documents',
         name: 'ik-alkohol-documents',
         component: IKAlkoholDocumentsPage,
+      },
+      {
         path: 'my-profile',
         name: 'my-profile',
         component: MyProfilePage,
