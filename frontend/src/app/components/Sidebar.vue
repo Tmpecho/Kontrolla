@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
@@ -32,7 +32,7 @@ type MainAreaItem = {
   section: Exclude<AppSection, 'account'>
 }
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     variant?: 'desktop' | 'mobile'
   }>(),
@@ -98,7 +98,7 @@ const mainAreaItems: MainAreaItem[] = [
 ]
 
 const currentSectionLabel = computed(() => {
-  switch (currentAppSection.value) {
+  switch (visibleSection.value) {
     case 'ik-mat':
       return 'IK-mat'
     case 'ik-alkohol':
@@ -110,8 +110,22 @@ const currentSectionLabel = computed(() => {
   }
 })
 
+const expandedMobileSection = ref<AppSection>(currentAppSection.value)
+
+watch(currentAppSection, (section) => {
+  expandedMobileSection.value = section
+})
+
+const visibleSection = computed<AppSection>(() => {
+  if (props.variant === 'mobile') {
+    return expandedMobileSection.value
+  }
+
+  return currentAppSection.value
+})
+
 const navigationItems = computed<NavigationItem[]>(() => {
-  switch (currentAppSection.value) {
+  switch (visibleSection.value) {
     case 'ik-mat':
       return [
         {
@@ -202,6 +216,14 @@ function isNavigationItemActive(routeName?: AppRouteName) {
   )
 }
 
+function selectMobileSection(section: Exclude<AppSection, 'account'>) {
+  if (props.variant !== 'mobile') {
+    return
+  }
+
+  expandedMobileSection.value = section
+}
+
 function onNavigation() {
   emit('navigate')
 }
@@ -224,15 +246,16 @@ async function onLogout() {
       <nav v-if="variant === 'mobile'" aria-label="Main areas" class="navigation-group">
         <p class="nav-group-label">Main areas</p>
         <ul>
-          <li v-for="mainAreaItem in mainAreaItems" :key="mainAreaItem.routeName ?? mainAreaItem.label">
-            <RouterLink
-              :to="{ name: mainAreaItem.routeName }"
-              class="nav-link nav-link-main"
-              :data-active="currentAppSection === mainAreaItem.section"
-              @click="onNavigation"
+          <li v-for="mainAreaItem in mainAreaItems" :key="mainAreaItem.label">
+            <button
+              type="button"
+              class="nav-link nav-link-main nav-link-button"
+              :data-active="visibleSection === mainAreaItem.section"
+              :aria-pressed="visibleSection === mainAreaItem.section"
+              @click="selectMobileSection(mainAreaItem.section)"
             >
               {{ mainAreaItem.label }}
-            </RouterLink>
+            </button>
           </li>
         </ul>
       </nav>
@@ -400,6 +423,15 @@ async function onLogout() {
   color: var(--color-text-secondary);
   font-size: small;
   text-decoration: none;
+}
+
+.nav-link-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .nav-link[data-active='true'] {
