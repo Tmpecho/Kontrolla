@@ -10,7 +10,7 @@ import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
-import DiviationFormPage from '@/diviations/pages/DiviationFormPage.vue'
+import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -56,9 +56,9 @@ export const routes: RouteRecordRaw[] = [
         component: IKMatDashboardPage,
       },
       {
-        path: 'ik-mat/diviation-form',
-        name: 'ik-mat-diviation-form',
-        component: DiviationFormPage,
+        path: 'ik-mat/deviation-form',
+        name: 'ik-mat-deviation-form',
+        component: DeviationFormPage,
       },
       {
         path: 'ik-mat/documents',
@@ -71,9 +71,9 @@ export const routes: RouteRecordRaw[] = [
         component: IKAlkoholDashboardPage,
       },
       {
-        path: 'ik-alkohol/diviation-form',
-        name: 'ik-alkohol-diviation-form',
-        component: DiviationFormPage,
+        path: 'ik-alkohol/deviation-form',
+        name: 'ik-alkohol-deviation-form',
+        component: DeviationFormPage,
       },
       {
         path: 'ik-alkohol/documents',

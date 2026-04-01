@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const router = useRouter()
 
-function goToDiviationPage() {
+function goToDeviationPage() {
   router.push(props.to)
 }
 </script>
@@ -18,8 +18,8 @@ function goToDiviationPage() {
     <h2>Diviations</h2>
     <p>Empty</p>
 
-    <BaseButton type="button" class="add-btn" @click="goToDiviationPage">
-      Add Diviation
+    <BaseButton type="button" class="add-btn" @click="goToDeviationPage">
+      Add Deviation
     </BaseButton>
   </div>
 </template>

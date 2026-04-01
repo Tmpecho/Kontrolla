@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import DiviationsTile from '@/shared/components/DiviationsTile.vue'
+import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
@@ -114,7 +114,7 @@ onMounted(async () => {
     </section>
 
     <section class="dashboard-section">
-      <DiviationsTile class="dashboard-tile" to="/app/ik-mat/diviation-form" />
+      <DeviationsTile class="dashboard-tile" to="/app/ik-mat/deviation-form" />
     </section>
 
     <div class="row-container">
@@ -122,7 +122,7 @@ onMounted(async () => {
         <RouterLink :to="{ name: 'ik-mat-documents' }" class="tile-link">
           <div class="dashboard-tile dashboard-tile-link">
             <h2>Documents</h2>
-            <p>Overview over alchohol compliance.</p>
+            <p>Overview over IK-mat related documents.</p>
           </div>
         </RouterLink>
       </section>

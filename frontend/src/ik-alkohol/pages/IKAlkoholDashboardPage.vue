@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import ServingHoursTile from '@/ik-alkohol/components/ServingHoursTile.vue'
-  import DiviationsTile from '@/shared/components/DiviationsTile.vue'
+  import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 </script>
 
 <template>
@@ -20,7 +20,7 @@
     </section>
 
     <section class="dashboard-section">
-      <DiviationsTile class="dashboard-tile" to="/app/ik-alkohol/diviation-form" />
+      <DeviationsTile class="dashboard-tile" to="/app/ik-alkohol/deviation-form" />
     </section>
 
     <div class="row-container">
@@ -28,7 +28,7 @@
         <RouterLink :to="{ name: 'ik-alkohol-documents' }" class="tile-link">
           <div class="dashboard-tile dashboard-tile-link">
             <h2>Documents</h2>
-            <p>Overview over alchohol compliance.</p>
+            <p>Overview over alcohol compliance.</p>
           </div>
         </RouterLink>
       </section>
