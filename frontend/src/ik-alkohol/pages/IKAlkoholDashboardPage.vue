@@ -20,7 +20,12 @@
     </section>
 
     <section class="dashboard-section">
-      <DeviationsTile class="dashboard-tile" to="/app/ik-alkohol/deviation/form" />
+      <DeviationsTile
+        add-deviation-to="/app/ik-alkohol/deviation/form"
+        class="dashboard-tile"
+        deviation-page-to="/app/ik-alkohol/deviation"
+        service-area="IK_ALKOHOL"
+      />
     </section>
 
     <div class="row-container">
@@ -68,6 +73,8 @@
   background-color: var(--color-container);
   color: var(--color-text-primary);
   text-decoration: none;
+  box-shadow: var(--shadow-elevated);
+
 }
 
 .tile-link {

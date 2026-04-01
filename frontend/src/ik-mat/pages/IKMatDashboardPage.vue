@@ -114,7 +114,12 @@ onMounted(async () => {
     </section>
 
     <section class="dashboard-section">
-      <DeviationsTile class="dashboard-tile" to="/app/ik-mat/deviation/form" />
+      <DeviationsTile
+        add-deviation-to="/app/ik-mat/deviation/form"
+        class="dashboard-tile"
+        deviation-page-to="/app/ik-mat/deviation"
+        service-area="IK_MAT"
+      />
     </section>
 
     <div class="row-container">
