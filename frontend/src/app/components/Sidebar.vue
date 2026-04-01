@@ -17,12 +17,25 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+const activeRouteNamesByNavigationRoute = {
+  'workspace-home': ['workspace-home'],
+  'ik-mat-dashboard': ['ik-mat-dashboard'],
+  'ik-mat-documents': ['ik-mat-documents'],
+  'ik-mat-deviation': ['ik-mat-deviation', 'ik-mat-deviation-form'],
+  'ik-alkohol-dashboard': ['ik-alkohol-dashboard'],
+  'ik-alkohol-documents': ['ik-alkohol-documents', 'ik-alkohol-documents-upload'],
+  'ik-alkohol-deviation': ['ik-alkohol-deviation', 'ik-alkohol-deviation-form'],
+} as const
+
 function isNavigationItemActive(routeName?: NavigationItem['routeName']) {
   if (!routeName) {
     return false
   }
 
-  return route.name === routeName
+  const currentRouteName = typeof route.name === 'string' ? route.name : ''
+  return activeRouteNamesByNavigationRoute[routeName].some(
+    (candidateRouteName) => candidateRouteName === currentRouteName,
+  )
 }
 
 const currentAppSection = computed(() => {
