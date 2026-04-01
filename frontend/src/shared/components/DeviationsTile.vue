@@ -58,7 +58,11 @@ function getDeviationLink(deviationId: string) {
 
     <ul class="recent-deviation-list">
       <li v-for="deviation in recentDeviations" :key="deviation.id" class="recent-deviation-item">
-        <RouterLink :to="getDeviationLink(deviation.id)" class="recent-deviation-link">
+        <RouterLink
+          :to="getDeviationLink(deviation.id)"
+          :data-accent="formatSeverity(deviation.severity)"
+          class="recent-deviation-link"
+        >
           <div class="recent-deviation-header">
             <p class="recent-deviation-title">{{ deviation.title }}</p>
             <div class="deviation-tags">
@@ -141,6 +145,7 @@ function getDeviationLink(deviationId: string) {
 }
 
 .recent-deviation-link {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -151,9 +156,36 @@ function getDeviationLink(deviationId: string) {
   background-color: var(--color-surface);
   color: inherit;
   text-decoration: none;
+  overflow: hidden;
   transition:
     border-color 120ms ease,
     background-color 120ms ease;
+}
+
+.recent-deviation-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background-color: var(--color-border-muted);
+}
+
+.recent-deviation-link[data-accent='low']::before {
+  background-color: var(--color-success);
+}
+
+.recent-deviation-link[data-accent='medium']::before {
+  background-color: var(--color-warning);
+}
+
+.recent-deviation-link[data-accent='high']::before {
+  background-color: var(--color-primary);
+}
+
+.recent-deviation-link[data-accent='critical']::before {
+  background-color: var(--color-critical);
 }
 
 .recent-deviation-link:hover {

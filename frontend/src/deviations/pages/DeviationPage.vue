@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
               <article
                 class="deviation-row"
                 :data-selected="selectedDeviationId === deviation.id"
-                role="button"
+                role="region"
                 tabindex="0"
                 @click="selectDeviation(deviation.id)"
                 @keydown="onDeviationRowKeydown($event, deviation.id)"
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
 
 .add-button {
   width: auto;
-  min-width: 160px;
+  min-width: 140px;
   justify-content: center;
   font-weight: bold;
   flex-shrink: 0;
@@ -508,7 +508,6 @@ onBeforeUnmount(() => {
 
 .deviation-list {
   margin: 0;
-  padding: 0;
   list-style: none;
   display: flex;
   flex: 1;
@@ -516,7 +515,7 @@ onBeforeUnmount(() => {
   gap: 12px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 0 4px 0 0;
 }
 
 .deviation-row {
