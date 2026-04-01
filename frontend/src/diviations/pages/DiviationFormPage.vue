@@ -36,9 +36,8 @@ async function onSubmit() {
             <BaseInput
             id="date"
             label="date"
-            type="text"
+            type="date"
             v-model="form.date"
-            placeholder="dd.mm.yy"
             />
         </div>
         <div class="btn-wrapper">
