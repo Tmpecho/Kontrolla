@@ -272,6 +272,7 @@ function goToUploadPage() {
   width: auto;
   min-width: 0;
   flex-shrink: 0;
+  font-weight: 600;
 }
 
 .upload-button :deep(.button) {

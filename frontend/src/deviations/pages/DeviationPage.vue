@@ -209,14 +209,14 @@ onBeforeUnmount(() => {
                   stroke="currentColor"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="2.5"
+                  stroke-width="2.0"
                 />
                 <path
                   d="M4.5 10h11"
                   stroke="currentColor"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="2.5"
+                  stroke-width="2.0"
                 />
               </svg>
               <span>Add deviation</span>
@@ -411,7 +411,7 @@ onBeforeUnmount(() => {
   width: auto;
   min-width: 140px;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
