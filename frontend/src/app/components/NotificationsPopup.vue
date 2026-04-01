@@ -1,24 +1,21 @@
 <script setup lang="ts">
+import AppPopupShell from '@/app/components/AppPopupShell.vue'
 </script>
 
 <template>
-<div class="notifications-container">
-    <p>
-        No Notifications
-    </p>
-</div>
+  <AppPopupShell aria-label="Notifications">
+    <div class="notifications-container">
+      <p>No notifications</p>
+    </div>
+  </AppPopupShell>
 </template>
 
 <style scoped>
 .notifications-container {
-  position: absolute;
-  top: 60px;
-  right: 0;
-  z-index: 100;
-  min-width: 200px;
-  padding: 12px;
-  background: var(--color-container);
-  border-radius: 2px;
-  box-shadow: var(--shadow-elevated);
+  padding: 14px 16px;
+}
+
+.notifications-container p {
+  margin: 0;
 }
 </style>
