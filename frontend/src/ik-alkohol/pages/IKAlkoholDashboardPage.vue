@@ -20,7 +20,7 @@
     </section>
 
     <section class="dashboard-section">
-      <DeviationsTile class="dashboard-tile" to="/app/ik-alkohol/deviation-form" />
+      <DeviationsTile class="dashboard-tile" to="/app/ik-alkohol/deviation/form" />
     </section>
 
     <div class="row-container">

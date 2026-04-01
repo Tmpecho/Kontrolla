@@ -13,7 +13,7 @@ async function onSubmit() {
 
 <template>
 <div class="page-container">
-    <h2>Diviation Form</h2>
+    <h2>Deviation Form</h2>
 
     <form @submit.prevent="onSubmit" class="form-wrapper">
         <div class="input-group">

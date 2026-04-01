@@ -2,6 +2,6 @@
 </script>
 
 <template>
-    <h2>IK-Mat Documents</h2>
+    <h1>IK-Mat Documents</h1>
     <p>Empty</p>
 </template>

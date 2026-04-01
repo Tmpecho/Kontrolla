@@ -2,6 +2,6 @@
 </script>
 
 <template>
-    <h2>IK-Alkohol Documents</h2>
+    <h1>IK-Alkohol Documents</h1>
     <p>Empty</p>
 </template>

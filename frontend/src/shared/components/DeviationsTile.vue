@@ -14,8 +14,8 @@ function goToDeviationPage() {
 </script>
 
 <template>
-  <div class="diviations-tile">
-    <h2>Diviations</h2>
+  <div class="deviations-tile">
+    <h2>Deviations</h2>
     <p>Empty</p>
 
     <BaseButton type="button" class="add-btn" @click="goToDeviationPage">

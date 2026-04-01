@@ -10,7 +10,7 @@ defineOptions({
 
 type NavigationItem = {
   label: string
-  routeName?: 'workspace-home' | 'ik-mat-dashboard' | 'ik-mat-documents' | 'ik-alkohol-dashboard' | 'ik-alkohol-documents'
+  routeName?: 'workspace-home' | 'ik-mat-dashboard' | 'ik-mat-documents' | 'ik-mat-deviation' | 'ik-alkohol-dashboard' | 'ik-alkohol-documents' | 'ik-alkohol-deviation'
 }
 
 const authStore = useAuthStore()
@@ -46,6 +46,10 @@ const navigationItems = computed<NavigationItem[]>(() => {
           label: 'Important Documents',
           routeName: 'ik-mat-documents'
         },
+        {
+          label: 'Deviations',
+          routeName: 'ik-mat-deviation'
+        },
       ]
     case 'ik-alkohol':
       return [
@@ -56,6 +60,10 @@ const navigationItems = computed<NavigationItem[]>(() => {
         {
           label: 'Important Documents',
           routeName: 'ik-alkohol-documents'
+        },
+        {
+          label: 'Deviations',
+          routeName: 'ik-alkohol-deviation'
         },
       ]
     default:
