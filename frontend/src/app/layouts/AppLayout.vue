@@ -1,14 +1,108 @@
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+
 import TopBar from '@/app/components/TopBar.vue'
 import Sidebar from '@/app/components/Sidebar.vue'
+
+const route = useRoute()
+const topBar = ref<InstanceType<typeof TopBar> | null>(null)
+const mobileNavigationDrawer = ref<HTMLElement | null>(null)
+const isMobileNavigationOpen = ref(false)
+
+function handleMobileNavigationToggle() {
+  if (isMobileNavigationOpen.value) {
+    closeMobileNavigation()
+    return
+  }
+
+  isMobileNavigationOpen.value = true
+}
+
+function closeMobileNavigation(returnFocus = true) {
+  if (!isMobileNavigationOpen.value) {
+    return
+  }
+
+  isMobileNavigationOpen.value = false
+
+  if (returnFocus) {
+    void nextTick(() => {
+      topBar.value?.focusMobileNavTrigger()
+    })
+  }
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isMobileNavigationOpen.value) {
+    closeMobileNavigation()
+  }
+}
+
+function handleResize() {
+  if (window.innerWidth > 960 && isMobileNavigationOpen.value) {
+    closeMobileNavigation(false)
+  }
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    closeMobileNavigation(false)
+  },
+)
+
+watch(isMobileNavigationOpen, async (isOpen) => {
+  document.body.style.overflow = isOpen ? 'hidden' : ''
+
+  if (isOpen) {
+    await nextTick()
+    mobileNavigationDrawer.value?.focus()
+  }
+})
+
+onMounted(() => {
+  document.addEventListener('keydown', handleEscape)
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleEscape)
+  window.removeEventListener('resize', handleResize)
+  document.body.style.overflow = ''
+})
 </script>
 
 <template>
   <div class="app-shell">
-    <TopBar />
+    <TopBar
+      ref="topBar"
+      :mobile-nav-open="isMobileNavigationOpen"
+      @toggle-mobile-nav="handleMobileNavigationToggle"
+    />
+
     <div class="app-body">
-      <Sidebar />
-      <main class="app-content">
+      <Sidebar class="desktop-sidebar" />
+
+      <div
+        v-if="isMobileNavigationOpen"
+        class="mobile-navigation-layer"
+      >
+        <div class="mobile-navigation-backdrop" @click="closeMobileNavigation()" />
+        <aside
+          id="mobile-navigation"
+          ref="mobileNavigationDrawer"
+          class="mobile-navigation-drawer"
+          role="search"
+          aria-modal="true"
+          aria-label="App navigation"
+          tabindex="-1"
+        >
+          <Sidebar variant="mobile" @navigate="closeMobileNavigation(false)" />
+        </aside>
+      </div>
+
+      <main class="app-content" :class="{ 'app-content--nav-open': isMobileNavigationOpen }">
         <RouterView />
       </main>
     </div>
@@ -25,10 +119,15 @@ import Sidebar from '@/app/components/Sidebar.vue'
 }
 
 .app-body {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.mobile-navigation-layer {
+  display: none;
 }
 
 .app-content {
@@ -36,5 +135,43 @@ import Sidebar from '@/app/components/Sidebar.vue'
   padding: 24px;
   min-width: 0;
   overflow-y: auto;
+}
+
+@media (max-width: 960px) {
+  .desktop-sidebar {
+    display: none;
+  }
+
+  .mobile-navigation-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: block;
+  }
+
+  .mobile-navigation-backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.32);
+  }
+
+  .mobile-navigation-drawer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(86vw, 320px);
+    background-color: var(--color-white);
+    box-shadow: var(--shadow-elevated);
+    outline: none;
+  }
+
+  .app-content {
+    padding: 20px 16px;
+  }
+
+  .app-content--nav-open {
+    overflow: hidden;
+  }
 }
 </style>
