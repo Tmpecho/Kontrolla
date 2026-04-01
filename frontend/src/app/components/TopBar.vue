@@ -1,11 +1,15 @@
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 
 const activePopup = ref<null | 'notifications' | 'profile'>(null)
 const popupArea = ref<HTMLElement | null>(null)
+const notificationsButton = ref<HTMLButtonElement | null>(null)
+const profileButton = ref<HTMLButtonElement | null>(null)
+const notificationsPopup = ref<InstanceType<typeof NotificationsPopup> | null>(null)
+const profilePopup = ref<InstanceType<typeof ProfilePopup> | null>(null)
 const route = useRoute()
 
 function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
@@ -13,8 +17,21 @@ function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
   return routeName.startsWith(`${section}-`)
 }
 
-function togglePopup(type: 'notifications' | 'profile') {
-  activePopup.value = activePopup.value === type ? null : type
+async function togglePopup(type: 'notifications' | 'profile') {
+  if (activePopup.value === type) {
+    closePopup()
+    return
+  }
+
+  activePopup.value = type
+  await nextTick()
+
+  if (type === 'notifications') {
+    notificationsPopup.value?.focusPopup()
+    return
+  }
+
+  profilePopup.value?.focusFirstAction()
 }
 
 function closePopup() {
@@ -32,6 +49,14 @@ function handleClickOutside(event: MouseEvent) {
 
 function handleEscape(event: KeyboardEvent) {
   if (event.key === 'Escape') {
+    if (activePopup.value === 'notifications') {
+      notificationsButton.value?.focus()
+    }
+
+    if (activePopup.value === 'profile') {
+      profileButton.value?.focus()
+    }
+
     closePopup()
   }
 }
@@ -79,23 +104,44 @@ watch(
 
     <div ref="popupArea" class="right-container icons-container">
       <div class="icon-wrapper">
-        <img
-          alt="Notifications"
-          class="top-bar-img"
-          src="@/assets/icons/notification.png"
+        <button
+          id="notifications-trigger"
+          ref="notificationsButton"
+          type="button"
+          class="icon-button"
+          aria-label="Notifications"
+          aria-haspopup="dialog"
+          :aria-expanded="activePopup === 'notifications'"
+          aria-controls="notifications-popup"
           @click.stop="togglePopup('notifications')"
+        >
+          <img alt="" class="top-bar-img" src="@/assets/icons/notification.png" />
+        </button>
+        <NotificationsPopup
+          v-if="activePopup === 'notifications'"
+          ref="notificationsPopup"
         />
-        <NotificationsPopup v-if="activePopup === 'notifications'" />
       </div>
 
       <div class="icon-wrapper icon-wrapper-profile">
-        <img
-          alt="Profile"
-          class="top-bar-img"
-          src="@/assets/icons/profile.png"
+        <button
+          id="profile-trigger"
+          ref="profileButton"
+          type="button"
+          class="icon-button"
+          aria-label="User menu"
+          aria-haspopup="dialog"
+          :aria-expanded="activePopup === 'profile'"
+          aria-controls="profile-popup"
           @click.stop="togglePopup('profile')"
+        >
+          <img alt="" class="top-bar-img" src="@/assets/icons/profile.png" />
+        </button>
+        <ProfilePopup
+          v-if="activePopup === 'profile'"
+          ref="profilePopup"
+          @close="closePopup"
         />
-        <ProfilePopup v-if="activePopup === 'profile'" @close="closePopup" />
       </div>
     </div>
   </div>
@@ -137,6 +183,22 @@ watch(
 
 .icon-wrapper-profile {
   z-index: 1;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .app-title {
