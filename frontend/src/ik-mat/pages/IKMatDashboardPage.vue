@@ -1,32 +1,55 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
-import { computed, onMounted, ref } from 'vue'
-import ChecklistRunCard from '@/checklists/components/ChecklistRunCard.vue'
+import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 
-const hasChecklistContext = computed(() =>
-  Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
+const hasChecklistContext = computed(
+  () => Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
 )
 
 const missingContextMessage = computed(() => {
-  if (hasChecklistContext.value) return null
+  if (hasChecklistContext.value) {
+    return null
+  }
+
   if (!appEnv.isDevelopment) {
     return 'Checklist runs cannot be loaded until organization and establishment context is available.'
   }
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs.'
+
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs in development.'
+})
+
+const activeRunsCount = computed(() => {
+  return checklistRuns.value.filter((run) => !['COMPLETED', 'CANCELLED'].includes(run.status)).length
+})
+
+const overdueRunsCount = computed(() => {
+  return checklistRuns.value.filter((run) => run.status === 'OVERDUE').length
+})
+
+const inProgressRunsCount = computed(() => {
+  return checklistRuns.value.filter((run) => run.status === 'IN_PROGRESS').length
+})
+
+const activeRunsLabel = computed(() => {
+  return `${activeRunsCount.value} active ${activeRunsCount.value === 1 ? 'run' : 'runs'}`
 })
 
 async function loadChecklistRuns(): Promise<void> {
   const organizationId = appEnv.defaultOrganizationId
   const establishmentId = appEnv.defaultEstablishmentId
 
-  if (!organizationId || !establishmentId) return
+  if (!organizationId || !establishmentId) {
+    return
+  }
 
   isLoading.value = true
   errorMessage.value = null
@@ -38,6 +61,7 @@ async function loadChecklistRuns(): Promise<void> {
       serviceArea: 'IK_MAT',
       size: 10,
     })
+
     checklistRuns.value = page.items
   } catch (error) {
     errorMessage.value =
@@ -50,118 +74,140 @@ async function loadChecklistRuns(): Promise<void> {
 onMounted(async () => {
   await loadChecklistRuns()
 })
-
-function handleRunUpdate(updatedRun: ChecklistRun) {
-  const index = checklistRuns.value.findIndex((r) => r.id === updatedRun.id)
-  if (index !== -1) {
-    // Replace the old run with the updated one to trigger reactivity
-    checklistRuns.value[index] = updatedRun
-  }
-}
 </script>
 
 <template>
-  <div class="page-container">
-    <header class="page-header">
+  <div class="dashboard-page">
+    <section>
       <h1>IK-mat Dashboard</h1>
-      <p>Overview of food safety compliance routines.</p>
-    </header>
+      <p>Overview over food compliance.</p>
+    </section>
 
-    <!-- Loading & Error States -->
-    <div v-if="missingContextMessage" class="state-card">
-      <p>{{ missingContextMessage }}</p>
-    </div>
+    <section class="dashboard-section">
+      <RouterLink :to="{ name: 'ik-mat-checklists' }" class="tile-link">
+        <div class="dashboard-tile dashboard-tile-link">
+          <div class="tile-copy">
+            <h2>Checklists</h2>
+            <p>Open scheduled routines and update task progress.</p>
+          </div>
 
-    <div v-else-if="isLoading" class="state-card loading">
-      <div class="spinner" />
-      <p>Loading checklist runs...</p>
-    </div>
+          <p v-if="missingContextMessage" class="tile-meta">{{ missingContextMessage }}</p>
+          <p v-else-if="isLoading" class="tile-meta">Loading checklist runs...</p>
+          <p v-else-if="errorMessage" class="tile-meta tile-meta-error">{{ errorMessage }}</p>
+          <p v-else-if="checklistRuns.length === 0" class="tile-meta">No checklist runs found.</p>
+          <div v-else class="checklist-summary">
+            <p class="summary-primary">{{ activeRunsLabel }}</p>
+            <p class="summary-secondary">
+              {{ overdueRunsCount }} overdue • {{ inProgressRunsCount }} in progress
+            </p>
+          </div>
+        </div>
+      </RouterLink>
+    </section>
 
-    <div v-else-if="errorMessage" class="state-card error">
-      <p>{{ errorMessage }}</p>
-    </div>
-
-    <!-- Main Content -->
-    <div v-else-if="checklistRuns.length > 0" class="runs-grid">
-      <ChecklistRunCard
-        v-for="run in checklistRuns"
-        :key="run.id"
-        :run="run"
-        :organization-id="appEnv.defaultOrganizationId!"
-        :establishment-id="appEnv.defaultEstablishmentId!"
-        @update:run="handleRunUpdate"
+    <section class="dashboard-section">
+      <DeviationsTile
+        add-deviation-to="/app/ik-mat/deviation/form"
+        class="dashboard-tile"
+        deviation-page-to="/app/ik-mat/deviation"
+        service-area="IK_MAT"
       />
-    </div>
+    </section>
 
-    <div v-else class="state-card">
-      <p>No checklist runs found.</p>
+    <div class="row-container">
+      <section class="dashboard-section">
+        <RouterLink :to="{ name: 'ik-mat-documents' }" class="tile-link">
+          <div class="dashboard-tile dashboard-tile-link">
+            <h2>Documents</h2>
+            <p>Overview over IK-mat related documents.</p>
+          </div>
+        </RouterLink>
+      </section>
+
+      <section class="dashboard-section">
+        <div class="dashboard-tile dashboard-tile-link">
+          <h2>Temperature</h2>
+          <p>Temperature logs ...</p>
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <style scoped>
-.page-container {
-  max-width: 60rem;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.page-header {
-  margin-bottom: 2.5rem;
+.dashboard-section {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.page-header h1 {
-  font-size: 1.875rem;
-  font-weight: 700;
+.dashboard-tile {
+  display: flex;
+  min-height: 120px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-container);
   color: var(--color-text-primary);
-  margin: 0 0 0.5rem;
-  letter-spacing: -0.02em;
+  text-decoration: none;
 }
 
-.page-header p {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
+.tile-link {
+  text-decoration: none;
+}
+
+.dashboard-tile-link:hover {
+  border-color: var(--color-primary);
+}
+
+.tile-copy,
+.checklist-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tile-copy h2,
+.tile-copy p,
+.summary-primary,
+.summary-secondary,
+.tile-meta {
   margin: 0;
 }
 
-.runs-grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.state-card {
-  background: var(--color-container);
-  padding: 2rem;
-  border-radius: 0.75rem;
-  text-align: center;
+.tile-copy p,
+.summary-secondary,
+.tile-meta {
   color: var(--color-text-secondary);
-  box-shadow: var(--shadow-elevated);
 }
 
-.state-card.error {
-  border: 1px solid var(--color-critical);
+.summary-primary {
+  font-weight: 600;
+}
+
+.tile-meta-error {
   color: var(--color-critical);
 }
 
-.loading {
+.row-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: row;
+  gap: 24px;
 }
 
-.spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--color-border-muted);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+@media (max-width: 960px) {
+  .row-container {
+    flex-direction: column;
   }
 }
 </style>

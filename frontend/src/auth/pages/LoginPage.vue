@@ -7,7 +7,7 @@ import { appEnv } from '@/shared/config/env'
     <div class="main-content">
       <header class="brand-header">
         <div class="brand-icon-wrapper">
-          <svg class="brand-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="brand-icon" viewBox="0 0 24 24" stroke="currentColor">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -34,6 +34,13 @@ import { appEnv } from '@/shared/config/env'
 </template>
 
 <style scoped>
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
 .page-layout {
   min-height: 100dvh;
   display: flex;
@@ -68,6 +75,7 @@ import { appEnv } from '@/shared/config/env'
   width: 28px;
   height: 28px;
   color: var(--color-primary);
+  fill: none;
 }
 
 .brand-title {

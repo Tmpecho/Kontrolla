@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
+import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import { ApiError } from '@/shared/api/http'
 
 const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
@@ -43,21 +43,19 @@ function createDeferred<T>() {
 }
 
 function mountPage() {
-  return mount(IKMatDashboardPage, {
+  return mount(IKMatChecklistsPage, {
     global: {
       stubs: {
-        RouterLink: {
-          template: '<a><slot /></a>',
-        },
-        DeviationsTile: {
-          template: '<div>Deviations tile</div>',
+        ChecklistRunCard: {
+          props: ['run'],
+          template: '<div class="run-card-stub">{{ run.title }}</div>',
         },
       },
     },
   })
 }
 
-describe('IKMatDashboardPage', () => {
+describe('IKMatChecklistsPage', () => {
   afterEach(() => {
     listChecklistRunsMock.mockReset()
     appEnvMock.isDevelopment = true
@@ -83,7 +81,7 @@ describe('IKMatDashboardPage', () => {
     expect(wrapper.text()).toContain('Loading checklist runs...')
   })
 
-  it('renders checklist summary details after a successful request', async () => {
+  it('renders checklist runs after a successful request', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -116,9 +114,8 @@ describe('IKMatDashboardPage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Checklists')
-    expect(wrapper.text()).toContain('1 active run')
-    expect(wrapper.text()).toContain('0 overdue • 0 in progress')
+    expect(wrapper.text()).toContain('IK-mat Checklists')
+    expect(wrapper.text()).toContain('Morning shift')
   })
 
   it('renders an empty state when no checklist runs are returned', async () => {
