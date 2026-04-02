@@ -19,6 +19,7 @@ function createTemperatureUnit(
     name: `${id} unit`,
     location: `${id} location`,
     type: 'FRIDGE',
+    dueByTime: '09:00',
     minimumTemperature: 2,
     maximumTemperature: 4,
     logs: [
@@ -83,6 +84,11 @@ describe('temperature.utils', () => {
       'IN_RANGE',
       'OUT_OF_RANGE',
       'OVERDUE',
+    ])
+    expect(getTemperatureUnitsWithStatus(units).map((unit) => unit.hasLoggedToday)).toEqual([
+      true,
+      true,
+      false,
     ])
 
     vi.useRealTimers()

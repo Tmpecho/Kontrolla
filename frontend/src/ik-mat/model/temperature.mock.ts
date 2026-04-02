@@ -31,6 +31,7 @@ export function createTemperatureUnits(): TemperatureUnit[] {
       name: 'Sushi prep fridge',
       location: 'Hot kitchen',
       type: 'FRIDGE',
+      dueByTime: '08:30',
       minimumTemperature: 2,
       maximumTemperature: 4,
       logs: [
@@ -48,6 +49,7 @@ export function createTemperatureUnits(): TemperatureUnit[] {
       name: 'Walk-in cooler',
       location: 'Receiving room',
       type: 'FRIDGE',
+      dueByTime: '08:30',
       minimumTemperature: 0,
       maximumTemperature: 4,
       logs: [
@@ -65,6 +67,7 @@ export function createTemperatureUnits(): TemperatureUnit[] {
       name: 'Dessert freezer',
       location: 'Cold dessert station',
       type: 'FREEZER',
+      dueByTime: '20:30',
       minimumTemperature: -23,
       maximumTemperature: -18,
       logs: [
@@ -82,6 +85,7 @@ export function createTemperatureUnits(): TemperatureUnit[] {
       name: 'Bar garnish fridge',
       location: 'Front bar',
       type: 'FRIDGE',
+      dueByTime: '10:15',
       minimumTemperature: 2,
       maximumTemperature: 5,
       logs: [
@@ -99,6 +103,7 @@ export function createTemperatureUnits(): TemperatureUnit[] {
       name: 'Frozen storage A',
       location: 'Basement freezer room',
       type: 'FREEZER',
+      dueByTime: '07:45',
       minimumTemperature: -24,
       maximumTemperature: -18,
       logs: [
