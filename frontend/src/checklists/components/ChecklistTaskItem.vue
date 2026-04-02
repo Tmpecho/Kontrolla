@@ -175,7 +175,7 @@ const handleTextChange = (e: Event) => {
 .task-indicator {
   width: 4px;
   min-height: 2rem;
-  border-radius: 2px;
+  border-radius: 1cqh;
   flex-shrink: 0;
   margin-top: 0.125rem;
   transition: background-color 0.2s;
@@ -218,7 +218,7 @@ const handleTextChange = (e: Event) => {
 .task-status {
   font-weight: 700;
   text-transform: uppercase;
-  border-radius: 4px;
+  border-radius: 1cqh;
 }
 .task-badge {
   font-size: 0.625rem;
@@ -251,7 +251,7 @@ const handleTextChange = (e: Event) => {
   max-width: 300px;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.375rem;
+  border-radius: 1cqh;
   background: var(--color-white);
   font: 400 0.875rem var(--font-sans, inherit);
   color: var(--color-text-primary);

@@ -222,7 +222,7 @@ const handleSubmit = withLoading(() =>
 .run-card {
   background: var(--color-container);
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.75rem;
+  border-radius: 1cqh;
   box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
@@ -352,7 +352,7 @@ const handleSubmit = withLoading(() =>
 .btn {
   font: 600 0.875rem var(--font-sans, inherit);
   padding: 0.625rem 1.25rem;
-  border-radius: 0.5rem;
+  border-radius: 1cqh;
   border: 1px solid transparent;
   cursor: pointer;
   transition: 0.15s;
