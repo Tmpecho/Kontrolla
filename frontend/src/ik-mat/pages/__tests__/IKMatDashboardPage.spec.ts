@@ -121,6 +121,63 @@ describe('IKMatDashboardPage', () => {
     expect(wrapper.text()).toContain('0 overdue • 0 in progress')
   })
 
+  it('counts only the latest run for the same checklist definition group', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-older',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'PENDING',
+          startedAt: null,
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T07:00:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+        {
+          id: 'run-latest',
+          checklistDefinitionId: 'definition-2',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift (edited)',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T10:00:00Z',
+          status: 'IN_PROGRESS',
+          startedAt: '2026-03-26T09:15:00Z',
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T09:00:00Z',
+          updatedAt: '2026-03-26T09:30:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 2,
+      totalPages: 1,
+    })
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1 active run')
+    expect(wrapper.text()).toContain('0 overdue • 1 in progress')
+  })
+
   it('renders an empty state when no checklist runs are returned', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [],
