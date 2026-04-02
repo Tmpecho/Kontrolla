@@ -1,5 +1,6 @@
 package org.kontrolla.checklists.application;
 
+import org.kontrolla.checklists.api.UpdateChecklistTaskRequest;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -243,6 +244,59 @@ public class ChecklistRunService {
 		));
 
 		return checklistRunRepository.save(checklistRun);
+	}
+
+@Transactional
+	public ChecklistRun updateChecklistTask(
+			UUID organizationId,
+			UUID establishmentId,
+			UUID checklistRunId,
+			UUID taskId,
+			UpdateChecklistTaskRequest request,
+			CurrentUser currentUser
+	) {
+		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+
+		if (run.getStatus() == ChecklistRunStatus.COMPLETED || run.getStatus() == ChecklistRunStatus.CANCELLED) {
+			throw new IllegalStateException("Cannot update tasks for a completed or cancelled run.");
+		}
+
+		if (run.getStatus() == ChecklistRunStatus.PENDING || run.getStatus() == ChecklistRunStatus.OVERDUE) {
+			run.setStatus(ChecklistRunStatus.IN_PROGRESS);
+			if (run.getStartedAt() == null) {
+				run.setStartedAt(Instant.now());
+			}
+		}
+
+		ChecklistTaskExecution task = run.getTaskExecutions().stream()
+				.filter(t -> t.getId().equals(taskId))
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("Task not found in this run"));
+
+		task.setExecutionStatus(request.executionStatus());
+		task.setComment(request.comment());
+		task.setVerificationResult(request.verificationResult());
+		task.setMeasuredValue(request.measuredValue());
+		task.setEnteredText(request.enteredText());
+
+		if (request.executionStatus() == ChecklistTaskExecutionStatus.COMPLETED || 
+		    request.executionStatus() == ChecklistTaskExecutionStatus.SKIPPED) {
+			task.setResolvedAt(Instant.now());
+		} else {
+			task.setResolvedAt(null);
+		}
+
+		boolean allRequiredDone = run.getTaskExecutions().stream()
+				.filter(ChecklistTaskExecution::isRequired)
+				.allMatch(t -> t.getExecutionStatus() == ChecklistTaskExecutionStatus.COMPLETED || 
+				               t.getExecutionStatus() == ChecklistTaskExecutionStatus.SKIPPED);
+
+		if (allRequiredDone) {
+			run.setStatus(ChecklistRunStatus.COMPLETED);
+			run.setCompletedAt(Instant.now());
+		}
+
+		return run;
 	}
 
 	@Transactional

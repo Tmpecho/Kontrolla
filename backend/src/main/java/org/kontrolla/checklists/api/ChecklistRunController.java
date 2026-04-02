@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -149,6 +150,28 @@ public class ChecklistRunController {
 						establishmentId,
 						checklistRunId,
 						toChecklistTaskExecutionInputs(request.tasks()),
+						currentUser
+				)
+		);
+	}
+
+
+    @PutMapping("/{checklistRunId}/tasks/{taskId}")
+	public ChecklistRunResponse updateChecklistTask(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID establishmentId,
+			@PathVariable UUID checklistRunId,
+			@PathVariable UUID taskId,
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody UpdateChecklistTaskRequest request
+	) {
+		return ChecklistRunResponse.from(
+				checklistRunService.updateChecklistTask(
+						organizationId,
+						establishmentId,
+						checklistRunId,
+						taskId,
+						request,
 						currentUser
 				)
 		);

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import type { ChecklistRun, ChecklistTaskExecution } from '@/checklists/model/checklist.types'
 import {
-  startChecklistRun,
   cancelChecklistRun,
   reopenChecklistRun,
-  submitChecklistRun,
   resetChecklistRun,
+  updateChecklistRunTask,
   type SubmitChecklistRunTaskInput,
 } from '@/checklists/api/checklist-runs.api'
 import ChecklistTaskItem from './ChecklistTaskItem.vue'
@@ -40,7 +39,7 @@ const isInProgress = computed(() => props.run.status === 'IN_PROGRESS')
 const isCompleted = computed(() => props.run.status === 'COMPLETED')
 const isCancelled = computed(() => props.run.status === 'CANCELLED')
 const isOverdue = computed(() => props.run.status === 'OVERDUE')
-
+const isEditable = computed(() => isPending.value || isInProgress.value || isOverdue.value)
 const formattedDueDate = computed(() =>
   new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'long',
@@ -77,20 +76,9 @@ const withLoading = (apiAction: () => Promise<ChecklistRun>) => async () => {
   }
 }
 
-const handleStart = withLoading(() => startChecklistRun(baseParams.value))
 const handleResetRun = withLoading(() => resetChecklistRun(baseParams.value))
 const handleCancel = withLoading(() => cancelChecklistRun(baseParams.value))
 const handleReopen = withLoading(() => reopenChecklistRun(baseParams.value))
-
-const handleResetEdits = () => {
-  workingTasks.value = cloneTasks(props.run.tasks)
-}
-
-const handleTaskUpdate = (updatedTask: ChecklistTaskExecution) => {
-  workingTasks.value = workingTasks.value.map((task) =>
-    task.checklistTaskExecutionId === updatedTask.checklistTaskExecutionId ? updatedTask : task,
-  )
-}
 
 const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInput => ({
   checklistTaskExecutionId: task.checklistTaskExecutionId,
@@ -101,11 +89,22 @@ const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInpu
   enteredText: task.enteredText,
 })
 
-const handleSubmit = withLoading(() =>
-  submitChecklistRun(baseParams.value, {
-    tasks: workingTasks.value.map(toSubmitInput),
-  }),
-)
+const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
+  workingTasks.value = workingTasks.value.map((task) =>
+    task.checklistTaskExecutionId === updatedTask.checklistTaskExecutionId ? updatedTask : task,
+  )
+
+  try {
+    const updatedRun = await updateChecklistRunTask(
+      { ...baseParams.value, taskId: updatedTask.checklistTaskExecutionId },
+      toSubmitInput(updatedTask),
+    )
+    emit('update:run', updatedRun)
+  } catch (e) {
+    console.error('Failed to save task update', e)
+    workingTasks.value = cloneTasks(props.run.tasks)
+  }
+}
 </script>
 
 <template>
@@ -113,9 +112,7 @@ const handleSubmit = withLoading(() =>
     <header class="run-header">
       <div class="header-top">
         <h3 class="run-title">{{ run.title }}</h3>
-        <span class="status-badge" :class="statusMeta.class">
-          {{ statusMeta.label }}
-        </span>
+        <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
       </div>
       <p v-if="run.description" class="run-description">{{ run.description }}</p>
     </header>
@@ -137,36 +134,25 @@ const handleSubmit = withLoading(() =>
 
       <div v-if="workingTasks.length > 0" class="tasks-list">
         <ChecklistTaskItem
-          v-for="(task, index) in workingTasks"
-          :key="task.checklistTaskExecutionId || `task-${index}`"
+          v-for="task in workingTasks"
+          :key="task.checklistTaskExecutionId"
           :task="task"
-          :editable="isInProgress"
+          :editable="isEditable"
           @update:task="handleTaskUpdate"
         />
       </div>
       <p v-else class="empty-text">No tasks defined for this run.</p>
     </div>
 
-    <!-- Action Footer -->
     <footer class="run-footer">
-      <!-- PENDING STATE -->
-      <template v-if="isPending">
+      <template v-if="isEditable">
         <div class="footer-left">
-          <button class="btn btn-danger-ghost" @click="handleCancel" :disabled="isSaving">
-            Cancel Run
-          </button>
-        </div>
-        <div class="footer-right">
-          <button class="btn btn-primary" @click="handleStart" :disabled="isSaving">
-            Start Run
-          </button>
-        </div>
-      </template>
-
-      <!-- IN PROGRESS STATE -->
-      <template v-else-if="isInProgress">
-        <div class="footer-left">
-          <button class="btn btn-danger-ghost" @click="handleResetRun" :disabled="isSaving">
+          <button
+            v-if="isInProgress"
+            class="btn btn-danger-ghost"
+            @click="handleResetRun"
+            :disabled="isSaving"
+          >
             Reset to Pending
           </button>
           <button class="btn btn-danger-ghost" @click="handleCancel" :disabled="isSaving">
@@ -174,40 +160,11 @@ const handleSubmit = withLoading(() =>
           </button>
         </div>
         <div class="footer-right">
-          <button class="btn btn-secondary" @click="handleResetEdits" :disabled="isSaving">
-            Undo Edits
-          </button>
-          <button class="btn btn-primary" @click="handleSubmit" :disabled="isSaving">
-            Submit Results
-          </button>
+          <span class="auto-save-text">Changes save automatically</span>
         </div>
       </template>
 
-      <!-- OVERDUE STATE -->
-      <template v-else-if="isOverdue">
-        <div class="footer-left">
-          <button class="btn btn-danger-ghost" @click="handleCancel" :disabled="isSaving">
-            Cancel Run
-          </button>
-        </div>
-        <div class="footer-right">
-          <button class="btn btn-primary" @click="handleStart" :disabled="isSaving">
-            Start Run
-          </button>
-        </div>
-      </template>
-
-      <!-- COMPLETED STATE -->
-      <template v-else-if="isCompleted">
-        <div class="footer-right" style="margin-left: auto">
-          <button class="btn btn-secondary" @click="handleReopen" :disabled="isSaving">
-            Reopen
-          </button>
-        </div>
-      </template>
-
-      <!-- CANCELLED STATE -->
-      <template v-else-if="isCancelled">
+      <template v-else-if="isCompleted || isCancelled">
         <div class="footer-right" style="margin-left: auto">
           <button class="btn btn-secondary" @click="handleReopen" :disabled="isSaving">
             Reopen
@@ -382,5 +339,11 @@ const handleSubmit = withLoading(() =>
 }
 .btn-danger-ghost:hover {
   background: #fef2f2;
+}
+
+.auto-save-text {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 </style>

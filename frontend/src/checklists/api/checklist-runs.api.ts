@@ -6,6 +6,7 @@ import type {
   PageResponse,
   ChecklistTaskExecutionStatus,
   ChecklistVerificationResult,
+  ChecklistTaskExecution,
 } from '@/checklists/model/checklist.types'
 
 // --- Types ---
@@ -136,4 +137,20 @@ export async function resetChecklistRun(
   return requestJson<ChecklistRun>(`${getBaseUrl(params)}/${params.checklistRunId}/reset`, {
     method: 'POST',
   })
+}
+
+export async function updateChecklistRunTask(
+  params: ContextParams & { checklistRunId: string; taskId: string },
+  input: SubmitChecklistRunTaskInput,
+): Promise<ChecklistRun> {
+  return requestJson<ChecklistRun>(
+    `${getBaseUrl(params)}/${params.checklistRunId}/tasks/${params.taskId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    },
+  )
 }
