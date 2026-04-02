@@ -11,6 +11,7 @@ import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
+import IKAlkoholDocumentUploadPage from '@/ik-alkohol/pages/IKAlkoholDocumentUploadPage.vue'
 import DeviationPage from '@/deviations/pages/DeviationPage.vue'
 import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 import MyProfilePage from '@/account/pages/MyProfilePage.vue'
@@ -98,6 +99,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol/documents',
         name: 'ik-alkohol-documents',
         component: IKAlkoholDocumentsPage,
+      },
+      {
+        path: 'ik-alkohol/documents/upload',
+        name: 'ik-alkohol-documents-upload',
+        component: IKAlkoholDocumentUploadPage,
       },
       {
         path: 'my-profile',
