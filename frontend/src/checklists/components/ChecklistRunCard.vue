@@ -22,6 +22,7 @@ const emit = defineEmits<{
 
 const workingTasks = ref<ChecklistTaskExecution[]>([])
 const isSaving = ref(false)
+const isExpanded = ref(false)
 
 const cloneTasks = (tasks?: ChecklistTaskExecution[]) =>
   tasks ? JSON.parse(JSON.stringify(tasks)) : []
@@ -111,13 +112,39 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   <article class="run-card">
     <header class="run-header">
       <div class="header-top">
-        <h3 class="run-title">{{ run.title }}</h3>
+        <div class="header-copy">
+          <button
+            class="toggle-button"
+            type="button"
+            :aria-expanded="isExpanded"
+            :aria-label="isExpanded ? 'Collapse checklist run' : 'Expand checklist run'"
+            @click="isExpanded = !isExpanded"
+          >
+            <svg
+              class="toggle-arrow"
+              :class="{ 'toggle-arrow-expanded': isExpanded }"
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+            >
+              <path d="M5 7.5L10 12.5L15 7.5" />
+            </svg>
+          </button>
+          <button
+            class="title-button"
+            type="button"
+            :aria-expanded="isExpanded"
+            :aria-label="isExpanded ? 'Collapse checklist run' : 'Expand checklist run'"
+            @click="isExpanded = !isExpanded"
+          >
+            <h3 class="run-title">{{ run.title }}</h3>
+          </button>
+        </div>
         <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
       </div>
       <p v-if="run.description" class="run-description">{{ run.description }}</p>
     </header>
 
-    <div class="run-meta-grid">
+    <div v-if="isExpanded" class="run-meta-grid">
       <div class="meta-item">
         <span class="meta-label">Due</span>
         <span class="meta-value">{{ formattedDueDate }}</span>
@@ -129,7 +156,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
     </div>
 
     <!-- Tasks Section -->
-    <div class="tasks-container">
+    <div v-if="isExpanded" class="tasks-container">
       <h4 class="tasks-heading">Tasks ({{ run.tasks.length }})</h4>
 
       <div v-if="workingTasks.length > 0" class="tasks-list">
@@ -144,7 +171,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
       <p v-else class="empty-text">No tasks defined for this run.</p>
     </div>
 
-    <footer class="run-footer">
+    <footer v-if="isExpanded" class="run-footer">
       <template v-if="isEditable">
         <div class="footer-left">
           <button
@@ -214,6 +241,12 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   align-items: flex-start;
   margin-bottom: 0.5rem;
 }
+.header-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
 .footer-left,
 .footer-right {
   display: flex;
@@ -243,12 +276,47 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   color: var(--color-text-primary);
   margin: 0;
   line-height: 1.3;
+  text-align: left;
 }
 .run-description {
   margin: 0;
   font-size: 0.9375rem;
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+.toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  font: inherit;
+  flex-shrink: 0;
+}
+.title-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  min-width: 0;
+}
+.toggle-arrow {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+.toggle-arrow-expanded {
+  transform: rotate(180deg);
 }
 .meta-value {
   font-size: 0.9375rem;
