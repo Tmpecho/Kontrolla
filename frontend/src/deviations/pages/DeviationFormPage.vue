@@ -1,14 +1,51 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import BaseInput from '@/shared/components/BaseInput.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
+const route = useRoute()
 const form = reactive({ title: '', category: '', description: '', date: '' })
+
+function formatDateForInput(value: string | null): string {
+  if (!value) {
+    return ''
+  }
+
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+  const day = String(parsedDate.getDate()).padStart(2, '0')
+  const hours = String(parsedDate.getHours()).padStart(2, '0')
+  const minutes = String(parsedDate.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function syncFormFromQuery(): void {
+  form.title = typeof route.query.title === 'string' ? route.query.title : ''
+  form.category = typeof route.query.category === 'string' ? route.query.category : ''
+  form.description = typeof route.query.description === 'string' ? route.query.description : ''
+  form.date = formatDateForInput(typeof route.query.date === 'string' ? route.query.date : null)
+}
 
 async function onSubmit() {
 
 }
+
+watch(
+  () => route.query,
+  () => {
+    syncFormFromQuery()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -28,9 +65,11 @@ async function onSubmit() {
             <label for="category" class="input-label">category</label>
             <select id="category" v-model="form.category" class="input-field" required>
               <option value="" disabled>Select category</option>
-              <option value="category-1">Category 1</option>
-              <option value="category-2">Category 2</option>
-              <option value="category-3">Category 3</option>
+              <option value="temperature">Temperature</option>
+              <option value="hygiene">Hygiene</option>
+              <option value="storage">Storage</option>
+              <option value="equipment">Equipment</option>
+              <option value="other">Other</option>
             </select>
         </div>
         <div class="input-group">
