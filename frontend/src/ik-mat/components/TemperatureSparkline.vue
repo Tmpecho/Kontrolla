@@ -86,7 +86,7 @@ const lastPoint = computed(() => {
 
   const [x, y] = point.split(',').map(Number)
 
-  if (typeof x !== 'number' || typeof y !== 'number') {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return null
   }
 

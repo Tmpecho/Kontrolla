@@ -42,7 +42,7 @@ function createTemperatureUnit({
     minimumTemperature: 2,
     maximumTemperature: 4,
     logs:
-      measuredAt && typeof temperatureCelsius === 'number'
+      measuredAt && temperatureCelsius !== undefined
         ? [
             {
               id: `${id}-log`,
