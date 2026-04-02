@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
@@ -62,7 +63,7 @@ async function loadChecklistRuns(): Promise<void> {
       size: 10,
     })
 
-    checklistRuns.value = page.items
+    checklistRuns.value = selectLatestChecklistRuns(page.items)
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
