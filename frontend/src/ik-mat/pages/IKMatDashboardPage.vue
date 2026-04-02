@@ -145,7 +145,7 @@ onMounted(async () => {
             <h2>Temperature</h2>
             <p>
               {{ formatUnitSummary(temperatureSummary.needsAttentionCount, 'need attention') }} •
-              {{ formatUnitSummary(temperatureSummary.dueTodayCount, 'due today') }}
+              {{ formatUnitSummary(temperatureSummary.overdueNowCount, 'overdue now') }}
             </p>
           </div>
         </RouterLink>

@@ -1,12 +1,27 @@
 export type TemperatureUnitType = 'FRIDGE' | 'FREEZER'
 
-export type TemperatureStatus = 'IN_RANGE' | 'OUT_OF_RANGE' | 'OVERDUE'
+export type TemperatureComplianceStatus = 'NO_READING' | 'IN_RANGE' | 'OUT_OF_RANGE'
+
+export type TemperatureLoggingStatus =
+  | 'LOGGED_TODAY'
+  | 'DUE_LATER_TODAY'
+  | 'DUE_SOON'
+  | 'OVERDUE'
+
+export type TemperatureAlertState =
+  | 'NO_READING'
+  | 'OUT_OF_RANGE'
+  | 'OVERDUE'
+  | 'DUE_SOON'
+  | 'DUE_LATER_TODAY'
+  | 'LOGGED_TODAY'
 
 export type TemperatureLogEntry = {
   id: string
   measuredAt: string
   temperatureCelsius: number
   note: string | null
+  loggedByName: string
 }
 
 export type TemperatureUnit = {
@@ -22,6 +37,9 @@ export type TemperatureUnit = {
 
 export type TemperatureUnitListItem = TemperatureUnit & {
   latestLog: TemperatureLogEntry | null
-  status: TemperatureStatus
+  complianceStatus: TemperatureComplianceStatus
+  loggingStatus: TemperatureLoggingStatus
+  alertState: TemperatureAlertState
   hasLoggedToday: boolean
+  nextDueAt: Date
 }

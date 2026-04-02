@@ -1,45 +1,76 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  formatTemperatureStatus,
-  getTemperatureStatus,
+  formatTemperatureAlertState,
+  getTemperatureAlertState,
+  getTemperatureComplianceStatus,
+  getTemperatureLoggingStatus,
   getTemperatureSummary,
   getTemperatureUnitsWithStatus,
   hasTemperatureLogToday,
+  isTemperatureWithinRange,
 } from '@/ik-mat/model/temperature.utils'
 import type { TemperatureUnit } from '@/ik-mat/model/temperature.types'
 
-function createTemperatureUnit(
-  id: string,
-  latestMeasuredAt: string,
-  temperatureCelsius: number,
-): TemperatureUnit {
+function createLocalIsoTimestamp(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hours: number,
+  minutes: number,
+): string {
+  return new Date(year, monthIndex, day, hours, minutes, 0, 0).toISOString()
+}
+
+function createTemperatureUnit({
+  id,
+  dueByTime = '09:00',
+  measuredAt,
+  temperatureCelsius,
+}: {
+  id: string
+  dueByTime?: string
+  measuredAt?: string
+  temperatureCelsius?: number
+}): TemperatureUnit {
   return {
     id,
     name: `${id} unit`,
     location: `${id} location`,
     type: 'FRIDGE',
-    dueByTime: '09:00',
+    dueByTime,
     minimumTemperature: 2,
     maximumTemperature: 4,
-    logs: [
-      {
-        id: `${id}-log`,
-        measuredAt: latestMeasuredAt,
-        temperatureCelsius,
-        note: null,
-      },
-    ],
+    logs:
+      measuredAt && typeof temperatureCelsius === 'number'
+        ? [
+            {
+              id: `${id}-log`,
+              measuredAt,
+              temperatureCelsius,
+              note: null,
+              loggedByName: 'Maria Nilsen',
+            },
+          ]
+        : [],
   }
 }
 
 describe('temperature.utils', () => {
   it('detects whether a unit has been logged today', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 3, 2, 10, 0, 0))
+    vi.setSystemTime(new Date(2026, 3, 2, 12, 0, 0))
 
-    const loggedToday = createTemperatureUnit('today', '2026-04-02T08:00:00.000Z', 3.4)
-    const notLoggedToday = createTemperatureUnit('yesterday', '2026-04-01T08:00:00.000Z', 3.4)
+    const loggedToday = createTemperatureUnit({
+      id: 'today',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 2, 8, 0),
+      temperatureCelsius: 3.4,
+    })
+    const notLoggedToday = createTemperatureUnit({
+      id: 'yesterday',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 1, 8, 0),
+      temperatureCelsius: 3.4,
+    })
 
     expect(hasTemperatureLogToday(loggedToday)).toBe(true)
     expect(hasTemperatureLogToday(notLoggedToday)).toBe(false)
@@ -47,56 +78,113 @@ describe('temperature.utils', () => {
     vi.useRealTimers()
   })
 
-  it('classifies in-range, out-of-range, and due-today units', () => {
+  it('distinguishes due later today, due soon, and overdue states', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 3, 2, 10, 0, 0))
+    vi.setSystemTime(new Date(2026, 3, 2, 12, 0, 0))
 
-    expect(getTemperatureStatus(createTemperatureUnit('in-range', '2026-04-02T08:00:00.000Z', 3.4))).toBe(
-      'IN_RANGE',
-    )
-    expect(
-      getTemperatureStatus(createTemperatureUnit('out-of-range', '2026-04-02T08:00:00.000Z', 5.2)),
-    ).toBe('OUT_OF_RANGE')
-    expect(getTemperatureStatus(createTemperatureUnit('due', '2026-04-01T08:00:00.000Z', 3.4))).toBe(
-      'OVERDUE',
-    )
+    const dueLater = createTemperatureUnit({
+      id: 'due-later',
+      dueByTime: '17:00',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 1, 8, 0),
+      temperatureCelsius: 3.4,
+    })
+    const dueSoon = createTemperatureUnit({
+      id: 'due-soon',
+      dueByTime: '13:30',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 1, 8, 0),
+      temperatureCelsius: 3.4,
+    })
+    const overdue = createTemperatureUnit({
+      id: 'overdue',
+      dueByTime: '10:00',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 1, 8, 0),
+      temperatureCelsius: 3.4,
+    })
+
+    expect(getTemperatureLoggingStatus(dueLater)).toBe('DUE_LATER_TODAY')
+    expect(getTemperatureLoggingStatus(dueSoon)).toBe('DUE_SOON')
+    expect(getTemperatureLoggingStatus(overdue)).toBe('OVERDUE')
 
     vi.useRealTimers()
   })
 
-  it('builds summary counts from the unit list', () => {
+  it('treats out-of-range as the primary alert even when the unit is already logged today', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 3, 2, 10, 0, 0))
+    vi.setSystemTime(new Date(2026, 3, 2, 12, 0, 0))
+
+    const inRange = createTemperatureUnit({
+      id: 'in-range',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 2, 8, 0),
+      temperatureCelsius: 3.4,
+    })
+    const outOfRange = createTemperatureUnit({
+      id: 'out-of-range',
+      measuredAt: createLocalIsoTimestamp(2026, 3, 2, 8, 0),
+      temperatureCelsius: 5.2,
+    })
+
+    expect(isTemperatureWithinRange(inRange, 3.4)).toBe(true)
+    expect(isTemperatureWithinRange(outOfRange, 5.2)).toBe(false)
+    expect(getTemperatureComplianceStatus(inRange)).toBe('IN_RANGE')
+    expect(getTemperatureComplianceStatus(outOfRange)).toBe('OUT_OF_RANGE')
+    expect(getTemperatureAlertState(inRange)).toBe('LOGGED_TODAY')
+    expect(getTemperatureAlertState(outOfRange)).toBe('OUT_OF_RANGE')
+
+    vi.useRealTimers()
+  })
+
+  it('builds the derived list and summary counts from the unit list', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 3, 2, 12, 0, 0))
 
     const units = [
-      createTemperatureUnit('in-range', '2026-04-02T08:00:00.000Z', 3.4),
-      createTemperatureUnit('out-of-range', '2026-04-02T08:00:00.000Z', 5.2),
-      createTemperatureUnit('due', '2026-04-01T08:00:00.000Z', 3.4),
+      createTemperatureUnit({
+        id: 'in-range',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 2, 8, 0),
+        temperatureCelsius: 3.4,
+      }),
+      createTemperatureUnit({
+        id: 'out-of-range',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 2, 8, 0),
+        temperatureCelsius: 5.2,
+      }),
+      createTemperatureUnit({
+        id: 'due-soon',
+        dueByTime: '13:00',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 1, 8, 0),
+        temperatureCelsius: 3.4,
+      }),
+      createTemperatureUnit({
+        id: 'overdue',
+        dueByTime: '09:00',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 1, 8, 0),
+        temperatureCelsius: 3.4,
+      }),
     ]
 
     expect(getTemperatureSummary(units)).toEqual({
-      needsAttentionCount: 2,
-      dueTodayCount: 1,
-      inRangeCount: 1,
+      needsAttentionCount: 3,
+      overdueNowCount: 1,
+      dueSoonCount: 1,
+      latestInRangeCount: 3,
     })
 
-    expect(getTemperatureUnitsWithStatus(units).map((unit) => unit.status)).toEqual([
-      'IN_RANGE',
+    expect(getTemperatureUnitsWithStatus(units).map((unit) => unit.alertState)).toEqual([
+      'LOGGED_TODAY',
       'OUT_OF_RANGE',
+      'DUE_SOON',
       'OVERDUE',
-    ])
-    expect(getTemperatureUnitsWithStatus(units).map((unit) => unit.hasLoggedToday)).toEqual([
-      true,
-      true,
-      false,
     ])
 
     vi.useRealTimers()
   })
 
-  it('formats the status labels used in the UI', () => {
-    expect(formatTemperatureStatus('IN_RANGE')).toBe('In range')
-    expect(formatTemperatureStatus('OUT_OF_RANGE')).toBe('Out of range')
-    expect(formatTemperatureStatus('OVERDUE')).toBe('Due today')
+  it('formats the alert labels used in the UI', () => {
+    expect(formatTemperatureAlertState('LOGGED_TODAY')).toBe('Logged today')
+    expect(formatTemperatureAlertState('OUT_OF_RANGE')).toBe('Out of range')
+    expect(formatTemperatureAlertState('OVERDUE')).toBe('Overdue')
+    expect(formatTemperatureAlertState('DUE_SOON')).toBe('Due soon')
+    expect(formatTemperatureAlertState('DUE_LATER_TODAY')).toBe('Due later today')
+    expect(formatTemperatureAlertState('NO_READING')).toBe('No reading yet')
   })
 })
