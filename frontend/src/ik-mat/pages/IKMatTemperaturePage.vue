@@ -757,10 +757,14 @@ onBeforeUnmount(() => {
 }
 
 .summary-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label value'
+    'support value';
+  align-items: start;
+  gap: 2px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-container);
@@ -783,21 +787,27 @@ onBeforeUnmount(() => {
 }
 
 .summary-label {
+  grid-area: label;
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .summary-value {
-  font-size: 1.75rem;
+  grid-area: value;
+  align-self: center;
+  font-size: 1.35rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .summary-support {
+  grid-area: support;
   color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.3;
 }
 
 .list-panel {
