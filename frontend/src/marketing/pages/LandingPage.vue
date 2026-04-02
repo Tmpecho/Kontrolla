@@ -4,7 +4,6 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
 
 <template>
   <div class="landing-page">
-    <main class="landing-main">
       <section class="hero">
         <div class="hero-copy">
           <h1>Food and alcohol compliance, kept in one place.</h1>
@@ -97,23 +96,17 @@ import complianceIllustrationUrl from '@/assets/illustrations/compliance-operati
           </RouterLink>
         </div>
       </section>
-    </main>
   </div>
 </template>
 
 <style scoped>
 .landing-page {
   color: var(--color-text-primary);
-}
-
-.landing-main {
-  width: 100%;
-}
-
-.landing-main {
+  
   display: flex;
   flex-direction: column;
   gap: 48px;
+  width: 100%;
 }
 
 .hero {
