@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import AgeVerificationTile from '@/ik-alkohol/components/AgeVerificationTile.vue'
+  import ImportantDocumentsTile from '@/ik-alkohol/components/ImportantDocumentsTile.vue'
   import ServingHoursTile from '@/ik-alkohol/components/ServingHoursTile.vue'
   import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 </script>
@@ -31,12 +32,7 @@
 
     <div class="row-container">
       <section class="dashboard-section">
-        <RouterLink :to="{ name: 'ik-alkohol-documents' }" class="tile-link">
-          <div class="dashboard-tile dashboard-tile-link">
-            <h2>Documents</h2>
-            <p>Overview over alcohol compliance.</p>
-          </div>
-        </RouterLink>
+        <ImportantDocumentsTile class="dashboard-tile" />
       </section>
 
       <section class="dashboard-section">
@@ -80,14 +76,6 @@
   text-decoration: none;
   box-shadow: var(--shadow-elevated);
 
-}
-
-.tile-link {
-  text-decoration: none;
-}
-
-.dashboard-tile-link:hover {
-  border-color: var(--color-primary);
 }
 
 .row-container {

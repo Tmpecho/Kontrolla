@@ -5,6 +5,7 @@ import AuthLayout from '@/app/layouts/AuthLayout.vue'
 import PublicLayout from '@/app/layouts/PublicLayout.vue'
 import LoginPage from '@/auth/pages/LoginPage.vue'
 import LandingPage from '@/marketing/pages/LandingPage.vue'
+import PriceOfferPage from '@/marketing/pages/PriceOfferPage.vue'
 import NotFoundPage from '@/shared/pages/NotFoundPage.vue'
 import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
@@ -12,6 +13,7 @@ import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
+import IKAlkoholDocumentUploadPage from '@/ik-alkohol/pages/IKAlkoholDocumentUploadPage.vue'
 import DeviationPage from '@/deviations/pages/DeviationPage.vue'
 import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 import MyProfilePage from '@/account/pages/MyProfilePage.vue'
@@ -26,6 +28,11 @@ export const routes: RouteRecordRaw[] = [
         path: '',
         name: 'landing',
         component: LandingPage,
+      },
+      {
+        path: 'price-offer',
+        name: 'price-offer',
+        component: PriceOfferPage,
       },
       {
         path: ':pathMatch(.*)*',
@@ -104,6 +111,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol/documents',
         name: 'ik-alkohol-documents',
         component: IKAlkoholDocumentsPage,
+      },
+      {
+        path: 'ik-alkohol/documents/upload',
+        name: 'ik-alkohol-documents-upload',
+        component: IKAlkoholDocumentUploadPage,
       },
       {
         path: 'my-profile',
