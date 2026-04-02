@@ -2,6 +2,8 @@
 import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
+import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
+import { getTemperatureSummary } from '@/ik-mat/model/temperature.utils'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 import { computed, onMounted, ref } from 'vue'
@@ -9,6 +11,7 @@ import { computed, onMounted, ref } from 'vue'
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
 const hasChecklistContext = computed(
   () => Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
 )
@@ -42,6 +45,10 @@ function formatStatus(status: ChecklistRun['status']): string {
 
 function formatTaskExecutionStatus(status: ChecklistRun['tasks'][number]['executionStatus']): string {
   return status === 'COMPLETED' ? 'Completed' : status === 'SKIPPED' ? 'Skipped' : 'Pending'
+}
+
+function formatUnitSummary(count: number, label: string): string {
+  return `${count} ${count === 1 ? 'unit' : 'units'} ${label}`
 }
 
 async function loadChecklistRuns(): Promise<void> {
@@ -133,10 +140,15 @@ onMounted(async () => {
       </section>
 
       <section class="dashboard-section">
-        <div class="dashboard-tile dashboard-tile-link">
-          <h2>Temperature</h2>
-          <p>Temperature logs ...</p>
-        </div>
+        <RouterLink :to="{ name: 'ik-mat-temperature' }" class="tile-link">
+          <div class="dashboard-tile dashboard-tile-link">
+            <h2>Temperature</h2>
+            <p>
+              {{ formatUnitSummary(temperatureSummary.needsAttentionCount, 'need attention') }} •
+              {{ formatUnitSummary(temperatureSummary.dueTodayCount, 'due today') }}
+            </p>
+          </div>
+        </RouterLink>
       </section>
     </div>
 
