@@ -14,6 +14,7 @@ export type TemperatureUnit = {
   name: string
   location: string
   type: TemperatureUnitType
+  dueByTime: string
   minimumTemperature: number
   maximumTemperature: number
   logs: TemperatureLogEntry[]
@@ -22,4 +23,5 @@ export type TemperatureUnit = {
 export type TemperatureUnitListItem = TemperatureUnit & {
   latestLog: TemperatureLogEntry | null
   status: TemperatureStatus
+  hasLoggedToday: boolean
 }

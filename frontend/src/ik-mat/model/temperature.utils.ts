@@ -61,6 +61,7 @@ export function getTemperatureUnitsWithStatus(
   return units.map((unit) => ({
     ...unit,
     latestLog: getLatestTemperatureLog(unit),
+    hasLoggedToday: hasTemperatureLogToday(unit, now),
     status: getTemperatureStatus(unit, now),
   }))
 }

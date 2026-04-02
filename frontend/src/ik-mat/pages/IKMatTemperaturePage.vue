@@ -125,6 +125,27 @@ function formatDateTime(value: string): string {
   }).format(new Date(value))
 }
 
+function formatDueTime(value: string): string {
+  const [hours, minutes] = value.split(':').map(Number)
+  const timestamp = new Date()
+  timestamp.setHours(hours ?? 0, minutes ?? 0, 0, 0)
+
+  return new Intl.DateTimeFormat('nb-NO', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(timestamp)
+}
+
+function formatDueMessage(unit: TemperatureUnitListItem): string {
+  const dueTime = formatDueTime(unit.dueByTime)
+
+  if (unit.hasLoggedToday) {
+    return `Logged today • next due tomorrow by ${dueTime}`
+  }
+
+  return `Log due today by ${dueTime}`
+}
+
 function openEditor(unitId: string): void {
   editingUnitId.value = unitId
   draftTemperature.value = ''
@@ -245,6 +266,9 @@ function saveTemperatureLog(unitId: string): void {
               </div>
               <p class="temperature-location">{{ unit.location }}</p>
               <p class="temperature-range">Acceptable range: {{ formatRange(unit) }}</p>
+              <p class="due-indicator" :data-due-state="unit.hasLoggedToday ? 'logged' : 'due'">
+                {{ formatDueMessage(unit) }}
+              </p>
             </div>
 
             <div class="temperature-reading">
@@ -527,9 +551,30 @@ function saveTemperatureLog(unitId: string): void {
 
 .temperature-location,
 .temperature-range,
+.due-indicator,
 .data-support,
 .data-note {
   color: var(--color-text-secondary);
+}
+
+.due-indicator {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.due-indicator[data-due-state='logged'] {
+  background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-container));
+  color: var(--color-primary);
+}
+
+.due-indicator[data-due-state='due'] {
+  background-color: color-mix(in srgb, var(--color-warning) 14%, var(--color-container));
+  color: #b45309;
 }
 
 .data-label {
