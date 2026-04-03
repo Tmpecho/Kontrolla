@@ -125,6 +125,11 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
     >
       <div class="header-top">
         <div class="header-copy">
+          <h3 class="run-title">{{ run.title }}</h3>
+        </div>
+        <div class="header-actions">
+          <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
+          <span class="header-divider" aria-hidden="true"></span>
           <svg
             class="toggle-arrow"
             :class="{ 'toggle-arrow-expanded': isExpanded }"
@@ -133,9 +138,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
           >
             <path d="M5 7.5L10 12.5L15 7.5" />
           </svg>
-          <h3 class="run-title">{{ run.title }}</h3>
         </div>
-        <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
       </div>
       <p v-if="run.description" class="run-description">{{ run.description }}</p>
     </header>
@@ -243,6 +246,19 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+  flex: 1;
+}
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.header-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border-muted);
+  opacity: 0.9;
 }
 .footer-left,
 .footer-right {
