@@ -14,7 +14,9 @@ import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record ChecklistRunResponse(
@@ -55,18 +57,28 @@ public record ChecklistRunResponse(
 				checklistRun.getCreatedByUser().getId(),
 				checklistRun.getCreatedAt(),
 				checklistRun.getUpdatedAt(),
-				checklistRun.getAssignments().stream()
+				distinctById(checklistRun.getAssignments(), ChecklistRunAssignment::getId).stream()
 						.map(ChecklistRunAssignmentResponse::from)
 						.toList(),
-				checklistRun.getTaskExecutions().stream()
+				distinctById(checklistRun.getTaskExecutions(), ChecklistTaskExecution::getId).stream()
 						.sorted(Comparator.comparingInt(ChecklistTaskExecution::getSortOrder))
 						.map(ChecklistTaskExecutionResponse::from)
 						.toList(),
-				checklistRun.getEvents().stream()
+				distinctById(checklistRun.getEvents(), ChecklistRunEvent::getId).stream()
 						.sorted(Comparator.comparing(ChecklistRunEvent::getOccurredAt))
 						.map(ChecklistRunEventResponse::from)
 						.toList()
 		);
+	}
+
+	private static <T> List<T> distinctById(Iterable<T> items, java.util.function.Function<T, UUID> idExtractor) {
+		Map<UUID, T> itemsById = new LinkedHashMap<>();
+
+		for (T item : items) {
+			itemsById.putIfAbsent(idExtractor.apply(item), item);
+		}
+
+		return List.copyOf(itemsById.values());
 	}
 
 	public record ChecklistRunAssignmentResponse(
