@@ -50,6 +50,22 @@ const formattedDueDate = computed(() =>
     timeStyle: 'short',
   }).format(new Date(props.run.dueAt)),
 )
+const assignedSummary = computed(() => {
+  const count = props.run.assignments.length
+  const assignedNames = props.run.assignments
+    .map((assignment) => assignment.assignedUserName?.trim())
+    .filter((name): name is string => Boolean(name))
+
+  if (count === 0) {
+    return 'Unassigned'
+  }
+
+  if (assignedNames.length === count && count <= 2) {
+    return assignedNames.join(', ')
+  }
+
+  return count === 1 ? '1 assigned' : `${count} assigned`
+})
 
 const STATUS_CLASSES: Record<string, string> = {
   COMPLETED: 'status-success',
@@ -95,6 +111,38 @@ const issueTaskCount = computed(
       return false
     }).length,
 )
+
+const remainingOptionalTaskCount = computed(
+  () =>
+    Math.max(
+      totalTaskCount.value - completedTaskCount.value - remainingRequiredTaskCount.value,
+      0,
+    ),
+)
+
+const progressSegments = computed(() => {
+  if (totalTaskCount.value === 0) {
+    return []
+  }
+
+  return [
+    {
+      key: 'completed',
+      className: 'progress-segment-completed',
+      value: completedTaskCount.value,
+    },
+    {
+      key: 'remaining-required',
+      className: 'progress-segment-required',
+      value: remainingRequiredTaskCount.value,
+    },
+    {
+      key: 'remaining-optional',
+      className: 'progress-segment-optional',
+      value: remainingOptionalTaskCount.value,
+    },
+  ].filter((segment) => segment.value > 0)
+})
 
 const baseParams = computed(() => ({
   organizationId: props.organizationId,
@@ -193,36 +241,37 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
         </div>
       </div>
       <p v-if="run.description" class="run-description">{{ run.description }}</p>
+      <div class="header-meta">
+        <div class="header-meta-item">
+          <span class="header-meta-label">Due</span>
+          <span class="header-meta-value">{{ formattedDueDate }}</span>
+        </div>
+        <div class="header-meta-item">
+          <span class="header-meta-label">Assigned</span>
+          <span class="header-meta-value">{{ assignedSummary }}</span>
+        </div>
+      </div>
       <div class="progress-strip" aria-label="Checklist progress summary">
-        <div class="progress-metric">
-          <span class="progress-value">{{ totalTaskCount }}</span>
-          <span class="progress-label">Tasks</span>
+        <div class="progress-bar" role="presentation">
+          <span
+            v-for="segment in progressSegments"
+            :key="segment.key"
+            class="progress-segment"
+            :class="segment.className"
+            :style="{ width: `${(segment.value / totalTaskCount) * 100}%` }"
+          ></span>
         </div>
-        <div class="progress-metric">
-          <span class="progress-value">{{ completedTaskCount }}</span>
-          <span class="progress-label">Completed</span>
-        </div>
-        <div class="progress-metric">
-          <span class="progress-value">{{ remainingRequiredTaskCount }}</span>
-          <span class="progress-label">Required left</span>
-        </div>
-        <div class="progress-metric" :class="{ 'progress-metric-issue': issueTaskCount > 0 }">
-          <span class="progress-value">{{ issueTaskCount }}</span>
-          <span class="progress-label">Issues</span>
+        <div class="progress-summary">
+          <span class="progress-summary-primary">
+            {{ completedTaskCount }}/{{ totalTaskCount }} completed
+          </span>
+          <span>{{ remainingRequiredTaskCount }} required left</span>
+          <span :class="{ 'progress-summary-issue': issueTaskCount > 0 }">
+            {{ issueTaskCount }} issues
+          </span>
         </div>
       </div>
     </header>
-
-    <div v-if="isExpanded" class="run-meta-grid">
-      <div class="meta-item">
-        <span class="meta-label">Due</span>
-        <span class="meta-value">{{ formattedDueDate }}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Assignees</span>
-        <span class="meta-value">{{ run.assignments.length || 'Unassigned' }}</span>
-      </div>
-    </div>
 
     <!-- Tasks Section -->
     <div v-if="isExpanded" class="tasks-container">
@@ -275,7 +324,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .run-card {
   background: var(--color-container);
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: 0.75cqh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -283,21 +332,21 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .run-header,
 .tasks-container,
 .run-footer {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 0.95rem;
 }
 .run-header {
-  padding-top: 1.5rem;
-  padding-bottom: 2rem;
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
   border-bottom: 1px solid var(--color-border-muted);
   cursor: pointer;
 }
 .run-footer {
-  background: var(--color-white);
+  background: color-mix(in srgb, var(--color-surface) 45%, white);
   border-top: 1px solid var(--color-border-muted);
   flex-wrap: wrap;
 }
 .tasks-container {
-  padding-bottom: 1.5rem;
+  padding-bottom: 0.875rem;
 }
 
 .header-top,
@@ -309,7 +358,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 }
 .header-top {
   align-items: flex-start;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 .header-copy {
   display: flex;
@@ -321,7 +370,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 .header-divider {
@@ -351,75 +400,94 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .auto-save-text.auto-save-failed {
   color: var(--color-critical);
 }
-.run-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-muted);
-}
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
 .run-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.2;
   text-align: left;
 }
 .run-description {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.28;
 }
-.progress-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-.progress-metric {
+.header-meta {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border-muted);
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.45rem;
+}
+.header-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
   min-width: 0;
 }
-.progress-metric-issue {
-  color: var(--color-critical);
+.header-meta-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }
-.progress-value {
-  font-size: 1rem;
-  font-weight: 700;
+.header-meta-value {
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--color-text-primary);
 }
-.progress-metric-issue .progress-value {
-  color: var(--color-critical);
+.progress-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
 }
-.progress-label {
-  font-size: 0.75rem;
-  font-weight: 700;
+.progress-bar {
+  display: flex;
+  width: 100%;
+  height: 0.5rem;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 0.5cqh;
+  background: color-mix(in srgb, var(--color-surface) 55%, white);
+  overflow: hidden;
+}
+.progress-segment {
+  height: 100%;
+}
+.progress-segment-completed {
+  background: var(--color-success);
+}
+.progress-segment-required {
+  background: #f1c21b;
+}
+.progress-segment-optional {
+  background: #c6c6c6;
+}
+.progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  font-size: 0.625rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
-.progress-metric-issue .progress-label {
-  color: currentColor;
+.progress-summary-primary {
+  color: var(--color-text-primary);
+}
+.progress-summary-issue {
+  color: var(--color-critical);
 }
 .toggle-arrow {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.125rem;
+  height: 1.125rem;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.85;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform 160ms ease;
@@ -430,65 +498,68 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   transform: rotate(180deg);
 }
 .meta-value {
-  font-size: 0.9375rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--color-text-primary);
 }
 .empty-text {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
   text-align: center;
-  padding: 1rem;
+  padding: 0.5rem;
 }
 
 .status-badge,
-.meta-label,
 .tasks-heading {
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 0.75rem;
+  font-size: 0.625rem;
 }
-.meta-label,
 .tasks-heading {
   color: var(--color-text-secondary);
 }
 .tasks-heading {
-  font-size: 0.8125rem;
-  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  margin: 0 0 0.25rem;
 }
 
 .status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 99px;
+  padding: 0.18rem 0.45rem;
+  border-radius: 0.5cqh;
   white-space: nowrap;
+  border: 1px solid transparent;
 }
 .status-default {
   background: var(--color-surface);
   color: var(--color-text-secondary);
+  border-color: var(--color-border-muted);
 }
 .status-primary {
   background: #eff6ff;
   color: var(--color-primary);
+  border-color: #b6d3ff;
 }
 .status-success {
   background: #ecfdf5;
   color: var(--color-success);
+  border-color: #b8e2ca;
 }
 .status-critical {
   background: #fef2f2;
   color: var(--color-critical);
+  border-color: #f0b8b8;
 }
 
 .tasks-list {
   border-top: 1px solid var(--color-border-muted);
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 .btn {
-  font: 600 0.875rem var(--font-sans, inherit);
-  padding: 0.625rem 1.25rem;
-  border-radius: 1cqh;
+  font: 600 0.75rem var(--font-sans, inherit);
+  padding: 0.42rem 0.7rem;
+  border-radius: 0.75cqh;
   border: 1px solid transparent;
   cursor: pointer;
   transition: 0.15s;

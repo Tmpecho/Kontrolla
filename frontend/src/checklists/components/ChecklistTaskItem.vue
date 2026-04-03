@@ -80,29 +80,26 @@ const handleTextChange = (e: Event) => {
     <div class="task-indicator" :style="{ backgroundColor: statusColor }" />
 
     <div class="task-content">
-      <div class="task-header">
-        <div class="task-title-row">
-          <span class="task-title">{{ task.title }}</span>
-          <span v-if="task.required" class="task-required-indicator" aria-label="Required task">
-            *
-          </span>
-        </div>
-        <span class="task-badge">{{ task.taskKind }}</span>
+      <div class="task-title-row">
+        <span class="task-title">{{ task.title }}</span>
+        <span v-if="task.required" class="task-required-indicator" aria-label="Required task">
+          *
+        </span>
       </div>
       <span v-if="task.details" class="task-details">{{ task.details }}</span>
+    </div>
 
+    <div class="task-control">
       <div v-if="editable" class="task-input-area">
-        <!-- ACTION -->
         <label v-if="task.taskKind === 'ACTION'" class="checkbox-label">
           <input
             type="checkbox"
             :checked="task.executionStatus === 'COMPLETED'"
             @change="toggleAction"
           />
-          <span>Mark as Done</span>
+          <span>Done</span>
         </label>
 
-        <!-- VERIFICATION -->
         <select
           v-else-if="task.taskKind === 'VERIFICATION'"
           :value="task.verificationResult || ''"
@@ -114,7 +111,6 @@ const handleTextChange = (e: Event) => {
           <option value="NOT_VERIFIED">Not Verified (Issue)</option>
         </select>
 
-        <!-- MEASUREMENT -->
         <template v-else-if="task.taskKind === 'MEASUREMENT'">
           <div class="input-group">
             <input
@@ -135,7 +131,6 @@ const handleTextChange = (e: Event) => {
           </div>
         </template>
 
-        <!-- TEXT ENTRY -->
         <input
           v-else-if="task.taskKind === 'TEXT_ENTRY'"
           type="text"
@@ -158,19 +153,17 @@ const handleTextChange = (e: Event) => {
         </template>
       </div>
     </div>
-
-    <span class="task-status" :class="{ 'status-pending': task.executionStatus === 'PENDING' }">
-      {{ statusLabel }}
-    </span>
   </div>
 </template>
 
 <style scoped>
 .task-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem 0;
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr) minmax(10rem, 15rem);
+  align-items: start;
+  column-gap: 0.6rem;
+  row-gap: 0.125rem;
+  padding: 0.55rem 0;
   border-bottom: 1px solid var(--color-border-muted);
   position: relative;
 }
@@ -178,29 +171,23 @@ const handleTextChange = (e: Event) => {
   border-bottom: none;
 }
 .task-indicator {
-  width: 4px;
-  min-height: 2rem;
-  border-radius: 1cqh;
-  flex-shrink: 0;
+  width: 3px;
+  min-height: 1.4rem;
+  border-radius: 0.5cqh;
   margin-top: 0.125rem;
   transition: background-color 0.2s;
 }
 .task-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.2rem;
   min-width: 0;
 }
-.task-header,
 .checkbox-label,
 .input-group {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-.task-header {
-  justify-content: space-between;
 }
 .task-title-row {
   display: flex;
@@ -211,7 +198,7 @@ const handleTextChange = (e: Event) => {
 }
 
 .task-title {
-  font: 500 0.9375rem/1.4 var(--font-sans, inherit);
+  font: 500 0.8rem/1.25 var(--font-sans, inherit);
   color: var(--color-text-primary);
 }
 .is-completed .task-title {
@@ -220,61 +207,40 @@ const handleTextChange = (e: Event) => {
 }
 .task-details,
 .task-result {
-  font-size: 0.8125rem;
+  font-size: 0.7rem;
   color: var(--color-text-secondary);
 }
 .checkbox-label {
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.76rem;
   color: var(--color-text-primary);
 }
-
-.task-badge,
-.task-status {
-  font-weight: 700;
-  text-transform: uppercase;
-  border-radius: 1cqh;
-}
-.task-badge {
-  font-size: 0.625rem;
-  padding: 0.125rem 0.375rem;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border-muted);
-}
 .task-required-indicator {
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 700;
   line-height: 1;
   color: var(--color-critical);
 }
-.task-status {
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
-  padding: 0.25rem 0.5rem;
-  white-space: nowrap;
-  margin-left: auto;
-}
-.task-status.status-pending {
-  background: transparent;
-  border: 1px dashed var(--color-border-muted);
+.task-control {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .task-input-area {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed var(--color-border-muted);
+  display: grid;
+  gap: 0.3rem;
+  justify-items: stretch;
+  width: 100%;
 }
 .task-input {
   width: 100%;
-  max-width: 300px;
-  padding: 0.5rem 0.75rem;
+  max-width: 100%;
+  padding: 0.38rem 0.55rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: 0.75cqh;
   background: var(--color-white);
-  font: 400 0.875rem var(--font-sans, inherit);
+  font: 400 0.76rem var(--font-sans, inherit);
   color: var(--color-text-primary);
   transition: 0.15s;
 }
@@ -284,16 +250,39 @@ const handleTextChange = (e: Event) => {
   box-shadow: 0 0 0 2px rgba(0, 94, 184, 0.2);
 }
 .input-group {
-  max-width: 200px;
+  width: 100%;
+  max-width: 100%;
+  justify-content: flex-end;
 }
 .input-unit {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 .input-hint {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   color: var(--color-text-secondary);
-  margin-top: 0.25rem;
+  text-align: right;
+}
+.task-result {
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .task-item {
+    grid-template-columns: 3px minmax(0, 1fr);
+  }
+
+  .task-control {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-top: 0.15rem;
+  }
+
+  .task-input-area,
+  .task-result,
+  .input-hint {
+    text-align: left;
+  }
 }
 </style>

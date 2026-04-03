@@ -10,6 +10,7 @@ import org.kontrolla.checklists.domain.ChecklistTaskExecution;
 import org.kontrolla.checklists.domain.ChecklistTaskExecutionStatus;
 import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.domain.ChecklistVerificationResult;
+import org.kontrolla.iam.domain.User;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -84,6 +85,7 @@ public record ChecklistRunResponse(
 	public record ChecklistRunAssignmentResponse(
 			UUID id,
 			UUID assignedUserId,
+			String assignedUserName,
 			UUID assignedByUserId,
 			Instant assignedAt
 	) {
@@ -92,10 +94,15 @@ public record ChecklistRunResponse(
 			return new ChecklistRunAssignmentResponse(
 					assignment.getId(),
 					assignment.getAssignedUser().getId(),
+					formatUserDisplayName(assignment.getAssignedUser()),
 					assignment.getAssignedByUser().getId(),
 					assignment.getAssignedAt()
 			);
 		}
+	}
+
+	private static String formatUserDisplayName(User user) {
+		return "%s %s".formatted(user.getFirstName(), user.getLastName()).trim();
 	}
 
 	public record ChecklistTaskExecutionResponse(
