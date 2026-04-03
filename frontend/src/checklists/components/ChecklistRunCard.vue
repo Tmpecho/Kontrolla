@@ -10,6 +10,8 @@ import {
 import ChecklistTaskItem from './ChecklistTaskItem.vue'
 import { computed, ref, watch } from 'vue'
 
+type AutoSaveState = 'idle' | 'saving' | 'saved' | 'failed'
+
 const props = defineProps<{
   run: ChecklistRun
   organizationId: string
@@ -23,6 +25,7 @@ const emit = defineEmits<{
 const workingTasks = ref<ChecklistTaskExecution[]>([])
 const isSaving = ref(false)
 const isExpanded = ref(false)
+const autoSaveState = ref<AutoSaveState>('idle')
 
 const cloneTasks = (tasks?: ChecklistTaskExecution[]) =>
   tasks ? JSON.parse(JSON.stringify(tasks)) : []
@@ -126,20 +129,36 @@ const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInpu
   enteredText: task.enteredText,
 })
 
+const autoSaveMeta = computed(() => {
+  switch (autoSaveState.value) {
+    case 'saving':
+      return { label: 'Saving changes...', className: 'auto-save-saving' }
+    case 'saved':
+      return { label: 'All changes saved', className: 'auto-save-saved' }
+    case 'failed':
+      return { label: 'Failed to save changes', className: 'auto-save-failed' }
+    default:
+      return { label: 'Changes save automatically', className: '' }
+  }
+})
+
 const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   workingTasks.value = workingTasks.value.map((task) =>
     task.checklistTaskExecutionId === updatedTask.checklistTaskExecutionId ? updatedTask : task,
   )
+  autoSaveState.value = 'saving'
 
   try {
     const updatedRun = await updateChecklistRunTask(
       { ...baseParams.value, taskId: updatedTask.checklistTaskExecutionId },
       toSubmitInput(updatedTask),
     )
+    autoSaveState.value = 'saved'
     emit('update:run', updatedRun)
   } catch (e) {
     console.error('Failed to save task update', e)
     workingTasks.value = cloneTasks(props.run.tasks)
+    autoSaveState.value = 'failed'
   }
 }
 </script>
@@ -237,7 +256,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
           </button>
         </div>
         <div class="footer-right">
-          <span class="auto-save-text">Changes save automatically</span>
+          <span class="auto-save-text" :class="autoSaveMeta.className">{{ autoSaveMeta.label }}</span>
         </div>
       </template>
 
@@ -319,6 +338,18 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 }
 .footer-right {
   margin-left: auto;
+}
+.auto-save-text {
+  color: var(--color-text-secondary);
+}
+.auto-save-text.auto-save-saving {
+  color: var(--color-primary);
+}
+.auto-save-text.auto-save-saved {
+  color: var(--color-success);
+}
+.auto-save-text.auto-save-failed {
+  color: var(--color-critical);
 }
 .run-meta-grid {
   display: grid;
