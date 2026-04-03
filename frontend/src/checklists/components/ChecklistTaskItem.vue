@@ -20,6 +20,9 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const statusColor = computed(() => {
+  if (isTaskIssue.value) {
+    return 'var(--color-critical)'
+  }
   if (props.editable && props.task.executionStatus === 'PENDING') {
     return 'var(--color-border-muted)'
   }
@@ -31,6 +34,45 @@ const statusLabel = computed(() =>
     ? 'Pending'
     : props.task.executionStatus.charAt(0) + props.task.executionStatus.slice(1).toLowerCase(),
 )
+
+const isMeasurementOutOfRange = computed(() => {
+  if (props.task.taskKind !== 'MEASUREMENT' || props.task.measuredValue === null) {
+    return false
+  }
+
+  if (
+    props.task.minimumAllowedValue !== null &&
+    props.task.measuredValue < props.task.minimumAllowedValue
+  ) {
+    return true
+  }
+
+  if (
+    props.task.maximumAllowedValue !== null &&
+    props.task.measuredValue > props.task.maximumAllowedValue
+  ) {
+    return true
+  }
+
+  return false
+})
+
+const isTaskIssue = computed(
+  () =>
+    props.task.verificationResult === 'NOT_VERIFIED' || isMeasurementOutOfRange.value,
+)
+
+const issueLabel = computed(() => {
+  if (props.task.verificationResult === 'NOT_VERIFIED') {
+    return 'Issue'
+  }
+
+  if (isMeasurementOutOfRange.value) {
+    return 'Out of range'
+  }
+
+  return null
+})
 
 const updateTask = (fields: Partial<ChecklistTaskExecution>) => {
   emit('update:task', { ...props.task, ...fields })
@@ -76,7 +118,13 @@ const handleTextChange = (e: Event) => {
 </script>
 
 <template>
-  <div class="task-item" :class="{ 'is-completed': task.executionStatus === 'COMPLETED' }">
+  <div
+    class="task-item"
+    :class="{
+      'is-completed': task.executionStatus === 'COMPLETED',
+      'task-item-issue': isTaskIssue,
+    }"
+  >
     <div class="task-indicator" :style="{ backgroundColor: statusColor }" />
 
     <div class="task-content">
@@ -85,6 +133,7 @@ const handleTextChange = (e: Event) => {
         <span v-if="task.required" class="task-required-indicator" aria-label="Required task">
           *
         </span>
+        <span v-if="issueLabel" class="task-issue-badge">{{ issueLabel }}</span>
       </div>
       <span v-if="task.details" class="task-details">{{ task.details }}</span>
     </div>
@@ -169,6 +218,10 @@ const handleTextChange = (e: Event) => {
   background: color-mix(in srgb, var(--color-surface) 28%, white);
   position: relative;
 }
+.task-item-issue {
+  background: color-mix(in srgb, var(--color-critical) 7%, white);
+  border-bottom-color: color-mix(in srgb, var(--color-critical) 28%, white);
+}
 .task-item:last-child {
   border-bottom: none;
 }
@@ -212,6 +265,14 @@ const handleTextChange = (e: Event) => {
   font-size: 0.7rem;
   color: var(--color-text-secondary);
 }
+.task-item-issue .task-title,
+.task-item-issue .task-result strong {
+  color: var(--color-critical);
+}
+.task-item-issue .task-details,
+.task-item-issue .input-hint {
+  color: color-mix(in srgb, var(--color-critical) 72%, var(--color-text-secondary));
+}
 .checkbox-label {
   cursor: pointer;
   font-size: 0.76rem;
@@ -222,6 +283,19 @@ const handleTextChange = (e: Event) => {
   font-weight: 700;
   line-height: 1;
   color: var(--color-critical);
+}
+.task-issue-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.32rem;
+  border: 1px solid color-mix(in srgb, var(--color-critical) 35%, white);
+  border-radius: 0.5cqh;
+  background: color-mix(in srgb, var(--color-critical) 10%, white);
+  color: var(--color-critical);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .task-control {
   display: flex;
@@ -234,6 +308,9 @@ const handleTextChange = (e: Event) => {
   width: 100%;
   padding: 0 0 0 0.55rem;
   border-left: 1px solid color-mix(in srgb, var(--color-border-muted) 72%, white);
+}
+.task-item-issue .task-control {
+  border-left-color: color-mix(in srgb, var(--color-critical) 28%, white);
 }
 
 .task-input-area {
@@ -252,6 +329,10 @@ const handleTextChange = (e: Event) => {
   font: 400 0.76rem var(--font-sans, inherit);
   color: var(--color-text-primary);
   transition: 0.15s;
+}
+.task-item-issue .task-input {
+  border-color: color-mix(in srgb, var(--color-critical) 28%, white);
+  background: color-mix(in srgb, var(--color-critical) 3%, white);
 }
 .task-input:focus {
   outline: none;
@@ -279,6 +360,9 @@ const handleTextChange = (e: Event) => {
   min-height: 1.75rem;
   display: flex;
   align-items: center;
+}
+.task-item-issue .task-result {
+  color: var(--color-critical);
 }
 .task-result strong {
   color: var(--color-text-primary);
