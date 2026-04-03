@@ -6,7 +6,6 @@ import type {
   PageResponse,
   ChecklistTaskExecutionStatus,
   ChecklistVerificationResult,
-  ChecklistTaskExecution,
 } from '@/checklists/model/checklist.types'
 
 // --- Types ---
