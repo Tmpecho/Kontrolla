@@ -75,8 +75,16 @@ function handleFilterSelect(filter: TriageFilter) {
   }
 }
 
+function isOverdue(run: ChecklistRun): boolean {
+  if (!ACTIVE_STATUSES.includes(run.status) || run.status === 'IN_PROGRESS') {
+    return false
+  }
+
+  return new Date(run.dueAt).getTime() < new Date().getTime()
+}
+
 function isDueNow(run: ChecklistRun): boolean {
-  if (!ACTIVE_STATUSES.includes(run.status) || run.status === 'OVERDUE' || run.status === 'IN_PROGRESS') {
+  if (!ACTIVE_STATUSES.includes(run.status) || run.status === 'IN_PROGRESS' || isOverdue(run)) {
     return false
   }
 
@@ -94,7 +102,7 @@ function isDueNow(run: ChecklistRun): boolean {
 function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
   switch (filter) {
     case 'OVERDUE':
-      return run.status === 'OVERDUE'
+      return isOverdue(run)
     case 'DUE_NOW':
       return isDueNow(run)
     case 'IN_PROGRESS':
