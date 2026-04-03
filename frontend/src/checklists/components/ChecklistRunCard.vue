@@ -80,6 +80,9 @@ const withLoading = (apiAction: () => Promise<ChecklistRun>) => async () => {
 const handleResetRun = withLoading(() => resetChecklistRun(baseParams.value))
 const handleCancel = withLoading(() => cancelChecklistRun(baseParams.value))
 const handleReopen = withLoading(() => reopenChecklistRun(baseParams.value))
+const toggleExpanded = () => {
+  isExpanded.value = !isExpanded.value
+}
 
 const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInput => ({
   checklistTaskExecutionId: task.checklistTaskExecutionId,
@@ -110,34 +113,27 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 
 <template>
   <article class="run-card">
-    <header class="run-header">
+    <header
+      class="run-header"
+      role="button"
+      tabindex="0"
+      :aria-expanded="isExpanded"
+      :aria-label="isExpanded ? 'Collapse checklist run' : 'Expand checklist run'"
+      @click="toggleExpanded"
+      @keydown.enter.prevent="toggleExpanded"
+      @keydown.space.prevent="toggleExpanded"
+    >
       <div class="header-top">
         <div class="header-copy">
-          <button
-            class="toggle-button"
-            type="button"
-            :aria-expanded="isExpanded"
-            :aria-label="isExpanded ? 'Collapse checklist run' : 'Expand checklist run'"
-            @click="isExpanded = !isExpanded"
+          <svg
+            class="toggle-arrow"
+            :class="{ 'toggle-arrow-expanded': isExpanded }"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
           >
-            <svg
-              class="toggle-arrow"
-              :class="{ 'toggle-arrow-expanded': isExpanded }"
-              viewBox="0 0 20 20"
-              aria-hidden="true"
-            >
-              <path d="M5 7.5L10 12.5L15 7.5" />
-            </svg>
-          </button>
-          <button
-            class="title-button"
-            type="button"
-            :aria-expanded="isExpanded"
-            :aria-label="isExpanded ? 'Collapse checklist run' : 'Expand checklist run'"
-            @click="isExpanded = !isExpanded"
-          >
-            <h3 class="run-title">{{ run.title }}</h3>
-          </button>
+            <path d="M5 7.5L10 12.5L15 7.5" />
+          </svg>
+          <h3 class="run-title">{{ run.title }}</h3>
         </div>
         <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
       </div>
@@ -207,7 +203,6 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   background: var(--color-container);
   border: 1px solid var(--color-border-muted);
   border-radius: 1cqh;
-  box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -219,7 +214,9 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 }
 .run-header {
   padding-top: 1.5rem;
+  padding-bottom: 2rem;
   border-bottom: 1px solid var(--color-border-muted);
+  cursor: pointer;
 }
 .run-footer {
   background: var(--color-white);
@@ -284,27 +281,6 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
-.toggle-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-primary);
-  cursor: pointer;
-  font: inherit;
-  flex-shrink: 0;
-}
-.title-button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  min-width: 0;
-}
 .toggle-arrow {
   width: 1.5rem;
   height: 1.5rem;
@@ -314,6 +290,8 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: transform 160ms ease;
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 .toggle-arrow-expanded {
   transform: rotate(180deg);
