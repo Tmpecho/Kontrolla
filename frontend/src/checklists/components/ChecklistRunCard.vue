@@ -7,6 +7,7 @@ import {
   updateChecklistRunTask,
   type SubmitChecklistRunTaskInput,
 } from '@/checklists/api/checklist-runs.api'
+import { AlertCircle, Check, Circle, CircleDashed } from 'lucide-vue-next'
 import ChecklistTaskItem from './ChecklistTaskItem.vue'
 import { computed, ref, watch } from 'vue'
 
@@ -114,33 +115,28 @@ const issueTaskCount = computed(
     }).length,
 )
 
-const remainingOptionalTaskCount = computed(() =>
-  Math.max(totalTaskCount.value - completedTaskCount.value - remainingRequiredTaskCount.value, 0),
-)
-
-const progressSegments = computed(() => {
-  if (totalTaskCount.value === 0) {
-    return []
-  }
-
-  return [
-    {
-      key: 'completed',
-      className: 'progress-segment-completed',
-      value: completedTaskCount.value,
-    },
-    {
-      key: 'remaining-required',
-      className: 'progress-segment-required',
-      value: remainingRequiredTaskCount.value,
-    },
-    {
-      key: 'remaining-optional',
-      className: 'progress-segment-optional',
-      value: remainingOptionalTaskCount.value,
-    },
-  ].filter((segment) => segment.value > 0)
-})
+const progressStates = computed(() => [
+  {
+    key: 'completed',
+    label: `${completedTaskCount.value}/${totalTaskCount.value} completed`,
+    state:
+      totalTaskCount.value > 0 && completedTaskCount.value === totalTaskCount.value
+        ? 'complete'
+        : completedTaskCount.value > 0
+          ? 'current'
+          : 'upcoming',
+  },
+  {
+    key: 'required-left',
+    label: `${remainingRequiredTaskCount.value} required left`,
+    state: remainingRequiredTaskCount.value === 0 ? 'complete' : 'upcoming',
+  },
+  {
+    key: 'issues',
+    label: `${issueTaskCount.value} issues`,
+    state: issueTaskCount.value > 0 ? 'issue' : 'complete',
+  },
+])
 
 const baseParams = computed(() => ({
   organizationId: props.organizationId,
@@ -250,23 +246,31 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
         </div>
       </div>
       <div class="progress-strip" aria-label="Checklist progress summary">
-        <div class="progress-bar" role="presentation">
-          <span
-            v-for="segment in progressSegments"
-            :key="segment.key"
-            class="progress-segment"
-            :class="segment.className"
-            :style="{ width: `${(segment.value / totalTaskCount) * 100}%` }"
-          ></span>
-        </div>
-        <div class="progress-summary">
-          <span class="progress-summary-primary">
-            {{ completedTaskCount }}/{{ totalTaskCount }} completed
-          </span>
-          <span>{{ remainingRequiredTaskCount }} required left</span>
-          <span :class="{ 'progress-summary-issue': issueTaskCount > 0 }">
-            {{ issueTaskCount }} issues
-          </span>
+        <div class="progress-track" aria-hidden="true"></div>
+        <div class="progress-steps">
+          <div
+            v-for="step in progressStates"
+            :key="step.key"
+            class="progress-step"
+            :class="`progress-step-${step.state}`"
+          >
+            <component
+              :is="
+                step.state === 'issue'
+                  ? AlertCircle
+                  : step.state === 'complete'
+                    ? Check
+                    : step.state === 'current'
+                      ? Circle
+                      : CircleDashed
+              "
+              class="progress-step-icon"
+              aria-hidden="true"
+            />
+            <div class="progress-step-copy">
+              <span class="progress-step-label">{{ step.label }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -443,46 +447,66 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .progress-strip {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
   margin-top: 0.55rem;
+  position: relative;
 }
-.progress-bar {
-  display: flex;
+.progress-track {
   width: 100%;
-  height: 0.5rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 0.5cqh;
-  background: color-mix(in srgb, var(--color-surface) 55%, white);
-  overflow: hidden;
+  border-top: 2px solid color-mix(in srgb, var(--color-primary) 75%, white);
 }
-.progress-segment {
-  height: 100%;
-}
-.progress-segment-completed {
-  background: var(--color-success);
-}
-.progress-segment-required {
-  background: #f1c21b;
-}
-.progress-segment-optional {
-  background: #c6c6c6;
-}
-.progress-summary {
+.progress-steps {
   display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.progress-step {
+  display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  flex-wrap: wrap;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
+  min-width: 0;
 }
-.progress-summary-primary {
+.progress-step-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #c6c6c6;
+  flex-shrink: 0;
+}
+.progress-step-copy {
+  display: flex;
+  min-width: 0;
+}
+.progress-step-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--color-text-primary);
 }
-.progress-summary-issue {
+.progress-step-complete .progress-step-icon {
+  color: #24a148;
+}
+.progress-step-current .progress-step-icon {
+  color: var(--color-primary);
+}
+.progress-step-upcoming .progress-step-icon {
+  color: var(--color-text-secondary);
+}
+.progress-step-issue .progress-step-icon {
   color: var(--color-critical);
+}
+.progress-step-issue .progress-step-label {
+  color: var(--color-critical);
+}
+
+@media (max-width: 720px) {
+  .progress-steps {
+    gap: 0.75rem;
+  }
+
+  .progress-step {
+    min-width: min(100%, 12rem);
+  }
 }
 .toggle-arrow {
   width: 1.125rem;
