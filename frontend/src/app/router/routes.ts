@@ -11,6 +11,7 @@ import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
+import IKMatTemperaturePage from '@/ik-mat/pages/IKMatTemperaturePage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
 import IKAlkoholDocumentsPage from '@/ik-alkohol/pages/IKAlkoholDocumentsPage.vue'
 import IKAlkoholDocumentUploadPage from '@/ik-alkohol/pages/IKAlkoholDocumentUploadPage.vue'
@@ -91,6 +92,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-mat/documents',
         name: 'ik-mat-documents',
         component: IKMatDocumentsPage,
+      },
+      {
+        path: 'ik-mat/temperature',
+        name: 'ik-mat-temperature',
+        component: IKMatTemperaturePage,
       },
       {
         path: 'ik-alkohol',

@@ -4,6 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
+import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
+import { getTemperatureSummary } from '@/ik-mat/model/temperature.utils'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 import DeviationsTile from '@/shared/components/DeviationsTile.vue'
@@ -11,9 +13,9 @@ import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
-
-const hasChecklistContext = computed(
-  () => Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
+const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
+const hasChecklistContext = computed(() =>
+  Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
 )
 
 const missingContextMessage = computed(() => {
@@ -29,7 +31,8 @@ const missingContextMessage = computed(() => {
 })
 
 const activeRunsCount = computed(() => {
-  return checklistRuns.value.filter((run) => !['COMPLETED', 'CANCELLED'].includes(run.status)).length
+  return checklistRuns.value.filter((run) => !['COMPLETED', 'CANCELLED'].includes(run.status))
+    .length
 })
 
 const overdueRunsCount = computed(() => {
@@ -43,6 +46,10 @@ const inProgressRunsCount = computed(() => {
 const activeRunsLabel = computed(() => {
   return `${activeRunsCount.value} active ${activeRunsCount.value === 1 ? 'run' : 'runs'}`
 })
+
+function formatUnitSummary(count: number, label: string): string {
+  return `${count} ${count === 1 ? 'unit' : 'units'} ${label}`
+}
 
 async function loadChecklistRuns(): Promise<void> {
   const organizationId = appEnv.defaultOrganizationId
@@ -126,10 +133,15 @@ onMounted(async () => {
       </section>
 
       <section class="dashboard-section">
-        <div class="dashboard-tile dashboard-tile-link">
-          <h2>Temperature</h2>
-          <p>Temperature logs ...</p>
-        </div>
+        <RouterLink :to="{ name: 'ik-mat-temperature' }" class="tile-link">
+          <div class="dashboard-tile dashboard-tile-link">
+            <h2>Temperature</h2>
+            <p>
+              {{ formatUnitSummary(temperatureSummary.needsAttentionCount, 'need attention') }} •
+              {{ formatUnitSummary(temperatureSummary.overdueNowCount, 'overdue now') }}
+            </p>
+          </div>
+        </RouterLink>
       </section>
     </div>
   </div>
