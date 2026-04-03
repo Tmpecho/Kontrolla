@@ -143,13 +143,13 @@ const handleTextChange = (e: Event) => {
 
       <div v-else class="task-result">
         <template v-if="task.taskKind === 'MEASUREMENT' && task.measuredValue !== null">
-          Result: <strong>{{ task.measuredValue }} {{ task.measurementUnit }}</strong>
+          <strong>{{ task.measuredValue }} {{ task.measurementUnit }}</strong>
         </template>
         <template v-else-if="task.taskKind === 'VERIFICATION' && task.verificationResult">
-          Result: <strong>{{ task.verificationResult.replace('_', ' ') }}</strong>
+          <strong>{{ task.verificationResult.replace('_', ' ') }}</strong>
         </template>
         <template v-else-if="task.taskKind === 'TEXT_ENTRY' && task.enteredText">
-          Notes: <strong>{{ task.enteredText }}</strong>
+          <strong>{{ task.enteredText }}</strong>
         </template>
       </div>
     </div>
@@ -159,12 +159,14 @@ const handleTextChange = (e: Event) => {
 <style scoped>
 .task-item {
   display: grid;
-  grid-template-columns: 3px minmax(0, 1fr) minmax(10rem, 15rem);
+  grid-template-columns: 3px minmax(14rem, 26rem) minmax(10.5rem, 12.5rem);
   align-items: start;
-  column-gap: 0.6rem;
+  column-gap: 0.5rem;
   row-gap: 0.125rem;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--color-border-muted);
+  padding: 0.55rem 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 78%, white);
+  border-radius: 0.75cqh;
+  background: color-mix(in srgb, var(--color-surface) 28%, white);
   position: relative;
 }
 .task-item:last-child {
@@ -180,7 +182,7 @@ const handleTextChange = (e: Event) => {
 .task-content {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.16rem;
   min-width: 0;
 }
 .checkbox-label,
@@ -223,13 +225,20 @@ const handleTextChange = (e: Event) => {
 }
 .task-control {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0.22rem;
   min-width: 0;
+  align-self: start;
+  width: 100%;
+  padding: 0 0 0 0.55rem;
+  border-left: 1px solid color-mix(in srgb, var(--color-border-muted) 72%, white);
 }
 
 .task-input-area {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.22rem;
   justify-items: stretch;
   width: 100%;
 }
@@ -252,7 +261,7 @@ const handleTextChange = (e: Event) => {
 .input-group {
   width: 100%;
   max-width: 100%;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .input-unit {
   font-size: 0.75rem;
@@ -262,27 +271,42 @@ const handleTextChange = (e: Event) => {
 .input-hint {
   font-size: 0.625rem;
   color: var(--color-text-secondary);
-  text-align: right;
+  text-align: left;
 }
 .task-result {
-  text-align: right;
+  text-align: left;
+  width: 100%;
+  min-height: 1.75rem;
+  display: flex;
+  align-items: center;
+}
+.task-result strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 @media (max-width: 720px) {
   .task-item {
     grid-template-columns: 3px minmax(0, 1fr);
+    align-items: start;
+    padding: 0.5rem 0;
+    background: transparent;
+    border-radius: 0;
   }
 
   .task-control {
-    grid-column: 2;
     justify-content: flex-start;
     margin-top: 0.15rem;
+    align-self: start;
+    padding: 0;
+    border-left: 0;
   }
 
   .task-input-area,
   .task-result,
   .input-hint {
     text-align: left;
+    max-width: 100%;
   }
 }
 </style>

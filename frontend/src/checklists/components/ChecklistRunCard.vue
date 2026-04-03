@@ -86,7 +86,9 @@ const completedTaskCount = computed(
 const totalTaskCount = computed(() => workingTasks.value.length)
 
 const remainingRequiredTaskCount = computed(
-  () => workingTasks.value.filter((task) => task.required && task.executionStatus !== 'COMPLETED').length,
+  () =>
+    workingTasks.value.filter((task) => task.required && task.executionStatus !== 'COMPLETED')
+      .length,
 )
 
 const issueTaskCount = computed(
@@ -112,12 +114,8 @@ const issueTaskCount = computed(
     }).length,
 )
 
-const remainingOptionalTaskCount = computed(
-  () =>
-    Math.max(
-      totalTaskCount.value - completedTaskCount.value - remainingRequiredTaskCount.value,
-      0,
-    ),
+const remainingOptionalTaskCount = computed(() =>
+  Math.max(totalTaskCount.value - completedTaskCount.value - remainingRequiredTaskCount.value, 0),
 )
 
 const progressSegments = computed(() => {
@@ -275,7 +273,9 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 
     <!-- Tasks Section -->
     <div v-if="isExpanded" class="tasks-container">
-      <h4 class="tasks-heading">Tasks ({{ run.tasks.length }})</h4>
+      <div class="tasks-header">
+        <h4 class="tasks-heading">Tasks ({{ run.tasks.length }})</h4>
+      </div>
 
       <div v-if="workingTasks.length > 0" class="tasks-list">
         <ChecklistTaskItem
@@ -305,7 +305,9 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
           </button>
         </div>
         <div class="footer-right">
-          <span class="auto-save-text" :class="autoSaveMeta.className">{{ autoSaveMeta.label }}</span>
+          <span class="auto-save-text" :class="autoSaveMeta.className">{{
+            autoSaveMeta.label
+          }}</span>
         </div>
       </template>
 
@@ -523,6 +525,12 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   font-size: 0.6875rem;
   margin: 0 0 0.25rem;
 }
+.tasks-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10.5rem, 12.5rem);
+  align-items: end;
+  gap: 0.5rem;
+}
 
 .status-badge {
   padding: 0.18rem 0.45rem;
@@ -554,6 +562,16 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .tasks-list {
   border-top: 1px solid var(--color-border-muted);
   margin-top: 0.2rem;
+}
+
+@media (max-width: 720px) {
+  .tasks-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tasks-result-heading {
+    display: none;
+  }
 }
 
 .btn {
