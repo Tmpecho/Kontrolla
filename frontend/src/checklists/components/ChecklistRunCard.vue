@@ -60,6 +60,39 @@ const statusMeta = computed(() => ({
   class: STATUS_CLASSES[props.run.status] ?? 'status-default',
 }))
 
+const completedTaskCount = computed(
+  () => workingTasks.value.filter((task) => task.executionStatus === 'COMPLETED').length,
+)
+
+const totalTaskCount = computed(() => workingTasks.value.length)
+
+const remainingRequiredTaskCount = computed(
+  () => workingTasks.value.filter((task) => task.required && task.executionStatus !== 'COMPLETED').length,
+)
+
+const issueTaskCount = computed(
+  () =>
+    workingTasks.value.filter((task) => {
+      if (task.taskKind === 'VERIFICATION') {
+        return task.verificationResult === 'NOT_VERIFIED'
+      }
+
+      if (task.taskKind !== 'MEASUREMENT' || task.measuredValue === null) {
+        return false
+      }
+
+      if (task.minimumAllowedValue !== null && task.measuredValue < task.minimumAllowedValue) {
+        return true
+      }
+
+      if (task.maximumAllowedValue !== null && task.measuredValue > task.maximumAllowedValue) {
+        return true
+      }
+
+      return false
+    }).length,
+)
+
 const baseParams = computed(() => ({
   organizationId: props.organizationId,
   establishmentId: props.establishmentId,
@@ -141,6 +174,24 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
         </div>
       </div>
       <p v-if="run.description" class="run-description">{{ run.description }}</p>
+      <div class="progress-strip" aria-label="Checklist progress summary">
+        <div class="progress-metric">
+          <span class="progress-value">{{ totalTaskCount }}</span>
+          <span class="progress-label">Tasks</span>
+        </div>
+        <div class="progress-metric">
+          <span class="progress-value">{{ completedTaskCount }}</span>
+          <span class="progress-label">Completed</span>
+        </div>
+        <div class="progress-metric">
+          <span class="progress-value">{{ remainingRequiredTaskCount }}</span>
+          <span class="progress-label">Required left</span>
+        </div>
+        <div class="progress-metric" :class="{ 'progress-metric-issue': issueTaskCount > 0 }">
+          <span class="progress-value">{{ issueTaskCount }}</span>
+          <span class="progress-label">Issues</span>
+        </div>
+      </div>
     </header>
 
     <div v-if="isExpanded" class="run-meta-grid">
@@ -296,6 +347,41 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   font-size: 0.9375rem;
   color: var(--color-text-secondary);
   line-height: 1.5;
+}
+.progress-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.progress-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border-muted);
+  min-width: 0;
+}
+.progress-metric-issue {
+  color: var(--color-critical);
+}
+.progress-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.progress-metric-issue .progress-value {
+  color: var(--color-critical);
+}
+.progress-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.progress-metric-issue .progress-label {
+  color: currentColor;
 }
 .toggle-arrow {
   width: 1.5rem;

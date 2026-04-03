@@ -81,7 +81,12 @@ const handleTextChange = (e: Event) => {
 
     <div class="task-content">
       <div class="task-header">
-        <span class="task-title">{{ task.title }}</span>
+        <div class="task-title-row">
+          <span class="task-title">{{ task.title }}</span>
+          <span v-if="task.required" class="task-required-indicator" aria-label="Required task">
+            *
+          </span>
+        </div>
         <span class="task-badge">{{ task.taskKind }}</span>
       </div>
       <span v-if="task.details" class="task-details">{{ task.details }}</span>
@@ -194,6 +199,16 @@ const handleTextChange = (e: Event) => {
   align-items: center;
   gap: 0.5rem;
 }
+.task-header {
+  justify-content: space-between;
+}
+.task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
 
 .task-title {
   font: 500 0.9375rem/1.4 var(--font-sans, inherit);
@@ -226,6 +241,12 @@ const handleTextChange = (e: Event) => {
   background: var(--color-surface);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-muted);
+}
+.task-required-indicator {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-critical);
 }
 .task-status {
   font-size: 0.75rem;
