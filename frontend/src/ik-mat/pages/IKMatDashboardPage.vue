@@ -51,10 +51,6 @@ function formatUnitSummary(count: number, label: string): string {
   return `${count} ${count === 1 ? 'unit' : 'units'} ${label}`
 }
 
-function formatUnitSummary(count: number, label: string): string {
-  return `${count} ${count === 1 ? 'unit' : 'units'} ${label}`
-}
-
 async function loadChecklistRuns(): Promise<void> {
   const organizationId = appEnv.defaultOrganizationId
   const establishmentId = appEnv.defaultEstablishmentId
