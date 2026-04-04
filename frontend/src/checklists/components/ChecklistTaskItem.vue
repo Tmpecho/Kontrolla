@@ -158,7 +158,7 @@ const handleTextChange = (e: Event) => {
           <div class="input-group">
             <input
               type="number"
-              :value="task.measuredValue || ''"
+              :value="task.measuredValue ?? ''"
               @change="handleMeasurementChange"
               class="task-input"
               placeholder="Enter value"
