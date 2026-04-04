@@ -145,10 +145,6 @@ const navigationItems = computed<NavigationItem[]>(() => {
           routeName: 'ik-mat-temperature',
         },
         {
-          label: 'Temperature',
-          routeName: 'ik-mat-temperature',
-        },
-        {
           label: 'Important Documents',
           routeName: 'ik-mat-documents',
         },

@@ -29,12 +29,6 @@ const statusColor = computed(() => {
   return STATUS_COLORS[props.task.executionStatus] ?? 'var(--color-text-secondary)'
 })
 
-const statusLabel = computed(() =>
-  props.task.executionStatus === 'PENDING'
-    ? 'Pending'
-    : props.task.executionStatus.charAt(0) + props.task.executionStatus.slice(1).toLowerCase(),
-)
-
 const isMeasurementOutOfRange = computed(() => {
   if (props.task.taskKind !== 'MEASUREMENT' || props.task.measuredValue === null) {
     return false
