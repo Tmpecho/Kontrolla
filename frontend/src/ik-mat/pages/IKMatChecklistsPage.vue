@@ -8,7 +8,7 @@ import type { ChecklistRun, ChecklistRunStatus } from '@/checklists/model/checkl
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 
-type TriageFilter = 'OVERDUE' | 'DUE_NOW' | 'IN_PROGRESS' | 'COMPLETED'
+type TriageFilter = 'OVERDUE' | 'DUE_TODAY' | 'IN_PROGRESS' | 'COMPLETED'
 
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
@@ -17,7 +17,7 @@ const activeFilter = ref<TriageFilter>('OVERDUE')
 const searchQuery = ref('')
 const pinnedRunIdsByFilter = ref<Record<TriageFilter, string[]>>({
   OVERDUE: [],
-  DUE_NOW: [],
+  DUE_TODAY: [],
   IN_PROGRESS: [],
   COMPLETED: [],
 })
@@ -62,7 +62,7 @@ async function loadChecklistRuns(): Promise<void> {
     checklistRuns.value = selectLatestChecklistRuns(page.items)
     pinnedRunIdsByFilter.value = {
       OVERDUE: [],
-      DUE_NOW: [],
+      DUE_TODAY: [],
       IN_PROGRESS: [],
       COMPLETED: [],
     }
@@ -93,7 +93,7 @@ function handleFilterSelect(filter: TriageFilter) {
   if (filter !== activeFilter.value) {
     pinnedRunIdsByFilter.value = {
       OVERDUE: [],
-      DUE_NOW: [],
+      DUE_TODAY: [],
       IN_PROGRESS: [],
       COMPLETED: [],
     }
@@ -113,7 +113,7 @@ function isOverdue(run: ChecklistRun): boolean {
   return new Date(run.dueAt).getTime() < new Date().getTime()
 }
 
-function isDueNow(run: ChecklistRun): boolean {
+function isDueToday(run: ChecklistRun): boolean {
   if (!ACTIVE_STATUSES.includes(run.status) || run.status === 'IN_PROGRESS' || isOverdue(run)) {
     return false
   }
@@ -133,8 +133,8 @@ function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
   switch (filter) {
     case 'OVERDUE':
       return isOverdue(run)
-    case 'DUE_NOW':
-      return isDueNow(run)
+    case 'DUE_TODAY':
+      return isDueToday(run)
     case 'IN_PROGRESS':
       return run.status === 'IN_PROGRESS'
     case 'COMPLETED':
@@ -145,7 +145,7 @@ function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
 const triageOptions = computed(() => {
   const options: Array<{ key: TriageFilter; label: string; count: number }> = [
     { key: 'OVERDUE', label: 'Overdue', count: 0 },
-    { key: 'DUE_NOW', label: 'Due now', count: 0 },
+    { key: 'DUE_TODAY', label: 'Due today', count: 0 },
     { key: 'IN_PROGRESS', label: 'In progress', count: 0 },
     { key: 'COMPLETED', label: 'Completed', count: 0 },
   ]
