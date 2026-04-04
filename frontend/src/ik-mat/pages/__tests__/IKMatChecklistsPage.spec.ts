@@ -200,6 +200,60 @@ describe('IKMatChecklistsPage', () => {
     expect(wrapper.text()).toContain('Forbidden')
   })
 
+  it('removes a run from the current filter as soon as its status changes', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-1',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'OVERDUE',
+          startedAt: null,
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T07:00:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    const wrapper = mount(IKMatChecklistsPage, {
+      global: {
+        stubs: {
+          ChecklistRunCard: {
+            props: ['run'],
+            emits: ['update:run'],
+            template:
+              '<button class="run-card-stub" @click="$emit(\'update:run\', { ...run, status: \'COMPLETED\' })">{{ run.title }}</button>',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+
+    await wrapper.get('.run-card-stub').trigger('click')
+    await nextTick()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(0)
+    expect(wrapper.text()).toContain('No checklist runs match the current filter.')
+  })
+
   it('renders a generic missing context message outside development', async () => {
     appEnvMock.isDevelopment = false
     appEnvMock.isProduction = true

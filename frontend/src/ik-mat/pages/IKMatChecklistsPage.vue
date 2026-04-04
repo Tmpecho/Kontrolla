@@ -15,12 +15,6 @@ const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const activeFilter = ref<TriageFilter>('OVERDUE')
 const searchQuery = ref('')
-const pinnedRunIdsByFilter = ref<Record<TriageFilter, string[]>>({
-  OVERDUE: [],
-  DUE_NOW: [],
-  IN_PROGRESS: [],
-  COMPLETED: [],
-})
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
@@ -60,12 +54,6 @@ async function loadChecklistRuns(): Promise<void> {
     })
 
     checklistRuns.value = selectLatestChecklistRuns(page.items)
-    pinnedRunIdsByFilter.value = {
-      OVERDUE: [],
-      DUE_NOW: [],
-      IN_PROGRESS: [],
-      COMPLETED: [],
-    }
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -78,13 +66,6 @@ function handleRunUpdate(updatedRun: ChecklistRun) {
   checklistRuns.value = checklistRuns.value.map((run) =>
     run.id === updatedRun.id ? updatedRun : run,
   )
-
-  if (!hasSearchQuery.value) {
-    pinnedRunIdsByFilter.value = {
-      ...pinnedRunIdsByFilter.value,
-      [activeFilter.value]: [...new Set([...pinnedRunIdsByFilter.value[activeFilter.value], updatedRun.id])],
-    }
-  }
 }
 
 function handleFilterSelect(filter: TriageFilter) {
@@ -151,7 +132,6 @@ const isFilterVisuallyActive = (filter: TriageFilter) =>
 
 const filteredChecklistRuns = computed(() => {
   const normalizedQuery = searchQuery.value.trim().toLowerCase()
-  const pinnedRunIds = new Set(pinnedRunIdsByFilter.value[activeFilter.value])
 
   return checklistRuns.value.filter((run) => {
     const haystack = [run.title, run.description ?? '', run.status.replace(/_/g, ' ')]
@@ -162,7 +142,7 @@ const filteredChecklistRuns = computed(() => {
       return haystack.includes(normalizedQuery)
     }
 
-    return matchesFilter(run, activeFilter.value) || pinnedRunIds.has(run.id)
+    return matchesFilter(run, activeFilter.value)
   })
 })
 
