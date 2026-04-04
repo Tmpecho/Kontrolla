@@ -200,7 +200,7 @@ describe('IKMatChecklistsPage', () => {
     expect(wrapper.text()).toContain('Forbidden')
   })
 
-  it('removes a run from the current filter as soon as its status changes', async () => {
+  it('keeps an updated run visible until the user switches triage tabs', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -248,6 +248,20 @@ describe('IKMatChecklistsPage', () => {
     expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
 
     await wrapper.get('.run-card-stub').trigger('click')
+    await nextTick()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Morning shift')
+
+    const triageTabs = wrapper.findAll('.triage-tab')
+
+    await triageTabs[3]!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Morning shift')
+
+    await triageTabs[0]!.trigger('click')
     await nextTick()
 
     expect(wrapper.findAll('.run-card-stub')).toHaveLength(0)
