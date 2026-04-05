@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
+import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import { ApiError } from '@/shared/api/http'
 
 const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
@@ -43,21 +43,19 @@ function createDeferred<T>() {
 }
 
 function mountPage() {
-  return mount(IKMatDashboardPage, {
+  return mount(IKMatChecklistsPage, {
     global: {
       stubs: {
-        RouterLink: {
-          template: '<a><slot /></a>',
-        },
-        DeviationsTile: {
-          template: '<div>Deviations tile</div>',
+        ChecklistRunCard: {
+          props: ['run'],
+          template: '<div class="run-card-stub">{{ run.title }}</div>',
         },
       },
     },
   })
 }
 
-describe('IKMatDashboardPage', () => {
+describe('IKMatChecklistsPage', () => {
   afterEach(() => {
     listChecklistRunsMock.mockReset()
     appEnvMock.isDevelopment = true
@@ -83,7 +81,7 @@ describe('IKMatDashboardPage', () => {
     expect(wrapper.text()).toContain('Loading checklist runs...')
   })
 
-  it('renders checklist summary details after a successful request', async () => {
+  it('renders checklist runs after a successful request', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -116,12 +114,11 @@ describe('IKMatDashboardPage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Checklists')
-    expect(wrapper.text()).toContain('1 active run')
-    expect(wrapper.text()).toContain('0 overdue • 0 in progress')
+    expect(wrapper.text()).toContain('IK-mat Checklists')
+    expect(wrapper.text()).toContain('Morning shift')
   })
 
-  it('counts only the latest run for the same checklist definition group', async () => {
+  it('renders only the latest run for the same checklist definition group', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -153,8 +150,8 @@ describe('IKMatDashboardPage', () => {
           title: 'Morning shift (edited)',
           description: 'Opening routine',
           dueAt: '2026-03-26T10:00:00Z',
-          status: 'IN_PROGRESS',
-          startedAt: '2026-03-26T09:15:00Z',
+          status: 'PENDING',
+          startedAt: null,
           completedAt: null,
           completedByUserId: null,
           createdByUserId: 'user-1',
@@ -174,8 +171,9 @@ describe('IKMatDashboardPage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('1 active run')
-    expect(wrapper.text()).toContain('0 overdue • 1 in progress')
+    expect(wrapper.text()).toContain('Morning shift (edited)')
+    expect(wrapper.text()).not.toContain('Morning shiftOpening routine')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
   })
 
   it('renders an empty state when no checklist runs are returned', async () => {
@@ -200,6 +198,74 @@ describe('IKMatDashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Forbidden')
+  })
+
+  it('keeps an updated run visible until the user switches triage tabs', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-1',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'OVERDUE',
+          startedAt: null,
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T07:00:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    const wrapper = mount(IKMatChecklistsPage, {
+      global: {
+        stubs: {
+          ChecklistRunCard: {
+            props: ['run'],
+            emits: ['update:run'],
+            template:
+              '<button class="run-card-stub" @click="$emit(\'update:run\', { ...run, status: \'COMPLETED\' })">{{ run.title }}</button>',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+
+    await wrapper.get('.run-card-stub').trigger('click')
+    await nextTick()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Morning shift')
+
+    const triageTabs = wrapper.findAll('.triage-tab')
+
+    await triageTabs[3]!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Morning shift')
+
+    await triageTabs[0]!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(0)
+    expect(wrapper.text()).toContain('No checklist runs match the current filter.')
   })
 
   it('renders a generic missing context message outside development', async () => {

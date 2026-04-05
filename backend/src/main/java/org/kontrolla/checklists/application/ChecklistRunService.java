@@ -1,5 +1,6 @@
 package org.kontrolla.checklists.application;
 
+import org.kontrolla.checklists.api.UpdateChecklistTaskRequest;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -245,6 +246,69 @@ public class ChecklistRunService {
 		return checklistRunRepository.save(checklistRun);
 	}
 
+@Transactional
+	public ChecklistRun updateChecklistTask(
+			UUID organizationId,
+			UUID establishmentId,
+			UUID checklistRunId,
+			UUID taskId,
+			UpdateChecklistTaskRequest request,
+			CurrentUser currentUser
+	) {
+		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
+
+		if (run.getStatus() == ChecklistRunStatus.COMPLETED || run.getStatus() == ChecklistRunStatus.CANCELLED) {
+			throw new IllegalStateException("Cannot update tasks for a completed or cancelled run.");
+		}
+
+		User actor = getUserOrThrow(currentUser.userId());
+		Instant now = Instant.now();
+
+		if (run.getStatus() == ChecklistRunStatus.PENDING || run.getStatus() == ChecklistRunStatus.OVERDUE) {
+			run.setStatus(ChecklistRunStatus.IN_PROGRESS);
+			if (run.getStartedAt() == null) {
+				run.setStartedAt(now);
+			}
+		}
+
+		ChecklistTaskExecution task = run.getTaskExecutions().stream()
+				.filter(t -> t.getId().equals(taskId))
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("Task not found in this run"));
+
+		ChecklistTaskExecutionInput taskExecutionInput = new ChecklistTaskExecutionInput(
+				task.getId(),
+				request.executionStatus(),
+				request.comment(),
+				request.verificationResult(),
+				request.measuredValue(),
+				request.enteredText()
+		);
+
+		validateTaskExecution(task, taskExecutionInput);
+		applyTaskExecution(task, taskExecutionInput, actor, now);
+
+		boolean allRequiredDone = run.getTaskExecutions().stream()
+				.filter(ChecklistTaskExecution::isRequired)
+				.allMatch(t -> t.getExecutionStatus() == ChecklistTaskExecutionStatus.COMPLETED ||
+				               t.getExecutionStatus() == ChecklistTaskExecutionStatus.SKIPPED);
+
+		if (allRequiredDone) {
+			run.setStatus(ChecklistRunStatus.COMPLETED);
+			run.setCompletedAt(now);
+			run.setCompletedByUser(actor);
+			run.addEvent(new ChecklistRunEvent(
+					ChecklistRunEventType.COMPLETED,
+					actor,
+					now,
+					null
+			));
+		}
+
+		return run;
+	}
+
 	@Transactional
 	public ChecklistRun reopenChecklistRun(
 			UUID organizationId,
@@ -322,6 +386,30 @@ public class ChecklistRunService {
 		}
 
 		return updatedRuns;
+	}
+
+	@Transactional
+	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
+
+		if (run.getStatus() != ChecklistRunStatus.IN_PROGRESS) {
+			throw new IllegalStateException("Can only reset a run that is currently in progress.");
+		}
+
+		run.setStatus(ChecklistRunStatus.PENDING);
+		run.setStartedAt(null);
+		run.getTaskExecutions().forEach(taskExecution -> {
+			taskExecution.setExecutionStatus(ChecklistTaskExecutionStatus.PENDING);
+			taskExecution.setComment(null);
+			taskExecution.setVerificationResult(null);
+			taskExecution.setMeasuredValue(null);
+			taskExecution.setEnteredText(null);
+			taskExecution.setResolvedAt(null);
+			taskExecution.setResolvedByUser(null);
+		});
+
+		return run;
 	}
 
 	private UUID resolveAssignedUserFilter(
@@ -489,7 +577,7 @@ public class ChecklistRunService {
 		}
 	}
 
-	private void validateRequiredTaskExecutionsCompleted(List<ChecklistTaskExecution> taskExecutions) {
+	private void validateRequiredTaskExecutionsCompleted(Collection<ChecklistTaskExecution> taskExecutions) {
 		taskExecutions.stream().filter(ChecklistTaskExecution::isRequired)
 				.filter(taskExecution -> taskExecution.getExecutionStatus() != ChecklistTaskExecutionStatus.COMPLETED)
 				.forEach(_ -> {

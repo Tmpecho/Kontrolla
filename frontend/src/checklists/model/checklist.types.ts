@@ -13,6 +13,7 @@ export type PageResponse<T> = {
 export type ChecklistRunAssignment = {
   id: string
   assignedUserId: string
+  assignedUserName?: string
   assignedByUserId: string
   assignedAt: string
 }

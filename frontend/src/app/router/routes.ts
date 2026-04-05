@@ -9,6 +9,7 @@ import PriceOfferPage from '@/marketing/pages/PriceOfferPage.vue'
 import NotFoundPage from '@/shared/pages/NotFoundPage.vue'
 import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
+import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import IKMatDocumentsPage from '@/ik-mat/pages/IKMatDocumentsPage.vue'
 import IKMatTemperaturePage from '@/ik-mat/pages/IKMatTemperaturePage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
@@ -71,6 +72,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-mat',
         name: 'ik-mat-dashboard',
         component: IKMatDashboardPage,
+      },
+      {
+        path: 'ik-mat/checklists',
+        name: 'ik-mat-checklists',
+        component: IKMatChecklistsPage,
       },
       {
         path: 'ik-mat/deviation',

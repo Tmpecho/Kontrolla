@@ -2,6 +2,7 @@ package org.kontrolla.checklists.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kontrolla.checklists.api.UpdateChecklistTaskRequest;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -13,6 +14,7 @@ import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
+import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
@@ -31,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -112,7 +115,7 @@ class ChecklistRunServiceIntegrationTest {
 		assertThat(startedRun.getStatus()).isEqualTo(ChecklistRunStatus.IN_PROGRESS);
 		assertThat(startedRun.getStartedAt()).isNotNull();
 
-		UUID taskExecutionId = startedRun.getTaskExecutions().getFirst().getId();
+		UUID taskExecutionId = startedRun.getTaskExecutions().iterator().next().getId();
 		ChecklistRun completedRun = checklistRunService.submitChecklistRun(
 				organization.getId(),
 				establishment.getId(),
@@ -156,6 +159,137 @@ class ChecklistRunServiceIntegrationTest {
 		assertThat(cancelledRun.getEvents())
 				.extracting(ChecklistRunEvent::getEventType)
 				.contains(ChecklistRunEventType.REOPENED, ChecklistRunEventType.CANCELLED);
+	}
+
+	@Test
+	void updatingTheLastRequiredTaskMarksRunCompletedWithActorAndEvent() {
+		User manager = createUser("manager-update@example.com");
+		User employee = createUser("employee-update@example.com");
+		Organization organization = createOrganization("Kontrolla Update");
+		Establishment establishment = createEstablishment(organization, "Sushi Update");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		ChecklistRun updatedRun = checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				run.getTaskExecutions().iterator().next().getId(),
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Completed inline",
+						null,
+						null,
+						null
+				),
+				currentUser(employee)
+		);
+
+		assertThat(updatedRun.getStatus()).isEqualTo(ChecklistRunStatus.COMPLETED);
+		assertThat(updatedRun.getCompletedAt()).isNotNull();
+		assertThat(updatedRun.getCompletedByUser()).isNotNull();
+		assertThat(updatedRun.getCompletedByUser().getId()).isEqualTo(employee.getId());
+		assertThat(updatedRun.getEvents())
+				.extracting(ChecklistRunEvent::getEventType)
+				.contains(ChecklistRunEventType.COMPLETED);
+	}
+
+	@Test
+	void updatingAnActionTaskWithVerificationDataIsRejected() {
+		User manager = createUser("manager-invalid-update@example.com");
+		User employee = createUser("employee-invalid-update@example.com");
+		Organization organization = createOrganization("Kontrolla Invalid Update");
+		Establishment establishment = createEstablishment(organization, "Sushi Invalid Update");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		assertThatThrownBy(() -> checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				run.getTaskExecutions().iterator().next().getId(),
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Attempted invalid inline update",
+						ChecklistVerificationResult.VERIFIED,
+						null,
+						null
+				),
+				currentUser(employee)
+		)).isInstanceOf(ConflictException.class)
+				.hasMessageContaining("Action checklist tasks may only record completion");
+	}
+
+	@Test
+	void resetClearsTaskExecutionState() {
+		User manager = createUser("manager-reset@example.com");
+		User employee = createUser("employee-reset@example.com");
+		Organization organization = createOrganization("Kontrolla Reset");
+		Establishment establishment = createEstablishment(organization, "Sushi Reset");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = checklistDefinitionService.createChecklistDefinition(
+				organization.getId(),
+				establishment.getId(),
+				ChecklistServiceArea.IK_MAT,
+				"Measurement reset",
+				"Reset routine",
+				List.of(new ChecklistDefinitionService.ChecklistTaskInput(
+						"Measure sanitizer concentration",
+						"Record ppm value",
+						ChecklistTaskKind.MEASUREMENT,
+						true,
+						0,
+						"ppm",
+						new BigDecimal("200"),
+						new BigDecimal("400")
+				)),
+				List.of(),
+				currentUser(manager)
+		);
+		ChecklistRun run = createRun(definition, establishment, manager);
+		UUID taskId = run.getTaskExecutions().iterator().next().getId();
+
+		ChecklistRun inProgressRun = checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				taskId,
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.PENDING,
+						"Warming up",
+						null,
+						null,
+						null
+				),
+				currentUser(employee)
+		);
+
+		ChecklistRun resetRun = checklistRunService.resetChecklistRun(
+				organization.getId(),
+				establishment.getId(),
+				inProgressRun.getId(),
+				currentUser(employee)
+		);
+
+		assertThat(resetRun.getStatus()).isEqualTo(ChecklistRunStatus.PENDING);
+		assertThat(resetRun.getStartedAt()).isNull();
+		assertThat(resetRun.getTaskExecutions()).singleElement().satisfies(taskExecution -> {
+			assertThat(taskExecution.getExecutionStatus()).isEqualTo(ChecklistTaskExecutionStatus.PENDING);
+			assertThat(taskExecution.getComment()).isNull();
+			assertThat(taskExecution.getVerificationResult()).isNull();
+			assertThat(taskExecution.getMeasuredValue()).isNull();
+			assertThat(taskExecution.getEnteredText()).isNull();
+			assertThat(taskExecution.getResolvedAt()).isNull();
+			assertThat(taskExecution.getResolvedByUser()).isNull();
+		});
 	}
 
 	@Test
@@ -250,7 +384,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				List.of(new ChecklistRunService.ChecklistTaskExecutionInput(
-						run.getTaskExecutions().getFirst().getId(),
+						run.getTaskExecutions().iterator().next().getId(),
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Soap was missing",
 						ChecklistVerificationResult.NOT_VERIFIED,
