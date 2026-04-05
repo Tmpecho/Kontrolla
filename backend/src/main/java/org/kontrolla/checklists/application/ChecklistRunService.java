@@ -256,15 +256,19 @@ public class ChecklistRunService {
 			CurrentUser currentUser
 	) {
 		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
 
 		if (run.getStatus() == ChecklistRunStatus.COMPLETED || run.getStatus() == ChecklistRunStatus.CANCELLED) {
 			throw new IllegalStateException("Cannot update tasks for a completed or cancelled run.");
 		}
 
+		User actor = getUserOrThrow(currentUser.userId());
+		Instant now = Instant.now();
+
 		if (run.getStatus() == ChecklistRunStatus.PENDING || run.getStatus() == ChecklistRunStatus.OVERDUE) {
 			run.setStatus(ChecklistRunStatus.IN_PROGRESS);
 			if (run.getStartedAt() == null) {
-				run.setStartedAt(Instant.now());
+				run.setStartedAt(now);
 			}
 		}
 
@@ -273,27 +277,24 @@ public class ChecklistRunService {
 				.findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("Task not found in this run"));
 
-		task.setExecutionStatus(request.executionStatus());
-		task.setComment(request.comment());
-		task.setVerificationResult(request.verificationResult());
-		task.setMeasuredValue(request.measuredValue());
-		task.setEnteredText(request.enteredText());
+		ChecklistTaskExecutionInput taskExecutionInput = new ChecklistTaskExecutionInput(
+				task.getId(),
+				request.executionStatus(),
+				request.comment(),
+				request.verificationResult(),
+				request.measuredValue(),
+				request.enteredText()
+		);
 
-		if (request.executionStatus() == ChecklistTaskExecutionStatus.COMPLETED || 
-		    request.executionStatus() == ChecklistTaskExecutionStatus.SKIPPED) {
-			task.setResolvedAt(Instant.now());
-		} else {
-			task.setResolvedAt(null);
-		}
+		validateTaskExecution(task, taskExecutionInput);
+		applyTaskExecution(task, taskExecutionInput, actor, now);
 
 		boolean allRequiredDone = run.getTaskExecutions().stream()
 				.filter(ChecklistTaskExecution::isRequired)
-				.allMatch(t -> t.getExecutionStatus() == ChecklistTaskExecutionStatus.COMPLETED || 
+				.allMatch(t -> t.getExecutionStatus() == ChecklistTaskExecutionStatus.COMPLETED ||
 				               t.getExecutionStatus() == ChecklistTaskExecutionStatus.SKIPPED);
 
 		if (allRequiredDone) {
-			User actor = getUserOrThrow(currentUser.userId());
-			Instant now = Instant.now();
 			run.setStatus(ChecklistRunStatus.COMPLETED);
 			run.setCompletedAt(now);
 			run.setCompletedByUser(actor);
@@ -390,6 +391,7 @@ public class ChecklistRunService {
 	@Transactional
 	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
 		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
 
 		if (run.getStatus() != ChecklistRunStatus.IN_PROGRESS) {
 			throw new IllegalStateException("Can only reset a run that is currently in progress.");
@@ -397,6 +399,15 @@ public class ChecklistRunService {
 
 		run.setStatus(ChecklistRunStatus.PENDING);
 		run.setStartedAt(null);
+		run.getTaskExecutions().forEach(taskExecution -> {
+			taskExecution.setExecutionStatus(ChecklistTaskExecutionStatus.PENDING);
+			taskExecution.setComment(null);
+			taskExecution.setVerificationResult(null);
+			taskExecution.setMeasuredValue(null);
+			taskExecution.setEnteredText(null);
+			taskExecution.setResolvedAt(null);
+			taskExecution.setResolvedByUser(null);
+		});
 
 		return run;
 	}
