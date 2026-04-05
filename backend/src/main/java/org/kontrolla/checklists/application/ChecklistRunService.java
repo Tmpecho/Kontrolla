@@ -292,8 +292,17 @@ public class ChecklistRunService {
 				               t.getExecutionStatus() == ChecklistTaskExecutionStatus.SKIPPED);
 
 		if (allRequiredDone) {
+			User actor = getUserOrThrow(currentUser.userId());
+			Instant now = Instant.now();
 			run.setStatus(ChecklistRunStatus.COMPLETED);
-			run.setCompletedAt(Instant.now());
+			run.setCompletedAt(now);
+			run.setCompletedByUser(actor);
+			run.addEvent(new ChecklistRunEvent(
+					ChecklistRunEventType.COMPLETED,
+					actor,
+					now,
+					null
+			));
 		}
 
 		return run;

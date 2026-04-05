@@ -2,6 +2,7 @@ package org.kontrolla.checklists.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kontrolla.checklists.api.UpdateChecklistTaskRequest;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -156,6 +157,42 @@ class ChecklistRunServiceIntegrationTest {
 		assertThat(cancelledRun.getEvents())
 				.extracting(ChecklistRunEvent::getEventType)
 				.contains(ChecklistRunEventType.REOPENED, ChecklistRunEventType.CANCELLED);
+	}
+
+	@Test
+	void updatingTheLastRequiredTaskMarksRunCompletedWithActorAndEvent() {
+		User manager = createUser("manager-update@example.com");
+		User employee = createUser("employee-update@example.com");
+		Organization organization = createOrganization("Kontrolla Update");
+		Establishment establishment = createEstablishment(organization, "Sushi Update");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		ChecklistRun updatedRun = checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				run.getTaskExecutions().iterator().next().getId(),
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Completed inline",
+						null,
+						null,
+						null
+				),
+				currentUser(employee)
+		);
+
+		assertThat(updatedRun.getStatus()).isEqualTo(ChecklistRunStatus.COMPLETED);
+		assertThat(updatedRun.getCompletedAt()).isNotNull();
+		assertThat(updatedRun.getCompletedByUser()).isNotNull();
+		assertThat(updatedRun.getCompletedByUser().getId()).isEqualTo(employee.getId());
+		assertThat(updatedRun.getEvents())
+				.extracting(ChecklistRunEvent::getEventType)
+				.contains(ChecklistRunEventType.COMPLETED);
 	}
 
 	@Test
