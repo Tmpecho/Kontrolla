@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
+import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
@@ -53,6 +55,12 @@ class DeviationControllerIntegrationTest {
 	private RefreshTokenRepository refreshTokenRepository;
 
 	@Autowired
+	private ChecklistRunRepository checklistRunRepository;
+
+	@Autowired
+	private ChecklistDefinitionRepository checklistDefinitionRepository;
+
+	@Autowired
 	private OrganizationRepository organizationRepository;
 
 	@Autowired
@@ -71,6 +79,8 @@ class DeviationControllerIntegrationTest {
 	void setUp() {
 		refreshTokenRepository.deleteAll();
 		deviationRepository.deleteAll();
+		checklistRunRepository.deleteAll();
+		checklistDefinitionRepository.deleteAll();
 		organizationMembershipRepository.deleteAll();
 		establishmentRepository.deleteAll();
 		organizationRepository.deleteAll();

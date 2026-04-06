@@ -2,6 +2,8 @@ package org.kontrolla.deviations.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
+import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.deviations.domain.Deviation;
 import org.kontrolla.deviations.domain.DeviationCategory;
@@ -14,6 +16,7 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
+import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.CurrentUser;
@@ -43,6 +46,12 @@ class DeviationServiceIntegrationTest {
 	private DeviationRepository deviationRepository;
 
 	@Autowired
+	private ChecklistRunRepository checklistRunRepository;
+
+	@Autowired
+	private ChecklistDefinitionRepository checklistDefinitionRepository;
+
+	@Autowired
 	private OrganizationRepository organizationRepository;
 
 	@Autowired
@@ -54,9 +63,15 @@ class DeviationServiceIntegrationTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private RefreshTokenRepository refreshTokenRepository;
+
 	@BeforeEach
 	void setUp() {
+		refreshTokenRepository.deleteAll();
 		deviationRepository.deleteAll();
+		checklistRunRepository.deleteAll();
+		checklistDefinitionRepository.deleteAll();
 		organizationMembershipRepository.deleteAll();
 		establishmentRepository.deleteAll();
 		organizationRepository.deleteAll();
