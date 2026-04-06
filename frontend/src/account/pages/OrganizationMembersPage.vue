@@ -152,7 +152,9 @@ async function loadMembers(): Promise<void> {
       size: 100,
     })
 
-    members.value = page.items.map(toEditableMembership)
+    members.value = page.items
+      .sort((a, b) => a.userFirstName.localeCompare(b.userFirstName))
+      .map(toEditableMembership)
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load organization members.'
@@ -226,8 +228,7 @@ async function handleCreateMember(): Promise<void> {
 
     closeCreateComposer()
   } catch (error) {
-    errorMessage.value =
-      error instanceof ApiError ? error.message : 'Failed to create the member.'
+    errorMessage.value = error instanceof ApiError ? error.message : 'Failed to create the member.'
   } finally {
     isCreatingMember.value = false
   }
@@ -271,8 +272,7 @@ async function handleSaveMember(member: EditableMembership): Promise<void> {
 
     successMessage.value = `Updated ${getFullName(updatedMember)}.`
   } catch (error) {
-    errorMessage.value =
-      error instanceof ApiError ? error.message : 'Failed to update the member.'
+    errorMessage.value = error instanceof ApiError ? error.message : 'Failed to update the member.'
   } finally {
     savingMembershipId.value = null
   }
@@ -314,7 +314,7 @@ onMounted(() => {
       <p v-if="errorMessage" class="feedback-message feedback-message-error">
         {{ errorMessage }}
       </p>
-	      <div v-if="latestInvite?.inviteUrl" class="invite-link-panel">
+      <div v-if="latestInvite?.inviteUrl" class="invite-link-panel">
         <strong>Invitation link available in this environment</strong>
         <span>
           Open or share this link for {{ latestInvite.membership.userEmail }}. It expires at
@@ -341,7 +341,12 @@ onMounted(() => {
               >
                 {{ isCreateComposerOpen ? 'Cancel' : 'Add member' }}
               </button>
-              <button type="button" class="icon-button" @click="loadMembers" aria-label="Refresh members">
+              <button
+                type="button"
+                class="icon-button"
+                @click="loadMembers"
+                aria-label="Refresh members"
+              >
                 ↻
               </button>
             </div>
@@ -368,7 +373,10 @@ onMounted(() => {
               <div class="cell member-cell composer-cell" role="cell">
                 <div class="member-copy">
                   <strong>New member</strong>
-                  <span>Create from an existing platform user now, or invite a brand-new member to set their own password.</span>
+                  <span
+                    >Create from an existing platform user now, or invite a brand-new member to set
+                    their own password.</span
+                  >
                 </div>
               </div>
 
@@ -440,10 +448,13 @@ onMounted(() => {
               <div class="cell status-cell composer-fields" role="cell">
                 <label class="status-toggle">
                   <input v-model="createDraft.active" type="checkbox" />
-                  <span>{{ createDraft.active ? 'Enabled immediately' : 'Create as inactive' }}</span>
+                  <span>{{
+                    createDraft.active ? 'Enabled immediately' : 'Create as inactive'
+                  }}</span>
                 </label>
                 <span v-if="createDraft.mode === 'new_member'" class="pending-note">
-                  An invitation link will be generated so the new member can choose their own password.
+                  An invitation link will be generated so the new member can choose their own
+                  password.
                 </span>
               </div>
 
@@ -473,9 +484,6 @@ onMounted(() => {
                   <div class="member-title-row">
                     <strong>{{ getFullName(member) || member.userEmail }}</strong>
                     <span v-if="isCurrentUserMembership(member)" class="self-badge">You</span>
-                    <span class="status-pill" :data-active="member.active">
-                      {{ member.active ? 'Active' : 'Inactive' }}
-                    </span>
                   </div>
                   <span>{{ member.userEmail }}</span>
                   <span v-if="isCurrentUserMembership(member)" class="self-warning">
@@ -503,14 +511,26 @@ onMounted(() => {
 
               <div class="cell status-cell" role="cell">
                 <label class="switch-field">
-                  <span>
-                    {{ savingMembershipId === member.id ? 'Saving...' : member.draftActive ? 'Active' : 'Inactive' }}
+                  <span
+                    class="status-pill"
+                    :data-active="member.draftActive"
+                    :data-saving="savingMembershipId === member.id"
+                  >
+                    {{
+                      savingMembershipId === member.id
+                        ? 'Saving...'
+                        : member.draftActive
+                          ? 'Active'
+                          : 'Inactive'
+                    }}
                   </span>
                   <span class="switch-control">
                     <input
                       v-model="member.draftActive"
                       type="checkbox"
-                      :disabled="savingMembershipId === member.id || isCurrentUserMembership(member)"
+                      :disabled="
+                        savingMembershipId === member.id || isCurrentUserMembership(member)
+                      "
                       @change="handleSaveMember(member)"
                     />
                     <span class="switch-track"></span>
@@ -761,7 +781,7 @@ onMounted(() => {
 
 .member-copy span,
 .pending-note {
-  color: #6a7488;
+  /* color: #6a7488; */
   font-size: 0.84rem;
   overflow-wrap: anywhere;
 }
@@ -769,10 +789,11 @@ onMounted(() => {
 .self-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.18rem 0.48rem;
+  padding: 0.22rem 0.52rem;
+  border: 1px solid #e9f1f7;
   border-radius: 999px;
-  background-color: #163a70;
-  color: #fff;
+  background-color: #2274a5;
+  color: #ffffff;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -881,6 +902,11 @@ onMounted(() => {
 .status-pill[data-active='true'] {
   background-color: #e3f6e7;
   color: #287d3c;
+}
+
+.status-pill[data-saving='true'] {
+  background-color: #e8eefc;
+  color: #284c93;
 }
 
 .pending-note {
