@@ -116,7 +116,7 @@ function resolveCategoryFromQuery(value: unknown): DeviationCategory | '' {
 
 function syncFormFromQuery(): void {
   form.title = typeof route.query.title === 'string' ? route.query.title : ''
-  form.category = resolveCategoryFromQuery(route.query.category)
+  form.category = resolveCategoryFromQuery(route.query.category) || categoryOptions.value[0] || ''
   form.description = typeof route.query.description === 'string' ? route.query.description : ''
 }
 
