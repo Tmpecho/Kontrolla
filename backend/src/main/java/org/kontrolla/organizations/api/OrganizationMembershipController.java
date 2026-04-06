@@ -52,6 +52,26 @@ public class OrganizationMembershipController {
 		return MembershipResponse.from(membership);
 	}
 
+	@PostMapping("/managed-users")
+	@ResponseStatus(HttpStatus.CREATED)
+	public ManagedMemberProvisionResponse createManagedMember(
+			@PathVariable UUID organizationId,
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody CreateManagedMemberRequest request
+	) {
+		return ManagedMemberProvisionResponse.from(
+				organizationService.createManagedMembership(
+						organizationId,
+						request.email(),
+						request.firstName(),
+						request.lastName(),
+						request.role(),
+						request.active() == null || request.active(),
+						currentUser
+				)
+		);
+	}
+
 	@PatchMapping("/{membershipId}")
 	public MembershipResponse updateMembership(
 			@PathVariable UUID organizationId,

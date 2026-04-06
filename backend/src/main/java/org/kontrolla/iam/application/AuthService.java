@@ -33,6 +33,7 @@ public class AuthService {
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final EstablishmentRepository establishmentRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final UserInviteService userInviteService;
 	private final JwtService jwtService;
 	private final AppSecurityProperties securityProperties;
 
@@ -42,6 +43,7 @@ public class AuthService {
 			OrganizationMembershipRepository organizationMembershipRepository,
 			EstablishmentRepository establishmentRepository,
 			PasswordEncoder passwordEncoder,
+			UserInviteService userInviteService,
 			JwtService jwtService,
 			AppSecurityProperties securityProperties
 	) {
@@ -50,6 +52,7 @@ public class AuthService {
 		this.organizationMembershipRepository = organizationMembershipRepository;
 		this.establishmentRepository = establishmentRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.userInviteService = userInviteService;
 		this.jwtService = jwtService;
 		this.securityProperties = securityProperties;
 	}
@@ -90,6 +93,16 @@ public class AuthService {
 		return userRepository.findById(currentUser.userId())
 				.filter(User::isActive)
 				.orElseThrow(() -> new UnauthorizedException("user_not_found", "Authenticated user no longer exists"));
+	}
+
+	@Transactional(readOnly = true)
+	public UserInviteService.InviteDetails getInviteDetails(String token) {
+		return userInviteService.getInviteDetails(token);
+	}
+
+	@Transactional
+	public void acceptInvite(String token, String password) {
+		userInviteService.acceptInvite(token, password);
 	}
 
 	private AuthSession issueSession(User user, Instant now) {
