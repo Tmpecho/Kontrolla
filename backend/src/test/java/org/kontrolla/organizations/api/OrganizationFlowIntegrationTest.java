@@ -12,6 +12,7 @@ import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.support.TestDataCleaner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,6 +60,9 @@ class OrganizationFlowIntegrationTest {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private TestDataCleaner testDataCleaner;
+
 	@BeforeEach
 	void setUp() {
 		refreshTokenRepository.deleteAll();
@@ -67,6 +71,7 @@ class OrganizationFlowIntegrationTest {
 		membershipRepository.deleteAll();
 		organizationRepository.deleteAll();
 		userRepository.deleteAll();
+		testDataCleaner.clearAll();
 	}
 
 	@Test

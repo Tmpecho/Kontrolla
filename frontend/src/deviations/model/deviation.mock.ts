@@ -10,6 +10,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Temperature',
       severity: 'CRITICAL',
       status: 'OPEN',
+      assignedToUserId: 'mock-user-ik-mat-1',
       assignedTo: ['Nora Johansen', 'Elias Berg'],
       description:
         'The delivery temperature for raw salmon was measured above the internal receiving threshold and requires follow-up with the supplier and kitchen lead.',
@@ -36,6 +37,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Allergen handling',
       severity: 'HIGH',
       status: 'IN_PROGRESS',
+      assignedToUserId: 'mock-user-ik-mat-2',
       assignedTo: ['Emil Hansen'],
       description:
         'Prepared takeaway sauces were placed in the front fridge without updated allergen labels after relabeling.',
@@ -56,6 +58,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Cleaning and hygiene',
       severity: 'MEDIUM',
       status: 'RESOLVED',
+      assignedToUserId: 'mock-user-ik-mat-3',
       assignedTo: ['Mina Solberg'],
       description:
         'Soap dispenser at the cold-prep sink was empty during the opening check and was replenished after reporting.',
@@ -76,6 +79,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Storage and labeling',
       severity: 'LOW',
       status: 'OPEN',
+      assignedToUserId: 'mock-user-ik-mat-4',
       assignedTo: ['Sander Vik'],
       description:
         'One dry storage container with prepared topping mix did not have an updated product date or batch marking.',
@@ -98,6 +102,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Age control',
       severity: 'HIGH',
       status: 'OPEN',
+      assignedToUserId: 'mock-user-ik-alkohol-1',
       assignedTo: ['Lina Dahl', 'Jonas Olsen'],
       description:
         'A guest was served before ID verification was completed during a high-traffic period at the bar.',
@@ -118,6 +123,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Documentation and training',
       severity: 'MEDIUM',
       status: 'IN_PROGRESS',
+      assignedToUserId: 'mock-user-ik-alkohol-2',
       assignedTo: ['Amalie Nilsen'],
       description:
         'A refusal of service was handled correctly, but the incident note was not entered before the end of the shift.',
@@ -138,6 +144,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Serving hours',
       severity: 'CRITICAL',
       status: 'OPEN',
+      assignedToUserId: 'mock-user-ik-alkohol-3',
       assignedTo: ['Henrik Moe'],
       description:
         'Closing routines started too late and several guests remained in the serving area after licensed hours.',
@@ -158,6 +165,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
       category: 'Intoxicated guest',
       severity: 'LOW',
       status: 'RESOLVED',
+      assignedToUserId: 'mock-user-ik-alkohol-4',
       assignedTo: ['Maja Berg'],
       description:
         'The incoming door host was not briefed on the shift-specific intoxication escalation routine during handover.',
