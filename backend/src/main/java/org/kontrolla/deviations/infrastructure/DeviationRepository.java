@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface DeviationRepository extends JpaRepository<Deviation, UUID> {
@@ -13,5 +14,8 @@ public interface DeviationRepository extends JpaRepository<Deviation, UUID> {
 	Page<Deviation> findByOrganizationId(UUID organizationId, Pageable pageable);
 
 	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser", "assignedToUser"})
-	Page<Deviation> findByEstablishmentId(UUID establishmentId, UUID organizationId, Pageable pageable);
+	Page<Deviation> findByEstablishmentIdAndOrganizationId(UUID establishmentId, UUID organizationId, Pageable pageable);
+
+	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser", "assignedToUser"})
+	Optional<Deviation> findByIdAndEstablishmentIdAndOrganizationId(UUID id, UUID establishmentId, UUID organizationId);
 }
