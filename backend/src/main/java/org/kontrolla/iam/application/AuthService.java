@@ -126,7 +126,7 @@ public class AuthService {
 				.findFirstByUserIdAndActiveTrueOrderByCreatedAtAsc(userId);
 
 		if (membership.isEmpty()) {
-			return new UserAppContext(null, null, null, null);
+			return new UserAppContext(null, null, null, null, null);
 		}
 
 		OrganizationMembership activeMembership = membership.get();
@@ -136,6 +136,7 @@ public class AuthService {
 		return new UserAppContext(
 				activeMembership.getOrganization().getId(),
 				activeMembership.getOrganization().getName(),
+				activeMembership.getRole(),
 				establishment.map(Establishment::getId).orElse(null),
 				establishment.map(Establishment::getName).orElse(null)
 		);
