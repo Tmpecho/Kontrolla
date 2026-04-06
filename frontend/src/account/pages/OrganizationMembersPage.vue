@@ -493,10 +493,19 @@ onMounted(() => {
               </div>
 
               <div class="cell" role="cell">
+                <div v-if="isCurrentUserMembership(member)" class="blocked-field">
+                  <span class="blocked-field-value">
+                    {{
+                      organizationRoles.find((roleOption) => roleOption.value === member.role)
+                        ?.label ?? member.role
+                    }}
+                  </span>
+                </div>
                 <select
+                  v-else
                   v-model="member.draftRole"
                   class="field-input field-input-table"
-                  :disabled="savingMembershipId === member.id || isCurrentUserMembership(member)"
+                  :disabled="savingMembershipId === member.id"
                   @change="handleSaveMember(member)"
                 >
                   <option
@@ -510,7 +519,12 @@ onMounted(() => {
               </div>
 
               <div class="cell status-cell" role="cell">
-                <label class="switch-field">
+                <div v-if="isCurrentUserMembership(member)" class="blocked-field">
+                  <span class="status-pill" :data-active="member.active">
+                    {{ member.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                <label v-else class="switch-field">
                   <span
                     class="status-pill"
                     :data-active="member.draftActive"
@@ -528,9 +542,7 @@ onMounted(() => {
                     <input
                       v-model="member.draftActive"
                       type="checkbox"
-                      :disabled="
-                        savingMembershipId === member.id || isCurrentUserMembership(member)
-                      "
+                      :disabled="savingMembershipId === member.id"
                       @change="handleSaveMember(member)"
                     />
                     <span class="switch-track"></span>
@@ -808,6 +820,25 @@ onMounted(() => {
 .field-input-table {
   min-height: 38px;
   padding: 0.62rem 0.72rem;
+}
+
+.blocked-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 3em;
+  width: 100%;
+  padding: 0.72rem 0.8rem;
+  border: 1px dashed #d4ae3d;
+  border-radius: 4px;
+  background-color: #fff8de;
+  box-sizing: border-box;
+}
+
+.blocked-field-value {
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .composer-cell {
