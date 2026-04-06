@@ -324,7 +324,6 @@ onMounted(() => {
               <span role="columnheader">Member details</span>
               <span role="columnheader">Role</span>
               <span role="columnheader">Status</span>
-              <span role="columnheader">Actions</span>
             </div>
 
             <form
@@ -448,7 +447,12 @@ onMounted(() => {
               </div>
 
               <div class="cell" role="cell">
-                <select v-model="member.draftRole" class="field-input field-input-table">
+                <select
+                  v-model="member.draftRole"
+                  class="field-input field-input-table"
+                  :disabled="savingMembershipId === member.id"
+                  @change="handleSaveMember(member)"
+                >
                   <option
                     v-for="roleOption in organizationRoles"
                     :key="roleOption.value"
@@ -461,24 +465,19 @@ onMounted(() => {
 
               <div class="cell status-cell" role="cell">
                 <label class="switch-field">
-                  <span>{{ member.draftActive ? 'Active' : 'Inactive' }}</span>
+                  <span>
+                    {{ savingMembershipId === member.id ? 'Saving...' : member.draftActive ? 'Active' : 'Inactive' }}
+                  </span>
                   <span class="switch-control">
-                    <input v-model="member.draftActive" type="checkbox" />
+                    <input
+                      v-model="member.draftActive"
+                      type="checkbox"
+                      :disabled="savingMembershipId === member.id"
+                      @change="handleSaveMember(member)"
+                    />
                     <span class="switch-track"></span>
                   </span>
                 </label>
-              </div>
-
-              <div class="cell actions-cell" role="cell">
-                <span v-if="hasDraftChanges(member)" class="pending-note">Unsaved</span>
-                <button
-                  type="button"
-                  class="secondary-button"
-                  :disabled="savingMembershipId === member.id || !hasDraftChanges(member)"
-                  @click="handleSaveMember(member)"
-                >
-                  {{ savingMembershipId === member.id ? 'Saving...' : 'Save' }}
-                </button>
               </div>
             </article>
           </div>
@@ -657,7 +656,7 @@ onMounted(() => {
 
 .directory-table {
   display: grid;
-  grid-template-columns: minmax(280px, 1.7fr) minmax(180px, 0.9fr) minmax(160px, 0.8fr) minmax(120px, 0.55fr);
+  grid-template-columns: minmax(280px, 1.8fr) minmax(180px, 0.95fr) minmax(170px, 0.85fr);
 }
 
 .directory-table-head {
