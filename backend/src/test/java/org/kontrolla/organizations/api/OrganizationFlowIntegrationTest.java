@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
-import org.kontrolla.iam.infrastructure.UserInviteRepository;
-import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
@@ -43,12 +41,6 @@ class OrganizationFlowIntegrationTest {
 	private UserRepository userRepository;
 
 	@Autowired
-	private RefreshTokenRepository refreshTokenRepository;
-
-	@Autowired
-	private UserInviteRepository userInviteRepository;
-
-	@Autowired
 	private OrganizationRepository organizationRepository;
 
 	@Autowired
@@ -65,12 +57,6 @@ class OrganizationFlowIntegrationTest {
 
 	@BeforeEach
 	void setUp() {
-		refreshTokenRepository.deleteAll();
-		userInviteRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		membershipRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
 		testDataCleaner.clearAll();
 	}
 

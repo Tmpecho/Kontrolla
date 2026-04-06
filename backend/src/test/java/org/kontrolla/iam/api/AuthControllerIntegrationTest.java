@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.iam.domain.User;
-import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
-import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationMembership;
@@ -50,12 +48,6 @@ class AuthControllerIntegrationTest {
 	private UserRepository userRepository;
 
 	@Autowired
-	private RefreshTokenRepository refreshTokenRepository;
-
-	@Autowired
-	private UserInviteRepository userInviteRepository;
-
-	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -72,12 +64,6 @@ class AuthControllerIntegrationTest {
 
 	@BeforeEach
 	void setUp() {
-		refreshTokenRepository.deleteAll();
-		userInviteRepository.deleteAll();
-		organizationMembershipRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
 		testDataCleaner.clearAll();
 	}
 

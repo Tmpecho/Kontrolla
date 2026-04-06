@@ -5,6 +5,7 @@ import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
+import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class TestDataCleaner {
 
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final UserInviteRepository userInviteRepository;
 	private final DeviationRepository deviationRepository;
 	private final ChecklistRunRepository checklistRunRepository;
 	private final ChecklistDefinitionRepository checklistDefinitionRepository;
@@ -24,6 +26,7 @@ public class TestDataCleaner {
 
 	public TestDataCleaner(
 			RefreshTokenRepository refreshTokenRepository,
+			UserInviteRepository userInviteRepository,
 			DeviationRepository deviationRepository,
 			ChecklistRunRepository checklistRunRepository,
 			ChecklistDefinitionRepository checklistDefinitionRepository,
@@ -33,6 +36,7 @@ public class TestDataCleaner {
 			UserRepository userRepository
 	) {
 		this.refreshTokenRepository = refreshTokenRepository;
+		this.userInviteRepository = userInviteRepository;
 		this.deviationRepository = deviationRepository;
 		this.checklistRunRepository = checklistRunRepository;
 		this.checklistDefinitionRepository = checklistDefinitionRepository;
@@ -44,6 +48,7 @@ public class TestDataCleaner {
 
 	public void clearAll() {
 		refreshTokenRepository.deleteAll();
+		userInviteRepository.deleteAll();
 		deviationRepository.deleteAll();
 		checklistRunRepository.deleteAll();
 		checklistDefinitionRepository.deleteAll();
