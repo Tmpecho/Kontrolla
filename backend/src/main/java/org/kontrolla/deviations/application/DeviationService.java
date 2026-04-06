@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 //TODO create EstablishmentAccess class
@@ -89,14 +90,16 @@ public class DeviationService {
 		Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
 		Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 		User createdByUser = userAccessService.getCurrentUserOrThrow(currentUser);
+		String normalizedTitle = normalizeRequiredText(title);
+		String normalizedDescription = normalizeRequiredText(description);
 
 		Deviation deviation = new Deviation(
 				organization,
 				establishment,
 				createdByUser,
 				null,
-				title,
-				description,
+				normalizedTitle,
+				normalizedDescription,
 				severity,
 				category
 		);
@@ -198,13 +201,15 @@ public class DeviationService {
 		User actor = userAccessService.getCurrentUserOrThrow(currentUser);
 		Deviation deviation = findDeviationOrThrow(organizationId, establishmentId, deviationId);
 		List<String> changedFields = new ArrayList<>();
+		String normalizedTitle = normalizeRequiredText(title);
+		String normalizedDescription = normalizeRequiredText(description);
 
-		if (!deviation.getTitle().equals(title)) {
-			deviation.setTitle(title);
+		if (!deviation.getTitle().equals(normalizedTitle)) {
+			deviation.setTitle(normalizedTitle);
 			changedFields.add("title");
 		}
-		if (!deviation.getDescription().equals(description)) {
-			deviation.setDescription(description);
+		if (!deviation.getDescription().equals(normalizedDescription)) {
+			deviation.setDescription(normalizedDescription);
 			changedFields.add("description");
 		}
 		if (deviation.getSeverity() != severity) {
@@ -256,6 +261,10 @@ public class DeviationService {
 	private Deviation findDeviationOrThrow(UUID organizationId, UUID establishmentId, UUID deviationId) {
 		return deviationRepository.findByIdAndEstablishmentIdAndOrganizationId(deviationId, establishmentId, organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("deviation_not_found", "Deviation not found"));
+	}
+
+	private String normalizeRequiredText(String value) {
+		return Objects.requireNonNull(value, "value").strip();
 	}
 
 	private User getAssignableUserOrThrow(UUID organizationId, UUID assignedUserId) {

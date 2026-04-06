@@ -192,8 +192,8 @@ class DeviationServiceIntegrationTest {
 
 		Deviation deviation = deviationService.createDeviation(
 				currentUser(manager),
-				"Thermometer calibration missing",
-				"Calibration record was not available during inspection.",
+				"  Thermometer calibration missing  ",
+				"  Calibration record was not available during inspection.  ",
 				DeviationCategory.DOCUMENTATION_AND_TRAINING,
 				DeviationSeverity.MEDIUM,
 				organization.getId(),
@@ -232,8 +232,8 @@ class DeviationServiceIntegrationTest {
 				organization.getId(),
 				establishment.getId(),
 				deviation.getId(),
-				"Thermometer calibration missing",
-				"Calibration record was not available during inspection.",
+				"  Thermometer calibration missing  ",
+				"  Calibration record was not available during inspection.  ",
 				DeviationSeverity.MEDIUM,
 				DeviationCategory.DOCUMENTATION_AND_TRAINING,
 				currentUser(manager)
@@ -253,6 +253,8 @@ class DeviationServiceIntegrationTest {
 						DeviationEventType.ASSIGNED,
 						DeviationEventType.STATUS_CHANGED
 				);
+		assertThat(reloadedDeviation.getTitle()).isEqualTo("Thermometer calibration missing");
+		assertThat(reloadedDeviation.getDescription()).isEqualTo("Calibration record was not available during inspection.");
 	}
 
 	@Test
