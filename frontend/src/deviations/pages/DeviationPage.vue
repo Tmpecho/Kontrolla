@@ -38,6 +38,7 @@ const searchQuery = ref('')
 const activeFilter = ref<'ALL' | 'OPEN' | 'RECENT'>('ALL')
 const deviations = ref<DeviationListItem[]>([])
 const memberOptions = ref<DeviationMemberOption[]>([])
+const memberNamesById = ref<Record<string, string>>({})
 const selectedDeviationDetails = ref<DeviationListItem | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -87,10 +88,6 @@ const pageSubtitle = computed(() => {
   }
 
   return 'Track, manage and resolve food safety deviations, hygiene issues, and corrective follow-up.'
-})
-
-const memberNameLookup = computed<Record<string, string>>(() => {
-  return Object.fromEntries(memberOptions.value.map((member) => [member.userId, member.displayName]))
 })
 
 const serviceDeviations = computed(() => {
@@ -209,7 +206,7 @@ async function loadSelectedDeviation() {
       return
     }
 
-    selectedDeviationDetails.value = mapDeviationResponseToListItem(response, memberNameLookup.value)
+    selectedDeviationDetails.value = mapDeviationResponseToListItem(response, memberNamesById.value)
   } catch (error) {
     if (selectedDeviationId.value !== deviationId) {
       return
@@ -255,10 +252,10 @@ async function loadDeviations() {
       }).catch(() => null),
     ])
 
-    const memberLookup = memberPage ? toMemberNameLookup(memberPage.items) : {}
+    memberNamesById.value = memberPage ? toMemberNameLookup(memberPage.items) : {}
 
     deviations.value = deviationPage.items.map((deviation) =>
-      mapDeviationResponseToListItem(deviation, memberLookup),
+      mapDeviationResponseToListItem(deviation, memberNamesById.value),
     )
     memberOptions.value = memberPage ? toMemberOptions(memberPage.items) : []
 
@@ -268,6 +265,7 @@ async function loadDeviations() {
   } catch (error) {
     deviations.value = []
     memberOptions.value = []
+    memberNamesById.value = {}
     selectedDeviationDetails.value = null
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load deviations.'
@@ -328,7 +326,7 @@ async function handleDeviationSave(nextValues: DeviationSaveInput) {
         category: toDeviationCategoryValue(nextValues.category),
         severity: nextValues.severity,
       })
-      updatedDeviation = mapDeviationResponseToListItem(response, memberNameLookup.value)
+      updatedDeviation = mapDeviationResponseToListItem(response, memberNamesById.value)
       replaceDeviation(updatedDeviation)
     }
 
@@ -339,7 +337,7 @@ async function handleDeviationSave(nextValues: DeviationSaveInput) {
         deviationId: currentDeviation.id,
         status: nextValues.status,
       })
-      updatedDeviation = mapDeviationResponseToListItem(response, memberNameLookup.value)
+      updatedDeviation = mapDeviationResponseToListItem(response, memberNamesById.value)
       replaceDeviation(updatedDeviation)
     }
 
@@ -355,7 +353,7 @@ async function handleDeviationSave(nextValues: DeviationSaveInput) {
         deviationId: currentDeviation.id,
         assignedUserId: nextValues.assignedToUserId,
       })
-      updatedDeviation = mapDeviationResponseToListItem(response, memberNameLookup.value)
+      updatedDeviation = mapDeviationResponseToListItem(response, memberNamesById.value)
       replaceDeviation(updatedDeviation)
     }
   } catch (error) {
@@ -386,7 +384,7 @@ async function handleTimelineNoteAdd(note: string) {
       note,
     })
 
-    replaceDeviation(mapDeviationResponseToListItem(response, memberNameLookup.value))
+    replaceDeviation(mapDeviationResponseToListItem(response, memberNamesById.value))
   } catch (error) {
     saveErrorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to add follow-up note.'
