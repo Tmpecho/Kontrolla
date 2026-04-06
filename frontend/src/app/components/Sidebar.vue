@@ -11,6 +11,8 @@ defineOptions({
 type AppRouteName =
   | 'workspace-home'
   | 'ik-mat-dashboard'
+  | 'ik-mat-checklists'
+  | 'ik-mat-temperature'
   | 'ik-mat-documents'
   | 'ik-mat-deviation'
   | 'ik-alkohol-dashboard'
@@ -52,6 +54,8 @@ const router = useRouter()
 const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'workspace-home': ['workspace-home'],
   'ik-mat-dashboard': ['ik-mat-dashboard'],
+  'ik-mat-checklists': ['ik-mat-checklists'],
+  'ik-mat-temperature': ['ik-mat-temperature'],
   'ik-mat-documents': ['ik-mat-documents'],
   'ik-mat-deviation': ['ik-mat-deviation', 'ik-mat-deviation-form'],
   'ik-alkohol-dashboard': ['ik-alkohol-dashboard'],
@@ -134,6 +138,11 @@ const navigationItems = computed<NavigationItem[]>(() => {
         },
         {
           label: 'Checklists',
+          routeName: 'ik-mat-checklists',
+        },
+        {
+          label: 'Temperature',
+          routeName: 'ik-mat-temperature',
         },
         {
           label: 'Important Documents',

@@ -41,7 +41,6 @@ body {
   height: 100%;
   overflow: hidden;
 }
-
 .page-layout {
   min-height: 100dvh;
   display: flex;

@@ -94,6 +94,33 @@ const canSubmit = computed(() => {
   )
 })
 
+function formatDateForInput(value: string | null): string {
+  if (!value) {
+    return ''
+  }
+
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+  const day = String(parsedDate.getDate()).padStart(2, '0')
+  const hours = String(parsedDate.getHours()).padStart(2, '0')
+  const minutes = String(parsedDate.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function syncFormFromQuery(): void {
+  form.title = typeof route.query.title === 'string' ? route.query.title : ''
+  form.category = typeof route.query.category === 'string' ? route.query.category : ''
+  form.description = typeof route.query.description === 'string' ? route.query.description : ''
+  form.date = formatDateForInput(typeof route.query.date === 'string' ? route.query.date : null)
+}
+
 async function onSubmit() {
   const resolvedOrganizationId = organizationId.value
   const resolvedEstablishmentId = establishmentId.value
@@ -128,6 +155,14 @@ async function onSubmit() {
     isSubmitting.value = false
   }
 }
+
+watch(
+  () => route.query,
+  () => {
+    syncFormFromQuery()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

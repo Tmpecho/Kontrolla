@@ -20,7 +20,7 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.domain.User;
 
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -84,7 +84,7 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("sortOrder ASC")
-	private final List<ChecklistTaskExecution> taskExecutions = new ArrayList<>();
+	private final Set<ChecklistTaskExecution> taskExecutions = new LinkedHashSet<>();
 
 	@OneToMany(mappedBy = "checklistRun", cascade = CascadeType.ALL, orphanRemoval = true)
 	private final Set<ChecklistRunAssignment> assignments = new LinkedHashSet<>();
@@ -117,7 +117,7 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 		this.createdByUser = createdByUser;
 	}
 
-	public void replaceTaskExecutions(List<ChecklistTaskExecution> taskExecutions) {
+	public void replaceTaskExecutions(Collection<ChecklistTaskExecution> taskExecutions) {
 		this.taskExecutions.clear();
 		taskExecutions.forEach(this::addTaskExecution);
 	}
@@ -128,10 +128,13 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 	}
 
 	public void snapshotTasksFromDefinition(List<ChecklistTaskDefinition> tasks) {
-		replaceTaskExecutions(tasks.stream().map(ChecklistTaskExecution::fromDefinitionTask).toList());
+		this.taskExecutions.clear();
+		tasks.stream()
+				.map(ChecklistTaskExecution::fromDefinitionTask)
+				.forEach(this::addTaskExecution);
 	}
 
-	public void replaceAssignments(List<ChecklistRunAssignment> assignments) {
+	public void replaceAssignments(Collection<ChecklistRunAssignment> assignments) {
 		this.assignments.clear();
 		assignments.forEach(this::addAssignment);
 	}
