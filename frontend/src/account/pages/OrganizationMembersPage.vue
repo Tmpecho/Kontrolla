@@ -322,7 +322,6 @@ onMounted(() => {
           <div v-else class="directory-table-shell">
             <div class="directory-table directory-table-head" role="row">
               <span role="columnheader">Member details</span>
-              <span role="columnheader">Identifiers</span>
               <span role="columnheader">Role</span>
               <span role="columnheader">Status</span>
               <span role="columnheader">Actions</span>
@@ -341,14 +340,14 @@ onMounted(() => {
                 </div>
               </div>
 
-              <div class="cell identifiers-cell composer-fields" role="cell">
+              <div class="cell composer-fields" role="cell">
                 <label class="form-field">
-                <span class="field-label">Provision mode</span>
-                <select v-model="createDraft.mode" class="field-input field-input-table">
-                  <option value="existing_user">Existing user</option>
-                  <option value="new_member">Invite new member</option>
-                </select>
-              </label>
+                  <span class="field-label">Provision mode</span>
+                  <select v-model="createDraft.mode" class="field-input field-input-table">
+                    <option value="existing_user">Existing user</option>
+                    <option value="new_member">Invite new member</option>
+                  </select>
+                </label>
 
                 <label v-if="createDraft.mode === 'existing_user'" class="form-field">
                   <span class="field-label">Existing user ID</span>
@@ -438,14 +437,14 @@ onMounted(() => {
             >
               <div class="cell member-cell" role="cell">
                 <div class="member-copy">
-                  <strong>{{ getFullName(member) || member.userEmail }}</strong>
+                  <div class="member-title-row">
+                    <strong>{{ getFullName(member) || member.userEmail }}</strong>
+                    <span class="status-pill" :data-active="member.active">
+                      {{ member.active ? 'Active' : 'Inactive' }}
+                    </span>
+                  </div>
                   <span>{{ member.userEmail }}</span>
                 </div>
-              </div>
-
-              <div class="cell identifiers-cell" role="cell">
-                <span><strong>UID</strong> {{ member.userId }}</span>
-                <span><strong>MID</strong> {{ member.id }}</span>
               </div>
 
               <div class="cell" role="cell">
@@ -461,12 +460,12 @@ onMounted(() => {
               </div>
 
               <div class="cell status-cell" role="cell">
-                <span class="status-pill" :data-active="member.active">
-                  {{ member.active ? 'Compliant' : 'Inactive' }}
-                </span>
-                <label class="status-toggle">
-                  <input v-model="member.draftActive" type="checkbox" />
-                  <span>Enabled</span>
+                <label class="switch-field">
+                  <span>{{ member.draftActive ? 'Active' : 'Inactive' }}</span>
+                  <span class="switch-control">
+                    <input v-model="member.draftActive" type="checkbox" />
+                    <span class="switch-track"></span>
+                  </span>
                 </label>
               </div>
 
@@ -590,7 +589,8 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
-.status-toggle {
+.status-toggle,
+.switch-field {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -657,7 +657,7 @@ onMounted(() => {
 
 .directory-table {
   display: grid;
-  grid-template-columns: minmax(240px, 1.35fr) minmax(230px, 1fr) minmax(160px, 0.8fr) minmax(170px, 0.8fr) minmax(120px, 0.55fr);
+  grid-template-columns: minmax(280px, 1.7fr) minmax(180px, 0.9fr) minmax(160px, 0.8fr) minmax(120px, 0.55fr);
 }
 
 .directory-table-head {
@@ -691,14 +691,12 @@ onMounted(() => {
   min-width: 0;
   flex-direction: column;
   justify-content: center;
-  gap: 10px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px 14px;
 }
 
 .member-cell {
-  flex-direction: row;
   align-items: start;
-  gap: 12px;
 }
 
 .member-copy {
@@ -708,30 +706,28 @@ onMounted(() => {
   gap: 4px;
 }
 
+.member-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .member-copy strong {
   overflow-wrap: anywhere;
-  font-size: 1rem;
+  font-size: 0.98rem;
 }
 
 .member-copy span,
-.identifiers-cell span,
 .pending-note {
   color: #6a7488;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   overflow-wrap: anywhere;
 }
 
-.identifiers-cell strong {
-  margin-right: 6px;
-  color: #8892a6;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .field-input-table {
-  min-height: 40px;
-  padding: 0.7rem 0.8rem;
+  min-height: 38px;
+  padding: 0.62rem 0.72rem;
 }
 
 .composer-cell {
@@ -751,15 +747,73 @@ onMounted(() => {
   gap: 10px;
 }
 
+.switch-field {
+  justify-content: space-between;
+  min-width: 120px;
+}
+
+.switch-control {
+  position: relative;
+  display: inline-flex;
+  width: 48px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.switch-control input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.switch-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background-color: #d4d9e4;
+  transition: background-color 0.2s ease;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 1px 4px rgba(28, 36, 52, 0.22);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.switch-control input:checked + .switch-track {
+  background-color: #3b82f6;
+}
+
+.switch-control input:checked + .switch-track::after {
+  transform: translateX(20px);
+}
+
+.switch-control input:focus-visible + .switch-track {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 10px;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 999px;
   background-color: #fde9e8;
   color: #b33c36;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -829,7 +883,7 @@ onMounted(() => {
   }
 
   .directory-table {
-    min-width: 980px;
+    min-width: 760px;
   }
 }
 </style>
