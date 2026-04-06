@@ -201,6 +201,59 @@ class DeviationControllerIntegrationTest {
 	}
 
 	@Test
+	void listEndpointsReturnMostRecentDeviationsFirstByDefault() throws Exception {
+		User manager = createUser("manager-order@example.com", "Manager", "Order");
+		Organization organization = createOrganization("Kontrolla Ordering");
+		Establishment establishment = createEstablishment(organization, "Ordering Kitchen");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+
+		String token = login("manager-order@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
+						organization.getId(), establishment.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "Older deviation",
+								  "description": "Created first to verify default ordering.",
+								  "category": "HYGIENE",
+								  "severity": "LOW"
+								}
+								"""))
+				.andExpect(status().isCreated());
+
+		Thread.sleep(5);
+
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
+						organization.getId(), establishment.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "Newest deviation",
+								  "description": "Created second to verify default ordering.",
+								  "category": "TEMPERATURE",
+								  "severity": "HIGH"
+								}
+								"""))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/deviations?size=1".formatted(
+						organization.getId(), establishment.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items.length()").value(1))
+				.andExpect(jsonPath("$.items[0].title").value("Newest deviation"));
+
+		mockMvc.perform(get("/api/v1/organizations/%s/deviations?size=1".formatted(organization.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items.length()").value(1))
+				.andExpect(jsonPath("$.items[0].title").value("Newest deviation"));
+	}
+
+	@Test
 	void employeeCanCreateDeviationButCannotRunManagementEndpoints() throws Exception {
 		User employee = createUser("employee@example.com", "Employee", "User");
 		Organization organization = createOrganization("Kontrolla Employee Access");

@@ -5,6 +5,7 @@ import org.kontrolla.common.api.PageResponse;
 import org.kontrolla.deviations.application.DeviationService;
 import org.kontrolla.iam.security.CurrentUser;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,7 +34,7 @@ public class DeviationController {
 	public PageResponse<DeviationResponse> listOrganizationDeviations(
 			@PathVariable UUID organizationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
-			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
+			@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
 	) {
 		return PageResponse.from(
 				deviationService.listDeviationsByOrganizationId(organizationId, currentUser, pageable),
@@ -46,7 +47,7 @@ public class DeviationController {
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
 			@AuthenticationPrincipal CurrentUser currentUser,
-			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
+			@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
 	) {
 		return PageResponse.from(
 				deviationService.listDeviationsByEstablishmentId(organizationId, establishmentId, currentUser, pageable),
