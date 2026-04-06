@@ -2,27 +2,75 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useAuthStore } from '@/auth/model/auth.store'
+import {
+  addDeviationTimelineNote,
+  assignDeviation,
+  getDeviation,
+  listEstablishmentDeviations,
+  listOrganizationMembers,
+  mapDeviationResponseToListItem,
+  toMemberNameLookup,
+  toMemberOptions,
+  updateDeviationDetails,
+  updateDeviationStatus,
+} from '@/deviations/api/deviations.api'
 import DeviationDetailPanel from '@/deviations/components/DeviationDetailPanel.vue'
-import { createDeviationDataset } from '@/deviations/model/deviation.mock'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
 import type {
   DeviationListItem,
+  DeviationMemberOption,
+  DeviationSaveInput,
   DeviationServiceArea,
-  DeviationSeverity,
-  DeviationStatus,
+} from '@/deviations/model/deviation.types'
+import {
+  formatDeviationSeverity as formatSeverity,
+  formatDeviationStatus as formatStatus,
+  toDeviationCategoryValue,
 } from '@/deviations/model/deviation.types'
 
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const searchQuery = ref('')
 const activeFilter = ref<'ALL' | 'OPEN' | 'RECENT'>('ALL')
-const deviations = ref(createDeviationDataset())
+const deviations = ref<DeviationListItem[]>([])
+const memberOptions = ref<DeviationMemberOption[]>([])
+const memberNamesById = ref<Record<string, string>>({})
+const selectedDeviationDetails = ref<DeviationListItem | null>(null)
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
+const isSaving = ref(false)
+const saveErrorMessage = ref<string | null>(null)
 
 const filterOptions = [
   { value: 'ALL', label: 'All' },
   { value: 'OPEN', label: 'Open' },
   { value: 'RECENT', label: 'Recent' },
 ] as const
+
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
+)
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+
+const hasDeviationContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+
+const missingContextMessage = computed(() => {
+  if (hasDeviationContext.value) {
+    return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'Deviations cannot be loaded until organization and establishment context is available.'
+  }
+
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to load deviations.'
+})
 
 const currentServiceArea = computed<DeviationServiceArea>(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
@@ -42,14 +90,24 @@ const pageSubtitle = computed(() => {
   return 'Track, manage and resolve food safety deviations, hygiene issues, and corrective follow-up.'
 })
 
-const serviceDeviations = computed<DeviationListItem[]>(() => {
-  return [...deviations.value[currentServiceArea.value]].sort(
-    (left, right) => new Date(right.reportedAt).getTime() - new Date(left.reportedAt).getTime(),
-  )
+const serviceDeviations = computed(() => {
+  return deviations.value
+    .filter((deviation) => deviation.serviceArea === currentServiceArea.value)
+    .sort(
+      (left, right) => new Date(right.reportedAt).getTime() - new Date(left.reportedAt).getTime(),
+    )
 })
 
 const selectedDeviationId = computed(() => {
   return typeof route.query.deviationId === 'string' ? route.query.deviationId : null
+})
+
+const selectedDeviationSummary = computed(() => {
+  if (!selectedDeviationId.value) {
+    return null
+  }
+
+  return serviceDeviations.value.find((deviation) => deviation.id === selectedDeviationId.value) ?? null
 })
 
 const selectedDeviation = computed(() => {
@@ -57,7 +115,11 @@ const selectedDeviation = computed(() => {
     return null
   }
 
-  return serviceDeviations.value.find((deviation) => deviation.id === selectedDeviationId.value) ?? null
+  if (selectedDeviationDetails.value?.id === selectedDeviationId.value) {
+    return selectedDeviationDetails.value
+  }
+
+  return selectedDeviationSummary.value
 })
 
 const filteredDeviations = computed(() => {
@@ -102,7 +164,7 @@ const emptyStateMessage = computed(() => {
   return 'No deviations registered yet.'
 })
 
-function goToDeviationPage() {
+function goToDeviationForm() {
   const routeName = typeof route.name === 'string' ? route.name : ''
 
   if (routeName.startsWith('ik-alkohol-')) {
@@ -111,6 +173,105 @@ function goToDeviationPage() {
   }
 
   router.push({ name: 'ik-mat-deviation-form' })
+}
+
+function replaceDeviation(updatedDeviation: DeviationListItem) {
+  deviations.value = deviations.value.map((deviation) =>
+    deviation.id === updatedDeviation.id ? updatedDeviation : deviation,
+  )
+
+  if (selectedDeviationId.value === updatedDeviation.id) {
+    selectedDeviationDetails.value = updatedDeviation
+  }
+}
+
+async function loadSelectedDeviation() {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const deviationId = selectedDeviationId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !deviationId) {
+    selectedDeviationDetails.value = null
+    return
+  }
+
+  try {
+    const response = await getDeviation({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      deviationId,
+    })
+
+    if (selectedDeviationId.value !== deviationId) {
+      return
+    }
+
+    selectedDeviationDetails.value = mapDeviationResponseToListItem(response, memberNamesById.value)
+  } catch (error) {
+    if (selectedDeviationId.value !== deviationId) {
+      return
+    }
+
+    selectedDeviationDetails.value = null
+
+    if (error instanceof ApiError && error.status === 404) {
+      await clearSelectedDeviation()
+      return
+    }
+
+    saveErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load deviation details.'
+  }
+}
+
+async function loadDeviations() {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    deviations.value = []
+    memberOptions.value = []
+    selectedDeviationDetails.value = null
+    errorMessage.value = null
+    return
+  }
+
+  isLoading.value = true
+  errorMessage.value = null
+
+  try {
+    const [deviationPage, memberPage] = await Promise.all([
+      listEstablishmentDeviations({
+        organizationId: resolvedOrganizationId,
+        establishmentId: resolvedEstablishmentId,
+        size: 200,
+      }),
+      listOrganizationMembers({
+        organizationId: resolvedOrganizationId,
+        size: 200,
+      }).catch(() => null),
+    ])
+
+    memberNamesById.value = memberPage ? toMemberNameLookup(memberPage.items) : {}
+
+    deviations.value = deviationPage.items.map((deviation) =>
+      mapDeviationResponseToListItem(deviation, memberNamesById.value),
+    )
+    memberOptions.value = memberPage ? toMemberOptions(memberPage.items) : []
+
+    if (selectedDeviationId.value) {
+      await loadSelectedDeviation()
+    }
+  } catch (error) {
+    deviations.value = []
+    memberOptions.value = []
+    memberNamesById.value = {}
+    selectedDeviationDetails.value = null
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load deviations.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function getQueryWithoutSelection() {
@@ -134,12 +295,101 @@ async function clearSelectedDeviation() {
   })
 }
 
-function handleDeviationUpdate(updatedDeviation: DeviationListItem) {
-  deviations.value = {
-    ...deviations.value,
-    [updatedDeviation.serviceArea]: deviations.value[updatedDeviation.serviceArea].map((deviation) =>
-      deviation.id === updatedDeviation.id ? updatedDeviation : deviation,
-    ),
+async function handleDeviationSave(nextValues: DeviationSaveInput) {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const currentDeviation = selectedDeviation.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
+    return
+  }
+
+  isSaving.value = true
+  saveErrorMessage.value = null
+
+  try {
+    let updatedDeviation = currentDeviation
+
+    const detailsChanged =
+      nextValues.title !== currentDeviation.title ||
+      nextValues.description !== currentDeviation.description ||
+      nextValues.category !== currentDeviation.category ||
+      nextValues.severity !== currentDeviation.severity
+
+    if (detailsChanged) {
+      const response = await updateDeviationDetails({
+        organizationId: resolvedOrganizationId,
+        establishmentId: resolvedEstablishmentId,
+        deviationId: currentDeviation.id,
+        title: nextValues.title,
+        description: nextValues.description,
+        category: toDeviationCategoryValue(nextValues.category),
+        severity: nextValues.severity,
+      })
+      updatedDeviation = mapDeviationResponseToListItem(response, memberNamesById.value)
+      replaceDeviation(updatedDeviation)
+    }
+
+    if (nextValues.status !== updatedDeviation.status) {
+      const response = await updateDeviationStatus({
+        organizationId: resolvedOrganizationId,
+        establishmentId: resolvedEstablishmentId,
+        deviationId: currentDeviation.id,
+        status: nextValues.status,
+      })
+      updatedDeviation = mapDeviationResponseToListItem(response, memberNamesById.value)
+      replaceDeviation(updatedDeviation)
+    }
+
+    if (nextValues.assignedToUserId !== updatedDeviation.assignedToUserId) {
+      if (!nextValues.assignedToUserId) {
+        saveErrorMessage.value = 'Removing an assignee is not supported yet.'
+        return
+      }
+
+      const response = await assignDeviation({
+        organizationId: resolvedOrganizationId,
+        establishmentId: resolvedEstablishmentId,
+        deviationId: currentDeviation.id,
+        assignedUserId: nextValues.assignedToUserId,
+      })
+      updatedDeviation = mapDeviationResponseToListItem(response, memberNamesById.value)
+      replaceDeviation(updatedDeviation)
+    }
+  } catch (error) {
+    saveErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to save deviation.'
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function handleTimelineNoteAdd(note: string) {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const currentDeviation = selectedDeviation.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
+    return
+  }
+
+  isSaving.value = true
+  saveErrorMessage.value = null
+
+  try {
+    const response = await addDeviationTimelineNote({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      deviationId: currentDeviation.id,
+      note,
+    })
+
+    replaceDeviation(mapDeviationResponseToListItem(response, memberNamesById.value))
+  } catch (error) {
+    saveErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to add follow-up note.'
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -159,24 +409,31 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
-function formatStatus(status: DeviationStatus) {
-  return status.toLowerCase().replace('_', ' ')
-}
-
-function formatSeverity(severity: DeviationSeverity) {
-  return severity.toLowerCase()
-}
-
 function handleEscape(event: KeyboardEvent) {
   if (event.key === 'Escape' && selectedDeviation.value) {
     void clearSelectedDeviation()
   }
 }
 
+watch([organizationId, establishmentId], () => {
+  void loadDeviations()
+}, { immediate: true })
+
 watch([currentServiceArea, selectedDeviationId], async () => {
-  if (selectedDeviationId.value && !selectedDeviation.value) {
+  if (selectedDeviationId.value && !selectedDeviationSummary.value) {
     await clearSelectedDeviation()
   }
+})
+
+watch(selectedDeviationId, () => {
+  saveErrorMessage.value = null
+
+  if (!selectedDeviationId.value) {
+    selectedDeviationDetails.value = null
+    return
+  }
+
+  void loadSelectedDeviation()
 })
 
 onMounted(() => {
@@ -201,7 +458,7 @@ onBeforeUnmount(() => {
             <p class="page-subtitle">{{ pageSubtitle }}</p>
           </div>
 
-          <BaseButton class="add-button" type="button" @click="goToDeviationPage">
+          <BaseButton class="add-button" type="button" @click="goToDeviationForm">
             <span class="add-button-content">
               <svg aria-hidden="true" class="add-button-icon" viewBox="0 0 20 20">
                 <path
@@ -251,7 +508,19 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <ul v-if="filteredDeviations.length > 0" class="deviation-list">
+          <div v-if="missingContextMessage" class="empty-state">
+            <p>{{ missingContextMessage }}</p>
+          </div>
+
+          <div v-else-if="isLoading" class="empty-state">
+            <p>Loading deviations...</p>
+          </div>
+
+          <div v-else-if="errorMessage" class="empty-state">
+            <p>{{ errorMessage }}</p>
+          </div>
+
+          <ul v-else-if="filteredDeviations.length > 0" class="deviation-list">
             <li
               v-for="deviation in filteredDeviations"
               :key="deviation.id"
@@ -314,9 +583,13 @@ onBeforeUnmount(() => {
       <aside v-if="selectedDeviation" class="detail-panel-shell">
         <DeviationDetailPanel
           :deviation="selectedDeviation"
+          :is-saving="isSaving"
+          :member-options="memberOptions"
+          :save-error-message="saveErrorMessage"
           :show-close-button="true"
+          @add-note="handleTimelineNoteAdd"
           @close="clearSelectedDeviation"
-          @update="handleDeviationUpdate"
+          @save="handleDeviationSave"
         />
       </aside>
     </div>
@@ -336,9 +609,13 @@ onBeforeUnmount(() => {
     >
       <DeviationDetailPanel
         :deviation="selectedDeviation"
+        :is-saving="isSaving"
+        :member-options="memberOptions"
+        :save-error-message="saveErrorMessage"
         :show-close-button="true"
+        @add-note="handleTimelineNoteAdd"
         @close="clearSelectedDeviation"
-        @update="handleDeviationUpdate"
+        @save="handleDeviationSave"
       />
     </aside>
   </div>

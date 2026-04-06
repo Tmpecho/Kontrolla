@@ -1,12 +1,22 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import { deviationsByService } from '@/deviations/model/deviation.mock'
+import { useAuthStore } from '@/auth/model/auth.store'
+import { listEstablishmentDeviations } from '@/deviations/api/deviations.api'
 import type {
   DeviationServiceArea,
+  DeviationCategoryValue,
   DeviationSeverity,
   DeviationStatus,
 } from '@/deviations/model/deviation.types'
+import {
+  formatDeviationStatus as formatStatus,
+  formatDeviationSeverity as formatSeverity,
+  getDeviationServiceAreaForCategory,
+  toDeviationCategoryLabel,
+} from '@/deviations/model/deviation.types'
+import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
 const props = defineProps<{
@@ -15,8 +25,46 @@ const props = defineProps<{
   addDeviationTo: string
 }>()
 
+type TileDeviation = {
+  id: string
+  title: string
+  reportedAt: string
+  category: DeviationCategoryValue
+  severity: DeviationSeverity
+  status: DeviationStatus
+}
+
+const authStore = useAuthStore()
+const deviations = ref<TileDeviation[]>([])
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
+
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
+)
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+
+const missingContextMessage = computed(() => {
+  if (organizationId.value && establishmentId.value) {
+    return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'Deviations are unavailable until organization context is ready.'
+  }
+
+  return 'Set the default organization and establishment IDs or sign in with an organization context to load deviations.'
+})
+
 const recentDeviations = computed(() => {
-  return [...deviationsByService[props.serviceArea]]
+  return deviations.value
+    .filter(
+      (deviation) =>
+        getDeviationServiceAreaForCategory(toDeviationCategoryLabel(deviation.category)) ===
+        props.serviceArea,
+    )
     .sort((left, right) => new Date(right.reportedAt).getTime() - new Date(left.reportedAt).getTime())
     .slice(0, 2)
 })
@@ -28,12 +76,8 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
-function formatSeverity(severity: DeviationSeverity) {
-  return severity.toLowerCase()
-}
-
-function formatStatus(status: DeviationStatus) {
-  return status.toLowerCase().replace('_', ' ')
+function formatCategory(category: DeviationCategoryValue) {
+  return toDeviationCategoryLabel(category)
 }
 
 function getDeviationLink(deviationId: string) {
@@ -44,6 +88,47 @@ function getDeviationLink(deviationId: string) {
     },
   }
 }
+
+async function loadDeviations(): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    deviations.value = []
+    errorMessage.value = null
+    return
+  }
+
+  isLoading.value = true
+  errorMessage.value = null
+
+  try {
+    const page = await listEstablishmentDeviations({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      size: 10,
+    })
+
+    deviations.value = page.items.map((deviation) => ({
+      id: deviation.id,
+      title: deviation.title,
+      reportedAt: deviation.createdAt,
+      category: deviation.category,
+      severity: deviation.severity,
+      status: deviation.status,
+    }))
+  } catch (error) {
+    deviations.value = []
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load deviations.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch([organizationId, establishmentId], () => {
+  void loadDeviations()
+}, { immediate: true })
 </script>
 
 <template>
@@ -56,7 +141,14 @@ function getDeviationLink(deviationId: string) {
       <RouterLink :to="deviationPageTo" class="tile-link">View all</RouterLink>
     </div>
 
-    <ul class="recent-deviation-list">
+    <p v-if="missingContextMessage" class="recent-deviation-meta">{{ missingContextMessage }}</p>
+    <p v-else-if="isLoading" class="recent-deviation-meta">Loading deviations...</p>
+    <p v-else-if="errorMessage" class="recent-deviation-meta">{{ errorMessage }}</p>
+    <p v-else-if="recentDeviations.length === 0" class="recent-deviation-meta">
+      No deviations found.
+    </p>
+
+    <ul v-else class="recent-deviation-list">
       <li v-for="deviation in recentDeviations" :key="deviation.id" class="recent-deviation-item">
         <RouterLink
           :to="getDeviationLink(deviation.id)"
@@ -75,7 +167,7 @@ function getDeviationLink(deviationId: string) {
             </div>
           </div>
           <p class="recent-deviation-meta">
-            {{ deviation.category }} · {{ formatDateTime(deviation.reportedAt) }}
+            {{ formatCategory(deviation.category) }} · {{ formatDateTime(deviation.reportedAt) }}
           </p>
         </RouterLink>
       </li>
