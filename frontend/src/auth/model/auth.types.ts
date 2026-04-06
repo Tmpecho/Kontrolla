@@ -30,3 +30,11 @@ export type LoginCredentials = {
   email: string
   password: string
 }
+
+export type InviteDetails = {
+  email: string
+  firstName: string
+  lastName: string
+  organizationName: string
+  expiresAt: string
+}

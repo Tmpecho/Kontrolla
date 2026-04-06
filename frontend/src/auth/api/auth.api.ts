@@ -1,4 +1,4 @@
-import type { AuthSession, LoginCredentials } from '@/auth/model/auth.types'
+import type { AuthSession, InviteDetails, LoginCredentials } from '@/auth/model/auth.types'
 import { buildApiUrl } from '@/shared/config/api'
 
 type ApiProblem = {
@@ -62,4 +62,32 @@ export async function logout(): Promise<void> {
 
 export async function refreshSession(): Promise<AuthSession> {
   return requestSession('/api/v1/auth/refresh')
+}
+
+export async function getInviteDetails(token: string): Promise<InviteDetails> {
+  const response = await fetch(buildApiUrl(`/api/v1/auth/invitations/${token}`), {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new AuthApiError(await readProblemMessage(response), response.status)
+  }
+
+  return (await response.json()) as InviteDetails
+}
+
+export async function acceptInvite(token: string, password: string): Promise<void> {
+  const response = await fetch(buildApiUrl(`/api/v1/auth/invitations/${token}/accept`), {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  })
+
+  if (!response.ok) {
+    throw new AuthApiError(await readProblemMessage(response), response.status)
+  }
 }

@@ -22,6 +22,20 @@ export type CreateOrganizationMembershipInput = {
   active?: boolean
 }
 
+export type CreateManagedOrganizationMemberInput = {
+  email: string
+  firstName: string
+  lastName: string
+  role: OrganizationRole
+  active?: boolean
+}
+
+export type ManagedOrganizationMemberProvision = {
+  membership: OrganizationMembership
+  inviteExpiresAt: string
+  inviteUrl: string | null
+}
+
 export type UpdateOrganizationMembershipInput = {
   role: OrganizationRole
   active: boolean

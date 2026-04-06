@@ -2,11 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import {
+  createManagedOrganizationMember,
   createOrganizationMember,
   listOrganizationMembers,
   updateOrganizationMember,
 } from '@/account/api/organization-members.api'
 import type {
+  ManagedOrganizationMemberProvision,
   OrganizationMembership,
   OrganizationRole,
 } from '@/account/model/organization-members.types'
@@ -63,6 +65,7 @@ const successMessage = ref<string | null>(null)
 const isCreatingMember = ref(false)
 const savingMembershipId = ref<string | null>(null)
 const isCreateComposerOpen = ref(false)
+const latestInvite = ref<ManagedOrganizationMemberProvision | null>(null)
 const createDraft = ref<MemberProvisionDraft>({
   mode: 'existing_user',
   existingUserId: '',
@@ -84,14 +87,16 @@ const resolvedOrganizationName = computed(() => {
 const totalMembers = computed(() => members.value.length)
 const activeMembers = computed(() => members.value.filter((member) => member.active).length)
 
-const supportsDirectMemberCreation = false
-
 const canSubmitNewMember = computed(() => {
   if (createDraft.value.mode === 'existing_user') {
     return createDraft.value.existingUserId.trim().length > 0
   }
 
-  return supportsDirectMemberCreation
+  return (
+    createDraft.value.firstName.trim().length > 0 &&
+    createDraft.value.lastName.trim().length > 0 &&
+    createDraft.value.email.trim().length > 0
+  )
 })
 
 function toEditableMembership(member: OrganizationMembership): EditableMembership {
@@ -166,23 +171,42 @@ async function handleCreateMember(): Promise<void> {
   isCreatingMember.value = true
   errorMessage.value = null
   successMessage.value = null
+  latestInvite.value = null
 
   try {
-    const createdMember = await createOrganizationMember(
-      { organizationId },
-      {
-        userId: createDraft.value.existingUserId.trim(),
-        role: createDraft.value.role,
-        active: createDraft.value.active,
-      },
-    )
+    if (createDraft.value.mode === 'existing_user') {
+      const createdMember = await createOrganizationMember(
+        { organizationId },
+        {
+          userId: createDraft.value.existingUserId.trim(),
+          role: createDraft.value.role,
+          active: createDraft.value.active,
+        },
+      )
 
-    members.value = [toEditableMembership(createdMember), ...members.value]
+      members.value = [toEditableMembership(createdMember), ...members.value]
+      successMessage.value = 'Member added to the organization.'
+    } else {
+      const provision = await createManagedOrganizationMember(
+        { organizationId },
+        {
+          email: createDraft.value.email.trim(),
+          firstName: createDraft.value.firstName.trim(),
+          lastName: createDraft.value.lastName.trim(),
+          role: createDraft.value.role,
+          active: createDraft.value.active,
+        },
+      )
+
+      latestInvite.value = provision
+      members.value = [toEditableMembership(provision.membership), ...members.value]
+      successMessage.value = 'Invitation created for the new member.'
+    }
+
     closeCreateComposer()
-    successMessage.value = 'Member added to the organization.'
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : 'Failed to add the member to the organization.'
+      error instanceof ApiError ? error.message : 'Failed to create the member.'
   } finally {
     isCreatingMember.value = false
   }
@@ -257,6 +281,16 @@ onMounted(() => {
       <p v-if="errorMessage" class="feedback-message feedback-message-error">
         {{ errorMessage }}
       </p>
+	      <div v-if="latestInvite?.inviteUrl" class="invite-link-panel">
+        <strong>Invitation link available in this environment</strong>
+        <span>
+          Open or share this link for {{ latestInvite.membership.userEmail }}. It expires at
+          {{ latestInvite.inviteExpiresAt }}.
+        </span>
+        <a :href="latestInvite.inviteUrl" target="_blank" rel="noreferrer">
+          {{ latestInvite.inviteUrl }}
+        </a>
+      </div>
 
       <div class="content-grid">
         <section class="directory-panel">
@@ -303,18 +337,18 @@ onMounted(() => {
               <div class="cell member-cell composer-cell" role="cell">
                 <div class="member-copy">
                   <strong>New member</strong>
-                  <span>Create from an existing platform user now, or prepare a direct member record for later backend support.</span>
+                  <span>Create from an existing platform user now, or invite a brand-new member to set their own password.</span>
                 </div>
               </div>
 
               <div class="cell identifiers-cell composer-fields" role="cell">
                 <label class="form-field">
-                  <span class="field-label">Provision mode</span>
-                  <select v-model="createDraft.mode" class="field-input field-input-table">
-                    <option value="existing_user">Existing user</option>
-                    <option value="new_member">New member</option>
-                  </select>
-                </label>
+                <span class="field-label">Provision mode</span>
+                <select v-model="createDraft.mode" class="field-input field-input-table">
+                  <option value="existing_user">Existing user</option>
+                  <option value="new_member">Invite new member</option>
+                </select>
+              </label>
 
                 <label v-if="createDraft.mode === 'existing_user'" class="form-field">
                   <span class="field-label">Existing user ID</span>
@@ -378,7 +412,7 @@ onMounted(() => {
                   <span>{{ createDraft.active ? 'Enabled immediately' : 'Create as inactive' }}</span>
                 </label>
                 <span v-if="createDraft.mode === 'new_member'" class="pending-note">
-                  Direct member creation UI is prepared, but backend support is not enabled yet.
+                  An invitation link will be generated so the new member can choose their own password.
                 </span>
               </div>
 
@@ -487,7 +521,6 @@ onMounted(() => {
 
 .hero h1,
 .hero p,
-.provision-header h2,
 .directory-header h2,
 .directory-header p,
 .notice-panel h2,
@@ -753,6 +786,34 @@ onMounted(() => {
 .feedback-message-error {
   background-color: color-mix(in srgb, var(--color-critical) 10%, white);
   color: var(--color-critical);
+}
+
+.invite-link-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #d8deea;
+  border-radius: 4px;
+  background-color: #f7f9fc;
+}
+
+.invite-link-panel strong {
+  font-size: 0.95rem;
+}
+
+.invite-link-panel span,
+.invite-link-panel a {
+  overflow-wrap: anywhere;
+}
+
+.invite-link-panel a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.invite-link-panel a:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 1100px) {

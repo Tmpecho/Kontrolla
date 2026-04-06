@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import AppLayout from '@/app/layouts/AppLayout.vue'
 import AuthLayout from '@/app/layouts/AuthLayout.vue'
 import PublicLayout from '@/app/layouts/PublicLayout.vue'
+import AcceptInvitePage from '@/auth/pages/AcceptInvitePage.vue'
 import LoginPage from '@/auth/pages/LoginPage.vue'
 import LandingPage from '@/marketing/pages/LandingPage.vue'
 import PriceOfferPage from '@/marketing/pages/PriceOfferPage.vue'
@@ -54,6 +55,11 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           requiresGuest: true,
         },
+      },
+      {
+        path: 'invite/:token',
+        name: 'accept-invite',
+        component: AcceptInvitePage,
       },
     ],
   },
