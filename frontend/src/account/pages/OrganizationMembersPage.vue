@@ -84,6 +84,7 @@ const resolvedOrganizationName = computed(() => {
   return authStore.appContext?.organizationName ?? 'Current organization'
 })
 
+const currentUserId = computed(() => authStore.user?.id ?? null)
 const totalMembers = computed(() => members.value.length)
 const activeMembers = computed(() => members.value.filter((member) => member.active).length)
 
@@ -113,6 +114,10 @@ function getFullName(member: OrganizationMembership): string {
 
 function hasDraftChanges(member: EditableMembership): boolean {
   return member.role !== member.draftRole || member.active !== member.draftActive
+}
+
+function isCurrentUserMembership(member: OrganizationMembership): boolean {
+  return currentUserId.value === member.userId
 }
 
 async function loadMembers(): Promise<void> {
@@ -216,6 +221,13 @@ async function handleSaveMember(member: EditableMembership): Promise<void> {
   const organizationId = resolvedOrganizationId.value
 
   if (!organizationId || !hasDraftChanges(member)) {
+    return
+  }
+
+  if (isCurrentUserMembership(member)) {
+    member.draftRole = member.role
+    member.draftActive = member.active
+    errorMessage.value = 'You cannot change your own role or access from the member directory.'
     return
   }
 
@@ -432,17 +444,22 @@ onMounted(() => {
               v-for="member in members"
               :key="member.id"
               class="directory-table directory-table-row"
+              :data-self-member="isCurrentUserMembership(member)"
               role="row"
             >
               <div class="cell member-cell" role="cell">
                 <div class="member-copy">
                   <div class="member-title-row">
                     <strong>{{ getFullName(member) || member.userEmail }}</strong>
+                    <span v-if="isCurrentUserMembership(member)" class="self-badge">You</span>
                     <span class="status-pill" :data-active="member.active">
                       {{ member.active ? 'Active' : 'Inactive' }}
                     </span>
                   </div>
                   <span>{{ member.userEmail }}</span>
+                  <span v-if="isCurrentUserMembership(member)" class="self-warning">
+                    Self-edit is blocked here to prevent removing your own admin access.
+                  </span>
                 </div>
               </div>
 
@@ -450,7 +467,7 @@ onMounted(() => {
                 <select
                   v-model="member.draftRole"
                   class="field-input field-input-table"
-                  :disabled="savingMembershipId === member.id"
+                  :disabled="savingMembershipId === member.id || isCurrentUserMembership(member)"
                   @change="handleSaveMember(member)"
                 >
                   <option
@@ -472,7 +489,7 @@ onMounted(() => {
                     <input
                       v-model="member.draftActive"
                       type="checkbox"
-                      :disabled="savingMembershipId === member.id"
+                      :disabled="savingMembershipId === member.id || isCurrentUserMembership(member)"
                       @change="handleSaveMember(member)"
                     />
                     <span class="switch-track"></span>
@@ -677,6 +694,10 @@ onMounted(() => {
   border-bottom: 1px solid #edf0f6;
 }
 
+.directory-table-row[data-self-member='true'] {
+  background: linear-gradient(90deg, #fff4dd 0%, #fff9ef 100%);
+}
+
 .directory-table-row-create {
   background-color: #f8f9fc;
 }
@@ -722,6 +743,24 @@ onMounted(() => {
   color: #6a7488;
   font-size: 0.84rem;
   overflow-wrap: anywhere;
+}
+
+.self-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  background-color: #163a70;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.self-warning {
+  color: #8a5a00;
+  font-weight: 600;
 }
 
 .field-input-table {
