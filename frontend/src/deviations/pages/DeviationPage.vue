@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import {
+  addDeviationTimelineNote,
   assignDeviation,
   getDeviation,
   listEstablishmentDeviations,
@@ -365,6 +366,35 @@ async function handleDeviationSave(nextValues: DeviationSaveInput) {
   }
 }
 
+async function handleTimelineNoteAdd(note: string) {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const currentDeviation = selectedDeviation.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
+    return
+  }
+
+  isSaving.value = true
+  saveErrorMessage.value = null
+
+  try {
+    const response = await addDeviationTimelineNote({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      deviationId: currentDeviation.id,
+      note,
+    })
+
+    replaceDeviation(mapDeviationResponseToListItem(response, memberNameLookup.value))
+  } catch (error) {
+    saveErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to add follow-up note.'
+  } finally {
+    isSaving.value = false
+  }
+}
+
 function onDeviationRowKeydown(event: KeyboardEvent, deviationId: string) {
   if (event.key !== 'Enter' && event.key !== ' ') {
     return
@@ -559,6 +589,7 @@ onBeforeUnmount(() => {
           :member-options="memberOptions"
           :save-error-message="saveErrorMessage"
           :show-close-button="true"
+          @add-note="handleTimelineNoteAdd"
           @close="clearSelectedDeviation"
           @save="handleDeviationSave"
         />
@@ -584,6 +615,7 @@ onBeforeUnmount(() => {
         :member-options="memberOptions"
         :save-error-message="saveErrorMessage"
         :show-close-button="true"
+        @add-note="handleTimelineNoteAdd"
         @close="clearSelectedDeviation"
         @save="handleDeviationSave"
       />

@@ -45,10 +45,12 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'save', value: DeviationSaveInput): void
+  (e: 'add-note', note: string): void
 }>()
 
 const isEditing = ref(false)
 const draft = ref(createDraft(props.deviation))
+const timelineNoteDraft = ref('')
 const categoryOptions = computed(() => deviationCategoriesByServiceArea[props.deviation.serviceArea])
 const assigneeOptions = computed(() => {
   const options = [...props.memberOptions]
@@ -81,10 +83,15 @@ const hasChanges = computed(() => {
   )
 })
 
+const canAddTimelineNote = computed(() => {
+  return timelineNoteDraft.value.trim().length > 0
+})
+
 watch(
   () => props.deviation,
   (deviation) => {
     draft.value = createDraft(deviation)
+    timelineNoteDraft.value = ''
     isEditing.value = false
   },
   { immediate: true },
@@ -176,6 +183,14 @@ function markAsResolved() {
     assignedToUserId: props.deviation.assignedToUserId,
     description: props.deviation.description,
   })
+}
+
+function submitTimelineNote() {
+  if (!canAddTimelineNote.value || props.isSaving) {
+    return
+  }
+
+  emit('add-note', timelineNoteDraft.value.trim())
 }
 </script>
 
@@ -368,6 +383,26 @@ function markAsResolved() {
 
     <section class="detail-section">
       <h3>Corrective timeline</h3>
+      <div class="timeline-composer">
+        <label class="action-label" for="deviation-timeline-note">Add follow-up note</label>
+        <textarea
+          id="deviation-timeline-note"
+          v-model="timelineNoteDraft"
+          class="action-input action-textarea timeline-note-input"
+          placeholder="Describe the corrective action, follow-up, or observation."
+        />
+        <div class="timeline-composer-actions">
+          <button
+            type="button"
+            class="action-button action-button-primary action-button-compact"
+            :disabled="!canAddTimelineNote || isSaving"
+            @click="submitTimelineNote"
+          >
+            {{ isSaving ? 'Saving...' : 'Add note' }}
+          </button>
+        </div>
+      </div>
+
       <ol class="timeline-list">
         <li
           v-for="timelineEntry in getSortedTimelineEntries(deviation)"
@@ -558,6 +593,25 @@ function markAsResolved() {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.timeline-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 4px;
+  background-color: var(--color-surface);
+}
+
+.timeline-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.timeline-note-input {
+  min-height: 96px;
 }
 
 .timeline-entry {
