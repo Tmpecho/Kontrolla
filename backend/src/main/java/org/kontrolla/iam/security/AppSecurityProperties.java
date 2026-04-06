@@ -2,6 +2,9 @@ package org.kontrolla.iam.security;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.kontrolla.establishments.domain.EstablishmentStatus;
+import org.kontrolla.establishments.domain.EstablishmentType;
+import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
@@ -17,6 +20,8 @@ public class AppSecurityProperties {
 	private final Cors cors = new Cors();
 	private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
 	private final BootstrapUser bootstrapUser = new BootstrapUser();
+	private final BootstrapOrganization bootstrapOrganization = new BootstrapOrganization();
+	private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
 
 	@Setter
 	@Getter
@@ -67,6 +72,25 @@ public class AppSecurityProperties {
 		private String password;
 		private String firstName = "Demo";
 		private String lastName = "User";
+
+	}
+
+	@Setter
+	@Getter
+	public static class BootstrapOrganization {
+
+		private String name = "Demo Organization";
+		private OrganizationStatus status = OrganizationStatus.ACTIVE;
+
+	}
+
+	@Setter
+	@Getter
+	public static class BootstrapEstablishment {
+
+		private String name = "Demo Establishment";
+		private EstablishmentType type = EstablishmentType.RESTAURANT;
+		private EstablishmentStatus status = EstablishmentStatus.ACTIVE;
 
 	}
 }

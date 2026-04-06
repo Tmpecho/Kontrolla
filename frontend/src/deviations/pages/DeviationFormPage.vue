@@ -1,60 +1,191 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
+import { useAuthStore } from '@/auth/model/auth.store'
+import { createDeviation } from '@/deviations/api/deviations.api'
+import type { DeviationCategory, DeviationSeverity, DeviationServiceArea } from '@/deviations/model/deviation.types'
+import {
+  deviationCategoriesByServiceArea,
+  formatDeviationSeverity,
+  toDeviationCategoryValue,
+} from '@/deviations/model/deviation.types'
+import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
 import BaseInput from '@/shared/components/BaseInput.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
-const form = reactive({ title: '', category: '', description: '', date: '' })
+const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const isSubmitting = ref(false)
+const errorMessage = ref<string | null>(null)
+
+const severityOptions: DeviationSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
+const currentServiceArea = computed<DeviationServiceArea>(() => {
+  const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName.startsWith('ik-alkohol-')) {
+    return 'IK_ALKOHOL'
+  }
+
+  return 'IK_MAT'
+})
+
+const categoryOptions = computed(() => deviationCategoriesByServiceArea[currentServiceArea.value])
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
+)
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+
+const pageSubtitle = computed(() => {
+  if (currentServiceArea.value === 'IK_ALKOHOL') {
+    return 'Register alcohol-control deviations and route them into corrective follow-up.'
+  }
+
+  return 'Register food-safety deviations and route them into corrective follow-up.'
+})
+
+const missingContextMessage = computed(() => {
+  if (organizationId.value && establishmentId.value) {
+    return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'A deviation cannot be created until organization and establishment context is available.'
+  }
+
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to create deviations.'
+})
+
+const form = reactive<{
+  title: string
+  category: DeviationCategory | ''
+  severity: DeviationSeverity
+  description: string
+}>({
+  title: '',
+  category: '',
+  severity: 'MEDIUM',
+  description: '',
+})
+
+watch(
+  categoryOptions,
+  (nextCategoryOptions) => {
+    if (!nextCategoryOptions.includes(form.category as DeviationCategory)) {
+      form.category = nextCategoryOptions[0] ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+const canSubmit = computed(() => {
+  return Boolean(
+    form.title.trim() &&
+      form.description.trim() &&
+      form.category &&
+      organizationId.value &&
+      establishmentId.value &&
+      !isSubmitting.value,
+  )
+})
 
 async function onSubmit() {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
 
+  if (!canSubmit.value || !resolvedOrganizationId || !resolvedEstablishmentId || !form.category) {
+    return
+  }
+
+  isSubmitting.value = true
+  errorMessage.value = null
+
+  try {
+    const deviation = await createDeviation({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      title: form.title.trim(),
+      description: form.description.trim(),
+      category: toDeviationCategoryValue(form.category),
+      severity: form.severity,
+    })
+
+    await router.push({
+      name: currentServiceArea.value === 'IK_ALKOHOL' ? 'ik-alkohol-deviation' : 'ik-mat-deviation',
+      query: {
+        deviationId: deviation.id,
+      },
+    })
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to create deviation.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
 <template>
-<div class="page-container">
-    <h2>Deviation Form</h2>
+  <div class="page-container">
+    <div>
+      <h2>Deviation Form</h2>
+      <p class="page-subtitle">{{ pageSubtitle }}</p>
+    </div>
 
     <form @submit.prevent="onSubmit" class="form-wrapper">
-        <div class="input-group">
-            <BaseInput
-            id="title"
-            label="title"
-            type="text"
-            v-model="form.title"
-            />
-        </div>
-        <div class="input-group">
-            <label for="category" class="input-label">category</label>
-            <select id="category" v-model="form.category" class="input-field" required>
-              <option value="" disabled>Select category</option>
-              <option value="category-1">Category 1</option>
-              <option value="category-2">Category 2</option>
-              <option value="category-3">Category 3</option>
-            </select>
-        </div>
-        <div class="input-group">
-            <BaseInput
-            id="description"
-            label="description"
-            type="text-area"
-            v-model="form.description"
-            />
-        </div>
-        <div class="input-group">
-            <BaseInput
-            id="date"
-            label="date"
-            type="datetime-local"
-            v-model="form.date"
-            />
-        </div>
-        <div class="btn-wrapper">
-            <BaseButton type="submit">Submit</BaseButton>
-        </div>
-    </form>
+      <p v-if="missingContextMessage" class="form-message">{{ missingContextMessage }}</p>
+      <p v-else-if="errorMessage" class="form-message">{{ errorMessage }}</p>
 
-</div>
+      <div class="input-group">
+        <BaseInput
+          id="title"
+          label="title"
+          type="text"
+          v-model="form.title"
+        />
+      </div>
+
+      <div class="form-row">
+        <div class="input-group">
+          <label for="category" class="input-label">category</label>
+          <select id="category" v-model="form.category" class="input-field" required>
+            <option v-for="category in categoryOptions" :key="category" :value="category">
+              {{ category }}
+            </option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="severity" class="input-label">severity</label>
+          <select id="severity" v-model="form.severity" class="input-field" required>
+            <option v-for="severity in severityOptions" :key="severity" :value="severity">
+              {{ formatDeviationSeverity(severity) }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <BaseInput
+          id="description"
+          label="description"
+          type="text-area"
+          v-model="form.description"
+        />
+      </div>
+
+      <div class="btn-wrapper">
+        <BaseButton :disabled="!canSubmit" type="submit">
+          {{ isSubmitting ? 'Submitting...' : 'Submit' }}
+        </BaseButton>
+      </div>
+    </form>
+  </div>
 </template>
 
 <style scoped>
@@ -64,10 +195,22 @@ async function onSubmit() {
   gap: 1.5rem;
 }
 
+.page-subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--color-text-secondary);
+}
+
 .form-wrapper {
   display: flex;
   flex-direction: column;
   gap: 30px;
+  max-width: 760px;
+}
+
+.form-row {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .input-group {
@@ -94,6 +237,23 @@ async function onSubmit() {
   color: var(--color-text-primary);
   width: 100%;
   box-sizing: border-box;
+}
+
+.input-field:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-bottom-color: transparent;
+}
+
+.form-message {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 720px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 </style>

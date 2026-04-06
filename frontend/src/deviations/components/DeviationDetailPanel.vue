@@ -4,8 +4,15 @@ import { computed, ref, watch } from 'vue'
 import type {
   DeviationCategory,
   DeviationListItem,
+  DeviationMemberOption,
+  DeviationSaveInput,
   DeviationSeverity,
   DeviationStatus,
+} from '@/deviations/model/deviation.types'
+import {
+  deviationCategoriesByServiceArea,
+  formatDeviationSeverity as formatSeverity,
+  formatDeviationStatus as formatStatus,
 } from '@/deviations/model/deviation.types'
 
 type DeviationEditDraft = {
@@ -13,20 +20,9 @@ type DeviationEditDraft = {
   category: DeviationCategory
   severity: DeviationSeverity
   status: DeviationStatus
-  assignedTo: string
+  assignedToUserId: string
   description: string
 }
-
-const categoryOptions: DeviationCategory[] = [
-  'Temperature',
-  'Cleaning and hygiene',
-  'Allergen handling',
-  'Storage and labeling',
-  'Age control',
-  'Intoxicated guest',
-  'Serving hours',
-  'Documentation and training',
-]
 
 const severityOptions: DeviationSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const statusOptions: DeviationStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED']
@@ -34,33 +30,54 @@ const statusOptions: DeviationStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED']
 const props = withDefaults(
   defineProps<{
     deviation: DeviationListItem
+    memberOptions: DeviationMemberOption[]
+    isSaving?: boolean
+    saveErrorMessage?: string | null
     showCloseButton?: boolean
   }>(),
   {
+    isSaving: false,
+    saveErrorMessage: null,
     showCloseButton: false,
   },
 )
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'update', value: DeviationListItem): void
+  (e: 'save', value: DeviationSaveInput): void
 }>()
 
 const isEditing = ref(false)
 const draft = ref(createDraft(props.deviation))
+const categoryOptions = computed(() => deviationCategoriesByServiceArea[props.deviation.serviceArea])
+const assigneeOptions = computed(() => {
+  const options = [...props.memberOptions]
 
-const parsedAssignees = computed(() => {
-  return draft.value.assignedTo
-    .split(',')
-    .map((assignee) => assignee.trim())
-    .filter(Boolean)
+  if (
+    props.deviation.assignedToUserId &&
+    !options.some((member) => member.userId === props.deviation.assignedToUserId)
+  ) {
+    options.unshift({
+      userId: props.deviation.assignedToUserId,
+      displayName: props.deviation.assignedTo[0] ?? 'Assigned user',
+    })
+  }
+
+  return options
 })
 
 const canSave = computed(() => {
+  return draft.value.title.trim().length > 0 && draft.value.description.trim().length > 0
+})
+
+const hasChanges = computed(() => {
   return (
-    draft.value.title.trim().length > 0 &&
-    draft.value.description.trim().length > 0 &&
-    parsedAssignees.value.length > 0
+    draft.value.title.trim() !== props.deviation.title ||
+    draft.value.category !== props.deviation.category ||
+    draft.value.severity !== props.deviation.severity ||
+    draft.value.status !== props.deviation.status ||
+    (draft.value.assignedToUserId || null) !== props.deviation.assignedToUserId ||
+    draft.value.description.trim() !== props.deviation.description
   )
 })
 
@@ -79,7 +96,7 @@ function createDraft(deviation: DeviationListItem): DeviationEditDraft {
     category: deviation.category,
     severity: deviation.severity,
     status: deviation.status,
-    assignedTo: deviation.assignedTo.join(', '),
+    assignedToUserId: deviation.assignedToUserId ?? '',
     description: deviation.description,
   }
 }
@@ -115,14 +132,6 @@ function formatTimelineMoment(value: string) {
   return `${dateLabel}, ${timeLabel}`.toUpperCase()
 }
 
-function formatStatus(status: DeviationStatus) {
-  return status.toLowerCase().replace('_', ' ')
-}
-
-function formatSeverity(severity: DeviationSeverity) {
-  return severity.toLowerCase()
-}
-
 function getSortedTimelineEntries(deviation: DeviationListItem) {
   return [...deviation.timeline].sort(
     (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
@@ -140,31 +149,32 @@ function cancelEditing() {
 }
 
 function saveChanges() {
-  if (!canSave.value) {
+  if (!canSave.value || !hasChanges.value || props.isSaving) {
     return
   }
 
-  emit('update', {
-    ...props.deviation,
+  emit('save', {
     title: draft.value.title.trim(),
     category: draft.value.category,
     severity: draft.value.severity,
     status: draft.value.status,
-    assignedTo: parsedAssignees.value,
+    assignedToUserId: draft.value.assignedToUserId || null,
     description: draft.value.description.trim(),
   })
-
-  isEditing.value = false
 }
 
 function markAsResolved() {
-  if (props.deviation.status === 'RESOLVED') {
+  if (props.deviation.status === 'RESOLVED' || props.isSaving) {
     return
   }
 
-  emit('update', {
-    ...props.deviation,
+  emit('save', {
+    title: props.deviation.title,
+    category: props.deviation.category,
+    severity: props.deviation.severity,
     status: 'RESOLVED',
+    assignedToUserId: props.deviation.assignedToUserId,
+    description: props.deviation.description,
   })
 }
 </script>
@@ -189,7 +199,7 @@ function markAsResolved() {
             v-if="!isEditing"
             type="button"
             class="action-button action-button-secondary action-button-compact"
-            :disabled="deviation.status === 'RESOLVED'"
+            :disabled="deviation.status === 'RESOLVED' || isSaving"
             @click="markAsResolved"
           >
             Mark as resolved
@@ -198,6 +208,7 @@ function markAsResolved() {
             v-if="!isEditing"
             type="button"
             class="action-button action-button-primary action-button-compact"
+            :disabled="isSaving"
             @click="startEditing"
           >
             Update
@@ -206,6 +217,7 @@ function markAsResolved() {
             <button
               type="button"
               class="action-button action-button-secondary"
+              :disabled="isSaving"
               @click="cancelEditing"
             >
               Cancel
@@ -213,10 +225,10 @@ function markAsResolved() {
             <button
               type="button"
               class="action-button action-button-primary"
-              :disabled="!canSave"
+              :disabled="!canSave || !hasChanges || isSaving"
               @click="saveChanges"
             >
-              Save changes
+              {{ isSaving ? 'Saving...' : 'Save changes' }}
             </button>
           </template>
         </div>
@@ -249,6 +261,8 @@ function markAsResolved() {
         </button>
       </div>
     </header>
+
+    <p v-if="saveErrorMessage" class="field-helper">{{ saveErrorMessage }}</p>
 
     <section v-if="isEditing" class="detail-section">
       <h3>Deviation details</h3>
@@ -287,15 +301,14 @@ function markAsResolved() {
         </div>
 
         <div class="edit-field edit-field--full">
-          <label class="action-label" for="deviation-assignees">Assignees</label>
-          <input
-            id="deviation-assignees"
-            v-model="draft.assignedTo"
-            class="action-input"
-            type="text"
-            placeholder="Separate names with commas"
-          />
-          <p class="field-helper">Separate assignees with commas.</p>
+          <label class="action-label" for="deviation-assignee">Assignee</label>
+          <select id="deviation-assignee" v-model="draft.assignedToUserId" class="action-input">
+            <option v-if="!deviation.assignedToUserId" value="">Unassigned</option>
+            <option v-for="member in assigneeOptions" :key="member.userId" :value="member.userId">
+              {{ member.displayName }}
+            </option>
+          </select>
+          <p class="field-helper">A deviation can currently be assigned to one user.</p>
         </div>
 
         <div class="edit-field edit-field--full">
@@ -339,11 +352,12 @@ function markAsResolved() {
 
       <section class="detail-section">
         <h3>Assigned to</h3>
-        <div class="assignee-list">
+        <div v-if="deviation.assignedTo.length > 0" class="assignee-list">
           <span v-for="assignee in deviation.assignedTo" :key="assignee" class="assignee-chip">
             {{ assignee }}
           </span>
         </div>
+        <p v-else class="field-helper">Not assigned yet.</p>
       </section>
 
       <section class="detail-section">
@@ -372,6 +386,9 @@ function markAsResolved() {
           </div>
         </li>
       </ol>
+      <p v-if="deviation.timeline.length === 0" class="field-helper">
+        No corrective activity has been recorded yet.
+      </p>
     </section>
   </section>
 </template>

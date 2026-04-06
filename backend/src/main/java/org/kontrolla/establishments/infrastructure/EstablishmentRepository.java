@@ -19,4 +19,7 @@ public interface EstablishmentRepository extends JpaRepository<Establishment, UU
 
 	@EntityGraph(attributePaths = {"organization"})
 	Optional<Establishment> findFirstByOrganizationIdOrderByCreatedAtAsc(UUID organizationId);
+
+	@EntityGraph(attributePaths = {"organization"})
+	Optional<Establishment> findFirstByOrganizationIdAndNameIgnoreCase(UUID organizationId, String name);
 }
