@@ -16,6 +16,13 @@ public interface DeviationRepository extends JpaRepository<Deviation, UUID> {
 	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser", "assignedToUser"})
 	Page<Deviation> findByEstablishmentIdAndOrganizationId(UUID establishmentId, UUID organizationId, Pageable pageable);
 
-	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser", "assignedToUser"})
+	@EntityGraph(attributePaths = {
+			"organization",
+			"establishment",
+			"createdByUser",
+			"assignedToUser",
+			"events",
+			"events.actorUser"
+	})
 	Optional<Deviation> findByIdAndEstablishmentIdAndOrganizationId(UUID id, UUID establishmentId, UUID organizationId);
 }

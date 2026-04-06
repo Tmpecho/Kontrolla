@@ -55,26 +55,26 @@ public class DeviationController {
 	}
 
 	@GetMapping("/establishments/{establishmentId}/deviations/{deviationId}")
-	public DeviationResponse getDeviation(
+	public DeviationDetailsResponse getDeviation(
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
 			@PathVariable UUID deviationId,
 			@AuthenticationPrincipal CurrentUser currentUser
 	) {
-		return DeviationResponse.from(
+		return DeviationDetailsResponse.from(
 				deviationService.getDeviation(organizationId, establishmentId, deviationId, currentUser)
 		);
 	}
 
 	@PostMapping("/establishments/{establishmentId}/deviations")
 	@ResponseStatus(HttpStatus.CREATED)
-	public DeviationResponse createDeviation(
+	public DeviationDetailsResponse createDeviation(
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
 			@AuthenticationPrincipal CurrentUser currentUser,
 			@Valid @RequestBody CreateDeviationRequest request
-	) {
-		return DeviationResponse.from(
+		) {
+		return DeviationDetailsResponse.from(
 				deviationService.createDeviation(
 						currentUser,
 						request.title(),
@@ -88,14 +88,14 @@ public class DeviationController {
 	}
 
 	@PutMapping("/establishments/{establishmentId}/deviations/{deviationId}/assignment")
-	public DeviationResponse assignDeviation(
+	public DeviationDetailsResponse assignDeviation(
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
 			@PathVariable UUID deviationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
 			@Valid @RequestBody AssignDeviationRequest request
-	) {
-		return DeviationResponse.from(
+		) {
+		return DeviationDetailsResponse.from(
 				deviationService.assignDeviation(
 						organizationId,
 						establishmentId,
@@ -107,14 +107,14 @@ public class DeviationController {
 	}
 
 	@PutMapping("/establishments/{establishmentId}/deviations/{deviationId}/status")
-	public DeviationResponse updateDeviationStatus(
+	public DeviationDetailsResponse updateDeviationStatus(
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
 			@PathVariable UUID deviationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
 			@Valid @RequestBody UpdateDeviationStatusRequest request
-	) {
-		return DeviationResponse.from(
+		) {
+		return DeviationDetailsResponse.from(
 				deviationService.updateDeviationStatus(
 						organizationId,
 						establishmentId,
@@ -126,14 +126,14 @@ public class DeviationController {
 	}
 
 	@PutMapping("/establishments/{establishmentId}/deviations/{deviationId}")
-	public DeviationResponse updateDeviationDetails(
+	public DeviationDetailsResponse updateDeviationDetails(
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
 			@PathVariable UUID deviationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
 			@Valid @RequestBody UpdateDeviationDetailsRequest request
-	) {
-		return DeviationResponse.from(
+		) {
+		return DeviationDetailsResponse.from(
 				deviationService.updateDeviationDetails(
 						organizationId,
 						establishmentId,
@@ -142,6 +142,25 @@ public class DeviationController {
 						request.description(),
 						request.severity(),
 						request.category(),
+						currentUser
+				)
+		);
+	}
+
+	@PostMapping("/establishments/{establishmentId}/deviations/{deviationId}/timeline")
+	public DeviationDetailsResponse addTimelineNote(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID establishmentId,
+			@PathVariable UUID deviationId,
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody AddDeviationTimelineNoteRequest request
+	) {
+		return DeviationDetailsResponse.from(
+				deviationService.addTimelineNote(
+						organizationId,
+						establishmentId,
+						deviationId,
+						request.note(),
 						currentUser
 				)
 		);

@@ -1,13 +1,25 @@
 package org.kontrolla.deviations.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
-
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
-import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.domain.User;
+import org.kontrolla.organizations.domain.Organization;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Entity
@@ -54,6 +66,10 @@ public class Deviation extends AbstractAuditableUuidEntity {
     @Column(nullable = false, length = 32)
     private DeviationCategory category;
 
+    @OneToMany(mappedBy = "deviation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("occurredAt ASC")
+    private final List<DeviationEvent> events = new ArrayList<>();
+
     protected Deviation() {
     }
 
@@ -78,7 +94,8 @@ public class Deviation extends AbstractAuditableUuidEntity {
         this.category = category;
     }
 
-
-
+    public void addEvent(DeviationEvent event) {
+        event.attachTo(this);
+        this.events.add(event);
+    }
 }
-

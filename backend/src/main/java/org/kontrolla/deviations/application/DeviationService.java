@@ -4,6 +4,8 @@ import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.deviations.domain.Deviation;
 import org.kontrolla.deviations.domain.DeviationCategory;
+import org.kontrolla.deviations.domain.DeviationEvent;
+import org.kontrolla.deviations.domain.DeviationEventType;
 import org.kontrolla.deviations.domain.DeviationSeverity;
 import org.kontrolla.deviations.domain.DeviationStatus;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
@@ -21,6 +23,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 //TODO create EstablishmentAccess class
@@ -95,6 +100,12 @@ public class DeviationService {
 				severity,
 				category
 		);
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.REPORTED,
+				createdByUser,
+				Instant.now(),
+				"Deviation reported."
+		));
 
 		return deviationRepository.save(deviation);
 	}
@@ -121,8 +132,21 @@ public class DeviationService {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 
+		User actor = userAccessService.getCurrentUserOrThrow(currentUser);
 		Deviation deviation = findDeviationOrThrow(organizationId, establishmentId, deviationId);
-		deviation.setAssignedToUser(getAssignableUserOrThrow(organizationId, assignedUserId));
+		User assignedUser = getAssignableUserOrThrow(organizationId, assignedUserId);
+
+		if (deviation.getAssignedToUser() != null && deviation.getAssignedToUser().getId().equals(assignedUser.getId())) {
+			return deviation;
+		}
+
+		deviation.setAssignedToUser(assignedUser);
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.ASSIGNED,
+				actor,
+				Instant.now(),
+				"Deviation assigned to " + formatUserDisplayName(assignedUser) + "."
+		));
 
 		return deviationRepository.save(deviation);
 	}
@@ -138,8 +162,21 @@ public class DeviationService {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 
+		User actor = userAccessService.getCurrentUserOrThrow(currentUser);
 		Deviation deviation = findDeviationOrThrow(organizationId, establishmentId, deviationId);
+
+		if (deviation.getStatus() == status) {
+			return deviation;
+		}
+
+		DeviationStatus previousStatus = deviation.getStatus();
 		deviation.setStatus(status);
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.STATUS_CHANGED,
+				actor,
+				Instant.now(),
+				"Status changed from " + formatStatusLabel(previousStatus) + " to " + formatStatusLabel(status) + "."
+		));
 
 		return deviationRepository.save(deviation);
 	}
@@ -158,11 +195,60 @@ public class DeviationService {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 
+		User actor = userAccessService.getCurrentUserOrThrow(currentUser);
 		Deviation deviation = findDeviationOrThrow(organizationId, establishmentId, deviationId);
-		deviation.setTitle(title);
-		deviation.setDescription(description);
-		deviation.setSeverity(severity);
-		deviation.setCategory(category);
+		List<String> changedFields = new ArrayList<>();
+
+		if (!deviation.getTitle().equals(title)) {
+			deviation.setTitle(title);
+			changedFields.add("title");
+		}
+		if (!deviation.getDescription().equals(description)) {
+			deviation.setDescription(description);
+			changedFields.add("description");
+		}
+		if (deviation.getSeverity() != severity) {
+			deviation.setSeverity(severity);
+			changedFields.add("severity");
+		}
+		if (deviation.getCategory() != category) {
+			deviation.setCategory(category);
+			changedFields.add("category");
+		}
+
+		if (changedFields.isEmpty()) {
+			return deviation;
+		}
+
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.DETAILS_UPDATED,
+				actor,
+				Instant.now(),
+				buildDetailsUpdatedNote(changedFields)
+		));
+
+		return deviationRepository.save(deviation);
+	}
+
+	@Transactional
+	public Deviation addTimelineNote(
+			UUID organizationId,
+			UUID establishmentId,
+			UUID deviationId,
+			String note,
+			CurrentUser currentUser
+	) {
+		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
+		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+
+		User actor = userAccessService.getCurrentUserOrThrow(currentUser);
+		Deviation deviation = findDeviationOrThrow(organizationId, establishmentId, deviationId);
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.NOTE_ADDED,
+				actor,
+				Instant.now(),
+				note.strip()
+		));
 
 		return deviationRepository.save(deviation);
 	}
@@ -186,5 +272,35 @@ public class DeviationService {
 		}
 
 		return user;
+	}
+
+	private String buildDetailsUpdatedNote(List<String> changedFields) {
+		if (changedFields.size() == 1) {
+			return "Updated " + changedFields.get(0) + ".";
+		}
+
+		if (changedFields.size() == 2) {
+			return "Updated " + changedFields.get(0) + " and " + changedFields.get(1) + ".";
+		}
+
+		StringBuilder note = new StringBuilder("Updated ");
+		for (int index = 0; index < changedFields.size(); index++) {
+			if (index == changedFields.size() - 1) {
+				note.append("and ").append(changedFields.get(index));
+			} else {
+				note.append(changedFields.get(index)).append(", ");
+			}
+		}
+		note.append('.');
+		return note.toString();
+	}
+
+	private String formatStatusLabel(DeviationStatus status) {
+		return status.name().toLowerCase().replace('_', ' ');
+	}
+
+	private String formatUserDisplayName(User user) {
+		String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
+		return fullName.isBlank() ? user.getEmail() : fullName;
 	}
 }

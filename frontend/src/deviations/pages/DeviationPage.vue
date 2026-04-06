@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/auth/model/auth.store'
 import {
   assignDeviation,
+  getDeviation,
   listEstablishmentDeviations,
   listOrganizationMembers,
   mapDeviationResponseToListItem,
@@ -36,6 +37,7 @@ const searchQuery = ref('')
 const activeFilter = ref<'ALL' | 'OPEN' | 'RECENT'>('ALL')
 const deviations = ref<DeviationListItem[]>([])
 const memberOptions = ref<DeviationMemberOption[]>([])
+const selectedDeviationDetails = ref<DeviationListItem | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const isSaving = ref(false)
@@ -102,12 +104,24 @@ const selectedDeviationId = computed(() => {
   return typeof route.query.deviationId === 'string' ? route.query.deviationId : null
 })
 
-const selectedDeviation = computed(() => {
+const selectedDeviationSummary = computed(() => {
   if (!selectedDeviationId.value) {
     return null
   }
 
   return serviceDeviations.value.find((deviation) => deviation.id === selectedDeviationId.value) ?? null
+})
+
+const selectedDeviation = computed(() => {
+  if (!selectedDeviationId.value) {
+    return null
+  }
+
+  if (selectedDeviationDetails.value?.id === selectedDeviationId.value) {
+    return selectedDeviationDetails.value
+  }
+
+  return selectedDeviationSummary.value
 })
 
 const filteredDeviations = computed(() => {
@@ -167,6 +181,49 @@ function replaceDeviation(updatedDeviation: DeviationListItem) {
   deviations.value = deviations.value.map((deviation) =>
     deviation.id === updatedDeviation.id ? updatedDeviation : deviation,
   )
+
+  if (selectedDeviationId.value === updatedDeviation.id) {
+    selectedDeviationDetails.value = updatedDeviation
+  }
+}
+
+async function loadSelectedDeviation() {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const deviationId = selectedDeviationId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !deviationId) {
+    selectedDeviationDetails.value = null
+    return
+  }
+
+  try {
+    const response = await getDeviation({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      deviationId,
+    })
+
+    if (selectedDeviationId.value !== deviationId) {
+      return
+    }
+
+    selectedDeviationDetails.value = mapDeviationResponseToListItem(response, memberNameLookup.value)
+  } catch (error) {
+    if (selectedDeviationId.value !== deviationId) {
+      return
+    }
+
+    selectedDeviationDetails.value = null
+
+    if (error instanceof ApiError && error.status === 404) {
+      await clearSelectedDeviation()
+      return
+    }
+
+    saveErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load deviation details.'
+  }
 }
 
 async function loadDeviations() {
@@ -176,6 +233,7 @@ async function loadDeviations() {
   if (!resolvedOrganizationId || !resolvedEstablishmentId) {
     deviations.value = []
     memberOptions.value = []
+    selectedDeviationDetails.value = null
     errorMessage.value = null
     return
   }
@@ -202,9 +260,14 @@ async function loadDeviations() {
       mapDeviationResponseToListItem(deviation, memberLookup),
     )
     memberOptions.value = memberPage ? toMemberOptions(memberPage.items) : []
+
+    if (selectedDeviationId.value) {
+      await loadSelectedDeviation()
+    }
   } catch (error) {
     deviations.value = []
     memberOptions.value = []
+    selectedDeviationDetails.value = null
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load deviations.'
   } finally {
@@ -329,13 +392,20 @@ watch([organizationId, establishmentId], () => {
 }, { immediate: true })
 
 watch([currentServiceArea, selectedDeviationId], async () => {
-  if (selectedDeviationId.value && !selectedDeviation.value) {
+  if (selectedDeviationId.value && !selectedDeviationSummary.value) {
     await clearSelectedDeviation()
   }
 })
 
 watch(selectedDeviationId, () => {
   saveErrorMessage.value = null
+
+  if (!selectedDeviationId.value) {
+    selectedDeviationDetails.value = null
+    return
+  }
+
+  void loadSelectedDeviation()
 })
 
 onMounted(() => {

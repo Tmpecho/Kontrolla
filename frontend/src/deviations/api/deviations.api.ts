@@ -34,6 +34,19 @@ export type DeviationResponse = {
   updatedAt: string
 }
 
+export type DeviationTimelineEntryResponse = {
+  id: string
+  eventType: 'REPORTED' | 'ASSIGNED' | 'UNASSIGNED' | 'STATUS_CHANGED' | 'DETAILS_UPDATED' | 'NOTE_ADDED'
+  actorUserId: string | null
+  authorName: string
+  note: string
+  occurredAt: string
+}
+
+export type DeviationDetailsResponse = DeviationResponse & {
+  timeline: DeviationTimelineEntryResponse[]
+}
+
 export type OrganizationMemberResponse = {
   id: string
   userId: string
@@ -80,8 +93,8 @@ export async function createDeviation(
     category: DeviationCategoryValue
     severity: DeviationSeverity
   },
-): Promise<DeviationResponse> {
-  return requestJson<DeviationResponse>(
+): Promise<DeviationDetailsResponse> {
+  return requestJson<DeviationDetailsResponse>(
     `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/deviations`,
     {
       method: 'POST',
@@ -98,6 +111,12 @@ export async function createDeviation(
   )
 }
 
+export async function getDeviation(params: DeviationMutationTarget): Promise<DeviationDetailsResponse> {
+  return requestJson<DeviationDetailsResponse>(
+    `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/deviations/${params.deviationId}`,
+  )
+}
+
 export async function updateDeviationDetails(
   params: DeviationMutationTarget & {
     title: string
@@ -105,8 +124,8 @@ export async function updateDeviationDetails(
     category: DeviationCategoryValue
     severity: DeviationSeverity
   },
-): Promise<DeviationResponse> {
-  return requestJson<DeviationResponse>(
+): Promise<DeviationDetailsResponse> {
+  return requestJson<DeviationDetailsResponse>(
     `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/deviations/${params.deviationId}`,
     {
       method: 'PUT',
@@ -127,8 +146,8 @@ export async function updateDeviationStatus(
   params: DeviationMutationTarget & {
     status: DeviationStatus
   },
-): Promise<DeviationResponse> {
-  return requestJson<DeviationResponse>(
+): Promise<DeviationDetailsResponse> {
+  return requestJson<DeviationDetailsResponse>(
     `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/deviations/${params.deviationId}/status`,
     {
       method: 'PUT',
@@ -146,8 +165,8 @@ export async function assignDeviation(
   params: DeviationMutationTarget & {
     assignedUserId: string
   },
-): Promise<DeviationResponse> {
-  return requestJson<DeviationResponse>(
+): Promise<DeviationDetailsResponse> {
+  return requestJson<DeviationDetailsResponse>(
     `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/deviations/${params.deviationId}/assignment`,
     {
       method: 'PUT',
@@ -156,6 +175,25 @@ export async function assignDeviation(
       },
       body: JSON.stringify({
         assignedUserId: params.assignedUserId,
+      }),
+    },
+  )
+}
+
+export async function addDeviationTimelineNote(
+  params: DeviationMutationTarget & {
+    note: string
+  },
+): Promise<DeviationDetailsResponse> {
+  return requestJson<DeviationDetailsResponse>(
+    `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/deviations/${params.deviationId}/timeline`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        note: params.note,
       }),
     },
   )
@@ -204,7 +242,7 @@ function fallbackUserLabel(userId: string): string {
 }
 
 export function mapDeviationResponseToListItem(
-  deviation: DeviationResponse,
+  deviation: DeviationResponse | DeviationDetailsResponse,
   memberNamesById: Record<string, string>,
 ): DeviationListItem {
   const categoryLabel = toDeviationCategoryLabel(deviation.category)
@@ -225,13 +263,21 @@ export function mapDeviationResponseToListItem(
     assignedToUserId: deviation.assignedToUserId,
     assignedTo: assignedToDisplayName ? [assignedToDisplayName] : [],
     description: deviation.description,
-    timeline: [
-      {
-        id: `${deviation.id}-reported`,
-        createdAt: deviation.createdAt,
-        authorName,
-        note: 'Deviation reported.',
-      },
-    ],
+    timeline:
+      'timeline' in deviation
+        ? deviation.timeline.map((entry) => ({
+            id: entry.id,
+            createdAt: entry.occurredAt,
+            authorName: entry.authorName || (entry.actorUserId ? memberNamesById[entry.actorUserId] ?? fallbackUserLabel(entry.actorUserId) : 'System'),
+            note: entry.note,
+          }))
+        : [
+            {
+              id: `${deviation.id}-reported`,
+              createdAt: deviation.createdAt,
+              authorName,
+              note: 'Deviation reported.',
+            },
+          ],
   }
 }
