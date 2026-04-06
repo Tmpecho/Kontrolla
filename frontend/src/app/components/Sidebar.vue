@@ -19,6 +19,7 @@ type AppRouteName =
   | 'ik-alkohol-documents'
   | 'ik-alkohol-deviation'
   | 'my-profile'
+  | 'organization-members'
   | 'settings'
 
 type AppSection = 'workspace' | 'ik-mat' | 'ik-alkohol' | 'account'
@@ -62,6 +63,7 @@ const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'ik-alkohol-documents': ['ik-alkohol-documents', 'ik-alkohol-documents-upload'],
   'ik-alkohol-deviation': ['ik-alkohol-deviation', 'ik-alkohol-deviation-form'],
   'my-profile': ['my-profile'],
+  'organization-members': ['organization-members'],
   settings: ['settings'],
 }
 
@@ -170,6 +172,10 @@ const navigationItems = computed<NavigationItem[]>(() => {
       ]
     case 'account':
       return [
+        {
+          label: 'Organization members',
+          routeName: 'organization-members',
+        },
         {
           label: 'My profile',
           routeName: 'my-profile',

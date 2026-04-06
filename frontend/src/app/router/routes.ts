@@ -19,6 +19,7 @@ import DeviationPage from '@/deviations/pages/DeviationPage.vue'
 import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 import MyProfilePage from '@/account/pages/MyProfilePage.vue'
 import SettingsPage from '@/account/pages/SettingsPage.vue'
+import OrganizationMembersPage from '@/account/pages/OrganizationMembersPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -132,6 +133,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings',
         name: 'settings',
         component: SettingsPage,
+      },
+      {
+        path: 'organization/members',
+        name: 'organization-members',
+        component: OrganizationMembersPage,
       },
       {
         path: ':pathMatch(.*)*',
