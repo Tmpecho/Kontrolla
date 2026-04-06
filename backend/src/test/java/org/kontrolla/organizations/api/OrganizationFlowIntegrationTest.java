@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
+import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
@@ -44,6 +45,9 @@ class OrganizationFlowIntegrationTest {
 	private RefreshTokenRepository refreshTokenRepository;
 
 	@Autowired
+	private UserInviteRepository userInviteRepository;
+
+	@Autowired
 	private OrganizationRepository organizationRepository;
 
 	@Autowired
@@ -58,6 +62,7 @@ class OrganizationFlowIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		refreshTokenRepository.deleteAll();
+		userInviteRepository.deleteAll();
 		establishmentRepository.deleteAll();
 		membershipRepository.deleteAll();
 		organizationRepository.deleteAll();
@@ -252,6 +257,39 @@ class OrganizationFlowIntegrationTest {
 		mockMvc.perform(get("/api/v1/organizations/%s/establishments".formatted(organizationId))
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + noMemberToken))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void orgAdminCanInviteNewMemberWithoutExistingUserId() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Managed Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "new.member@example.com",
+								  "firstName": "New",
+								  "lastName": "Member",
+								  "role": "ORG_EMPLOYEE",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.membership.userEmail").value("new.member@example.com"))
+				.andExpect(jsonPath("$.membership.userFirstName").value("New"))
+				.andExpect(jsonPath("$.membership.userLastName").value("Member"))
+				.andExpect(jsonPath("$.membership.role").value("ORG_EMPLOYEE"))
+				.andExpect(jsonPath("$.membership.active").value(true))
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andExpect(jsonPath("$.inviteExpiresAt").isNotEmpty());
 	}
 
 	private User createUser(String email, String firstName, String lastName, Set<GlobalRole> roles) {

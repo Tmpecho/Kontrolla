@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
+import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationMembership;
@@ -51,6 +52,9 @@ class AuthControllerIntegrationTest {
 	private RefreshTokenRepository refreshTokenRepository;
 
 	@Autowired
+	private UserInviteRepository userInviteRepository;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -65,6 +69,7 @@ class AuthControllerIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		refreshTokenRepository.deleteAll();
+		userInviteRepository.deleteAll();
 		organizationMembershipRepository.deleteAll();
 		establishmentRepository.deleteAll();
 		organizationRepository.deleteAll();
@@ -146,5 +151,95 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
 				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
+	}
+
+	@Test
+	void invitedUserCanAcceptInvitationAndThenLogIn() throws Exception {
+		User platformAdmin = new User(
+				"admin@example.com",
+				"Admin",
+				"User",
+				passwordEncoder.encode("password123"),
+				true,
+				Set.of(org.kontrolla.iam.domain.GlobalRole.PLATFORM_ADMIN)
+		);
+		User orgAdmin = new User(
+				"orgadmin@example.com",
+				"Org",
+				"Admin",
+				passwordEncoder.encode("password123"),
+				true,
+				Set.of()
+		);
+		userRepository.saveAndFlush(platformAdmin);
+		userRepository.saveAndFlush(orgAdmin);
+
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Invite Organization", OrganizationStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, orgAdmin, OrganizationRole.ORG_ADMIN, true));
+
+		String orgAdminLogin = """
+				{
+				  "email": "orgadmin@example.com",
+				  "password": "password123"
+				}
+				""";
+
+		String adminAccessToken = objectMapper.readTree(
+				mockMvc.perform(post("/api/v1/auth/login")
+								.contentType(MediaType.APPLICATION_JSON)
+								.content(orgAdminLogin))
+						.andExpect(status().isOk())
+						.andReturn()
+						.getResponse()
+						.getContentAsString()
+		).get("accessToken").asText();
+
+		String inviteResponse = mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organization.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "invitee@example.com",
+								  "firstName": "Invited",
+								  "lastName": "User",
+								  "role": "ORG_EMPLOYEE",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String inviteUrl = objectMapper.readTree(inviteResponse).get("inviteUrl").asText();
+		String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+		mockMvc.perform(get("/api/v1/auth/invitations/%s".formatted(token)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value("invitee@example.com"))
+				.andExpect(jsonPath("$.organizationName").value("Invite Organization"));
+
+		mockMvc.perform(post("/api/v1/auth/invitations/%s/accept".formatted(token))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(post("/api/v1/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "invitee@example.com",
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.user.email").value("invitee@example.com"));
 	}
 }
