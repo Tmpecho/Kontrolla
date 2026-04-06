@@ -13,6 +13,7 @@ import org.kontrolla.organizations.domain.OrganizationRole;
 import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.support.TestDataCleaner;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
@@ -62,13 +63,12 @@ class AuthControllerIntegrationTest {
 	@Autowired
 	private EstablishmentRepository establishmentRepository;
 
+	@Autowired
+	private TestDataCleaner testDataCleaner;
+
 	@BeforeEach
 	void setUp() {
-		refreshTokenRepository.deleteAll();
-		organizationMembershipRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
+		testDataCleaner.clearAll();
 	}
 
 	@Test

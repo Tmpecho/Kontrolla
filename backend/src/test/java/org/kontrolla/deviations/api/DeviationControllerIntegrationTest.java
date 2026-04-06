@@ -20,6 +20,7 @@ import org.kontrolla.organizations.domain.OrganizationRole;
 import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.support.TestDataCleaner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -75,16 +76,12 @@ class DeviationControllerIntegrationTest {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private TestDataCleaner testDataCleaner;
+
 	@BeforeEach
 	void setUp() {
-		refreshTokenRepository.deleteAll();
-		deviationRepository.deleteAll();
-		checklistRunRepository.deleteAll();
-		checklistDefinitionRepository.deleteAll();
-		organizationMembershipRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
+		testDataCleaner.clearAll();
 	}
 
 	@Test
