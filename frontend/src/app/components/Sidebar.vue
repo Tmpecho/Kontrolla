@@ -51,6 +51,16 @@ const emit = defineEmits<{
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 
 const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'workspace-home': ['workspace-home'],
@@ -70,7 +80,7 @@ const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
 const currentAppSection = computed<AppSection>(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
 
-  if (routeName === 'my-profile' || routeName === 'settings') {
+  if (routeName === 'my-profile' || routeName === 'organization-members' || routeName === 'settings') {
     return 'account'
   }
 
@@ -172,10 +182,14 @@ const navigationItems = computed<NavigationItem[]>(() => {
       ]
     case 'account':
       return [
-        {
-          label: 'Organization members',
-          routeName: 'organization-members',
-        },
+        ...(canManageMembers.value
+          ? [
+              {
+                label: 'Organization members',
+                routeName: 'organization-members' as const,
+              },
+            ]
+          : []),
         {
           label: 'My profile',
           routeName: 'my-profile',

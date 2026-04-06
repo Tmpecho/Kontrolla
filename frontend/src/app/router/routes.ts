@@ -144,6 +144,9 @@ export const routes: RouteRecordRaw[] = [
         path: 'organization/members',
         name: 'organization-members',
         component: OrganizationMembersPage,
+        meta: {
+          requiresMemberManagement: true,
+        },
       },
       {
         path: ':pathMatch(.*)*',

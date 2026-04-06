@@ -85,6 +85,16 @@ const resolvedOrganizationName = computed(() => {
 })
 
 const currentUserId = computed(() => authStore.user?.id ?? null)
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 const totalMembers = computed(() => members.value.length)
 const activeMembers = computed(() => members.value.filter((member) => member.active).length)
 
@@ -131,6 +141,12 @@ async function loadMembers(): Promise<void> {
   errorMessage.value = null
 
   try {
+    if (!canManageMembers.value) {
+      members.value = []
+      errorMessage.value = 'Only organization owners and admins can manage members.'
+      return
+    }
+
     const page = await listOrganizationMembers({
       organizationId,
       size: 100,
@@ -275,6 +291,11 @@ onMounted(() => {
         This page needs an organization context. Sign in with an organization membership or set
         `VITE_DEFAULT_ORGANIZATION_ID` in development.
       </p>
+    </section>
+
+    <section v-else-if="!canManageMembers" class="notice-panel">
+      <h2>Member management restricted</h2>
+      <p>Only organization owners and admins can view and change member roles.</p>
     </section>
 
     <template v-else>
