@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
@@ -42,9 +43,18 @@ function createDeferred<T>() {
   }
 }
 
-function mountPage() {
+async function mountPage(query: Record<string, string> = {}) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/app/ik-mat/checklists', name: 'ik-mat-checklists', component: IKMatChecklistsPage }],
+  })
+
+  router.push({ name: 'ik-mat-checklists', query })
+  await router.isReady()
+
   return mount(IKMatChecklistsPage, {
     global: {
+      plugins: [router],
       stubs: {
         ChecklistRunCard: {
           props: ['run'],
@@ -75,7 +85,7 @@ describe('IKMatChecklistsPage', () => {
 
     listChecklistRunsMock.mockReturnValue(deferred.promise)
 
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
     await nextTick()
 
     expect(wrapper.text()).toContain('Loading checklist runs...')
@@ -111,7 +121,7 @@ describe('IKMatChecklistsPage', () => {
       totalPages: 1,
     })
 
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain('IK-mat Checklists')
@@ -168,7 +178,7 @@ describe('IKMatChecklistsPage', () => {
       totalPages: 1,
     })
 
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain('Morning shift (edited)')
@@ -185,7 +195,7 @@ describe('IKMatChecklistsPage', () => {
       totalPages: 0,
     })
 
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain('No checklist runs found.')
@@ -194,13 +204,13 @@ describe('IKMatChecklistsPage', () => {
   it('renders an api error message when the request fails', async () => {
     listChecklistRunsMock.mockRejectedValue(new ApiError('Forbidden', 403))
 
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain('Forbidden')
   })
 
-  it('keeps an updated run visible until the user switches triage tabs', async () => {
+  it('removes a run from the current triage tab when its status changes', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -230,8 +240,16 @@ describe('IKMatChecklistsPage', () => {
       totalPages: 1,
     })
 
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/app/ik-mat/checklists', name: 'ik-mat-checklists', component: IKMatChecklistsPage }],
+    })
+    router.push({ name: 'ik-mat-checklists' })
+    await router.isReady()
+
     const wrapper = mount(IKMatChecklistsPage, {
       global: {
+        plugins: [router],
         stubs: {
           ChecklistRunCard: {
             props: ['run'],
@@ -250,8 +268,8 @@ describe('IKMatChecklistsPage', () => {
     await wrapper.get('.run-card-stub').trigger('click')
     await nextTick()
 
-    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
-    expect(wrapper.text()).toContain('Morning shift')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(0)
+    expect(wrapper.text()).toContain('No checklist runs match the current filter.')
 
     const triageTabs = wrapper.findAll('.triage-tab')
 
@@ -274,7 +292,7 @@ describe('IKMatChecklistsPage', () => {
     appEnvMock.defaultOrganizationId = undefined
     appEnvMock.defaultEstablishmentId = undefined
 
-    const wrapper = mountPage()
+    const wrapper = await mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain(
