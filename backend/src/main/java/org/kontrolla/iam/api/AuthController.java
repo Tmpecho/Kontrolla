@@ -2,6 +2,7 @@ package org.kontrolla.iam.api;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.kontrolla.iam.application.AuthService;
 import org.kontrolla.iam.application.AuthSession;
@@ -12,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -22,10 +25,16 @@ public class AuthController {
 
 	private final AuthService authService;
 	private final AppSecurityProperties securityProperties;
+	private final CsrfTokenRepository csrfTokenRepository;
 
-	public AuthController(AuthService authService, AppSecurityProperties securityProperties) {
+	public AuthController(
+			AuthService authService,
+			AppSecurityProperties securityProperties,
+			CsrfTokenRepository csrfTokenRepository
+	) {
 		this.authService = authService;
 		this.securityProperties = securityProperties;
+		this.csrfTokenRepository = csrfTokenRepository;
 	}
 
 	@PostMapping("/login")
@@ -62,6 +71,16 @@ public class AuthController {
 		return ResponseEntity.status(HttpStatus.NO_CONTENT)
 				.header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
 				.build();
+	}
+
+	@GetMapping("/csrf")
+	public CsrfTokenResponse csrf(HttpServletRequest request, HttpServletResponse response) {
+		CsrfToken csrfToken = csrfTokenRepository.loadToken(request);
+		if (csrfToken == null) {
+			csrfToken = csrfTokenRepository.generateToken(request);
+			csrfTokenRepository.saveToken(csrfToken, request, response);
+		}
+		return CsrfTokenResponse.from(csrfToken);
 	}
 
 	@GetMapping("/me")

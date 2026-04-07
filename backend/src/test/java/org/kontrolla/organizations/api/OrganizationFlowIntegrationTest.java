@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Set;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -88,6 +89,7 @@ class OrganizationFlowIntegrationTest {
 		String adminToken = login("admin@example.com", "password123");
 
 		String organizationResponse = mockMvc.perform(post("/api/v1/admin/organizations")
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -104,6 +106,7 @@ class OrganizationFlowIntegrationTest {
 		String organizationId = objectMapper.readTree(organizationResponse).get("id").asText();
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -123,6 +126,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(jsonPath("$.id").value(organizationId));
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -150,6 +154,7 @@ class OrganizationFlowIntegrationTest {
 		addMembership(adminToken, orgBId, orgBManager.getId(), "ORG_MANAGER");
 
 		String establishmentResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(orgBId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -202,6 +207,7 @@ class OrganizationFlowIntegrationTest {
 		String orgAToken = login("orga@example.com", "password123");
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(orgBId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -213,6 +219,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(orgBId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -224,6 +231,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(orgBId, orgBMembershipId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -270,6 +278,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(post("/api/v1/admin/organizations")
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -284,6 +293,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(post("/api/v1/admin/users")
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -309,6 +319,7 @@ class OrganizationFlowIntegrationTest {
 		String employeeToken = login("employee-establishments@example.com", "password123");
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -334,6 +345,7 @@ class OrganizationFlowIntegrationTest {
 		String managerToken = login("manager-members@example.com", "password123");
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -345,6 +357,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organizationId, managerMembershipId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -390,6 +403,7 @@ class OrganizationFlowIntegrationTest {
 
 	private String createOrganization(String adminToken, String name) throws Exception {
 		String response = mockMvc.perform(post("/api/v1/admin/organizations")
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -407,6 +421,7 @@ class OrganizationFlowIntegrationTest {
 
 	private String addMembership(String adminToken, String organizationId, Object userId, String role) throws Exception {
 		return mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -423,6 +438,7 @@ class OrganizationFlowIntegrationTest {
 
 	private String login(String email, String password) throws Exception {
 		String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{

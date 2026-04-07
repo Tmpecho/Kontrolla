@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { ensureCsrfToken } from '@/shared/api/csrf'
 
 import App from './App.vue'
 import './app/global.css'
@@ -14,6 +15,12 @@ async function bootstrap() {
   app.use(pinia)
 
   const authStore = useAuthStore(pinia)
+  try {
+    await ensureCsrfToken()
+  } catch {
+    // If CSRF bootstrap fails, still mount the app and let unsafe requests retry later.
+  }
+
   try {
     await authStore.initializeSession()
   } catch {
