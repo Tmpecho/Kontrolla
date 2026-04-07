@@ -8,6 +8,7 @@ import {
   logout as logoutRequest,
 } from '@/auth/api/auth.api'
 import type { AuthAppContext, AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
+import { clearCsrfToken } from '@/shared/api/csrf'
 
 let currentAccessToken: string | null = null
 
@@ -50,8 +51,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    await logoutRequest()
-    clearSession()
+    try {
+      await logoutRequest()
+    } catch {
+      // Best-effort server logout. Local sign-out should still complete.
+    } finally {
+      clearCsrfToken()
+      clearSession()
+    }
   }
 
   async function initializeSession() {

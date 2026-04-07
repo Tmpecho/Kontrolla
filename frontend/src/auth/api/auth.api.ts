@@ -1,5 +1,5 @@
 import type { AuthSession, LoginCredentials } from '@/auth/model/auth.types'
-import { getCsrfHeaders } from '@/shared/api/csrf'
+import { clearCsrfToken, getCsrfHeaders } from '@/shared/api/csrf'
 import { buildApiUrl } from '@/shared/config/api'
 
 type ApiProblem = {
@@ -26,16 +26,15 @@ async function readProblemMessage(response: Response): Promise<string> {
   }
 }
 
-async function requestSession(
+async function postWithCsrf(
   path: string,
   options?: {
-    body?: string
+    body?: BodyInit | null
+    headers?: HeadersInit
   },
-): Promise<AuthSession> {
-  const headers = new Headers({
-    'Content-Type': 'application/json',
-  })
-
+  retry = true,
+): Promise<Response> {
+  const headers = new Headers(options?.headers)
   const csrfHeaders = await getCsrfHeaders('POST')
   for (const [key, value] of Object.entries(csrfHeaders)) {
     headers.set(key, value)
@@ -46,6 +45,27 @@ async function requestSession(
     credentials: 'include',
     headers,
     body: options?.body,
+  })
+
+  if (retry && response.status === 403) {
+    clearCsrfToken()
+    return postWithCsrf(path, options, false)
+  }
+
+  return response
+}
+
+async function requestSession(
+  path: string,
+  options?: {
+    body?: string
+  },
+): Promise<AuthSession> {
+  const response = await postWithCsrf(path, {
+    body: options?.body,
+    headers: {
+      'Content-Type': 'application/json',
+    },
   })
 
   if (!response.ok) {
@@ -62,17 +82,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
 }
 
 export async function logout(): Promise<void> {
-  const headers = new Headers()
-  const csrfHeaders = await getCsrfHeaders('POST')
-  for (const [key, value] of Object.entries(csrfHeaders)) {
-    headers.set(key, value)
-  }
-
-  const response = await fetch(buildApiUrl('/api/v1/auth/logout'), {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-  })
+  const response = await postWithCsrf('/api/v1/auth/logout')
 
   if (!response.ok) {
     throw new AuthApiError(await readProblemMessage(response), response.status)

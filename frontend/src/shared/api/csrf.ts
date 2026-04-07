@@ -11,6 +11,11 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 let csrfSession: CsrfSession | null = null
 let pendingCsrfSession: Promise<CsrfSession> | null = null
 
+export function clearCsrfToken(): void {
+  csrfSession = null
+  pendingCsrfSession = null
+}
+
 export async function ensureCsrfToken(): Promise<CsrfSession> {
   if (csrfSession) {
     return csrfSession

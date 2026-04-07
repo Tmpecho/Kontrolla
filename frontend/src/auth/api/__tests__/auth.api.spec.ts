@@ -13,14 +13,17 @@ vi.mock('@/shared/config/env', () => ({
 }))
 
 const getCsrfHeadersMock = vi.fn()
+const clearCsrfTokenMock = vi.fn()
 
 vi.mock('@/shared/api/csrf', () => ({
   getCsrfHeaders: getCsrfHeadersMock,
+  clearCsrfToken: clearCsrfTokenMock,
 }))
 
 describe('auth.api', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    clearCsrfTokenMock.mockReset()
     getCsrfHeadersMock.mockResolvedValue({
       'X-XSRF-TOKEN': 'csrf-token',
     })
@@ -98,5 +101,23 @@ describe('auth.api', () => {
     expect(requestInit.method).toBe('POST')
     expect(requestInit.credentials).toBe('include')
     expect(headers.get('X-XSRF-TOKEN')).toBe('csrf-token')
+  })
+
+  it('retries logout once after a csrf rejection', async () => {
+    const fetchMock = fetch as Mock
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Access denied' }), {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const { logout } = await import('@/auth/api/auth.api')
+    await logout()
+
+    expect(clearCsrfTokenMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
