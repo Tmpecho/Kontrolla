@@ -42,7 +42,7 @@ export async function markNotificationRead(notificationId: string): Promise<Noti
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-  await requestJson<void>('/api/v1/notifications/read-all', {
+  await requestJson<UnreadNotificationCountResponse>('/api/v1/notifications/read-all', {
     method: 'POST',
   })
 }

@@ -52,8 +52,9 @@ public class NotificationService {
 	}
 
 	@Transactional
-	public void markAllRead(CurrentUser currentUser) {
+	public long markAllRead(CurrentUser currentUser) {
 		notificationRepository.markAllRead(currentUser.userId(), Instant.now());
+		return 0;
 	}
 
 	@Transactional

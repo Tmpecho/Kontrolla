@@ -53,7 +53,7 @@ public class NotificationController {
 	}
 
 	@PostMapping("/read-all")
-	public void markAllRead(@AuthenticationPrincipal CurrentUser currentUser) {
-		notificationService.markAllRead(currentUser);
+	public UnreadNotificationCountResponse markAllRead(@AuthenticationPrincipal CurrentUser currentUser) {
+		return new UnreadNotificationCountResponse(notificationService.markAllRead(currentUser));
 	}
 }
