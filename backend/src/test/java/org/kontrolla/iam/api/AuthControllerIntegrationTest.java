@@ -2,11 +2,12 @@ package org.kontrolla.iam.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.iam.application.LoginAttemptTracker;
 import org.kontrolla.iam.domain.User;
-import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
+import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationMembership;
@@ -25,6 +26,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -36,7 +43,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import java.util.UUID;
+
+import javax.crypto.spec.SecretKeySpec;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -58,10 +69,13 @@ class AuthControllerIntegrationTest {
 	private UserRepository userRepository;
 
 	@Autowired
-	private RefreshTokenRepository refreshTokenRepository;
+	private PasswordEncoder passwordEncoder;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private JwtEncoder jwtEncoder;
+
+	@Autowired
+	private AppSecurityProperties securityProperties;
 
 	@Autowired
 	private OrganizationRepository organizationRepository;
@@ -212,6 +226,50 @@ class AuthControllerIntegrationTest {
 	}
 
 	@Test
+	void meRejectsMalformedBearerToken() throws Exception {
+		performMe("not-a-jwt")
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("Malformed token")));
+	}
+
+	@Test
+	void meRejectsExpiredBearerToken() throws Exception {
+		User user = createUserWithOrganizationContext("alice@example.com", "password123");
+		String expiredToken = issueAccessToken(
+				jwtEncoder,
+				user.getId(),
+				user.getEmail(),
+				Instant.parse("2026-04-07T07:00:00Z"),
+				Instant.parse("2026-04-07T07:15:00Z"));
+
+		performMe(expiredToken)
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("Jwt expired")));
+	}
+
+	@Test
+	void meRejectsBearerTokenSignedWithDifferentSecret() throws Exception {
+		User user = createUserWithOrganizationContext("alice@example.com", "password123");
+
+		byte[] secret = "different-test-secret-different-test-1234".getBytes(StandardCharsets.UTF_8);
+		SecretKeySpec key = new SecretKeySpec(secret, "HmacSHA256");
+		JwtEncoder wrongEncoder = new NimbusJwtEncoder(new ImmutableSecret<>(key));
+		String tokenWithWrongSignature = issueAccessToken(
+				wrongEncoder,
+				user.getId(),
+				user.getEmail(),
+				Instant.parse("2026-04-07T08:00:00Z"),
+				Instant.parse("2026-04-07T08:15:00Z"));
+
+		performMe(tokenWithWrongSignature)
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("Invalid signature")));
+	}
+
+	@Test
 	void loginLocksOutAccountAfterRepeatedFailedAttempts() throws Exception {
 		createUserWithOrganizationContext("alice@example.com", "password123");
 
@@ -283,12 +341,17 @@ class AuthControllerIntegrationTest {
 						""".formatted(email, password)));
 	}
 
+	private org.springframework.test.web.servlet.ResultActions performMe(String accessToken) throws Exception {
+		return mockMvc.perform(get("/api/v1/auth/me")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken));
+	}
+
 	private org.springframework.test.web.servlet.ResultActions performRefresh(String refreshCookie) throws Exception {
 		return mockMvc.perform(post("/api/v1/auth/refresh")
 				.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)));
 	}
 
-	private void createUserWithOrganizationContext(String email, String password) {
+	private User createUserWithOrganizationContext(String email, String password) {
 		User user = new User(email, "Alice", "Example", passwordEncoder.encode(password), true, Set.of());
 		userRepository.saveAndFlush(user);
 		Organization organization = organizationRepository.saveAndFlush(
@@ -297,6 +360,31 @@ class AuthControllerIntegrationTest {
 				new Establishment(organization, "Alice Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
 		organizationMembershipRepository.saveAndFlush(
 				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
+		return user;
+	}
+
+	private String issueAccessToken(
+			JwtEncoder encoder,
+			UUID userId,
+			String email,
+			Instant issuedAt,
+			Instant expiresAt
+	) {
+		JwtClaimsSet claims = JwtClaimsSet.builder()
+				.issuer(securityProperties.getJwt().getIssuer())
+				.issuedAt(issuedAt)
+				.expiresAt(expiresAt)
+				.subject(userId.toString())
+				.claim("email", email)
+				.claim("roles", Set.of())
+				.build();
+
+		return encoder.encode(
+				JwtEncoderParameters.from(
+						JwsHeader.with(MacAlgorithm.HS256).build(),
+						claims
+				)
+		).getTokenValue();
 	}
 
 	@TestConfiguration
