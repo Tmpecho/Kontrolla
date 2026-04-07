@@ -166,6 +166,52 @@ class AuthControllerIntegrationTest {
 	}
 
 	@Test
+	void refreshRejectsReplayOfPreviouslyUsedRefreshToken() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String initialRefreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+
+		MvcResult refreshResult = performRefresh(initialRefreshCookie)
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String rotatedRefreshCookie = refreshResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+
+		org.junit.jupiter.api.Assertions.assertNotEquals(initialRefreshCookie, rotatedRefreshCookie);
+
+		performRefresh(initialRefreshCookie)
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+
+		performRefresh(rotatedRefreshCookie)
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"));
+	}
+
+	@Test
+	void refreshRejectsMissingRefreshCookie() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/refresh"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("missing_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is missing"));
+	}
+
+	@Test
+	void refreshRejectsForgedRefreshCookie() throws Exception {
+		performRefresh("forged-refresh-token")
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+	}
+
+	@Test
 	void loginLocksOutAccountAfterRepeatedFailedAttempts() throws Exception {
 		createUserWithOrganizationContext("alice@example.com", "password123");
 
@@ -235,6 +281,11 @@ class AuthControllerIntegrationTest {
 						  "password": "%s"
 						}
 						""".formatted(email, password)));
+	}
+
+	private org.springframework.test.web.servlet.ResultActions performRefresh(String refreshCookie) throws Exception {
+		return mockMvc.perform(post("/api/v1/auth/refresh")
+				.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)));
 	}
 
 	private void createUserWithOrganizationContext(String email, String password) {
