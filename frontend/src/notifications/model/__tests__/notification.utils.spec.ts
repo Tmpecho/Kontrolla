@@ -48,4 +48,24 @@ describe('notification route mapping', () => {
       },
     })
   })
+
+  it('falls back to the IK-alkohol dashboard for checklist notifications until that page exists', () => {
+    expect(toNotificationRoute({
+      id: 'notification-3',
+      recipientUserId: 'user-1',
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_ALKOHOL',
+      type: 'CHECKLIST_ASSIGNED',
+      title: 'Alcohol opening checks',
+      message: 'You were assigned this checklist run.',
+      resourceType: 'CHECKLIST_RUN',
+      resourceId: 'run-2',
+      createdAt: '2026-04-07T08:00:00Z',
+      readAt: null,
+      isUnread: true,
+    })).toEqual({
+      name: 'ik-alkohol-dashboard',
+    })
+  })
 })

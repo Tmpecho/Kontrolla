@@ -2,7 +2,6 @@ package org.kontrolla.deviations.application;
 
 import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
-import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.deviations.domain.Deviation;
 import org.kontrolla.deviations.domain.DeviationCategory;
 import org.kontrolla.deviations.domain.DeviationEvent;
@@ -15,8 +14,10 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.application.UserAccessService;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.CurrentUser;
+import org.kontrolla.notifications.application.CreateNotificationCommand;
 import org.kontrolla.notifications.application.NotificationService;
 import org.kontrolla.notifications.domain.NotificationResourceType;
+import org.kontrolla.notifications.domain.NotificationServiceArea;
 import org.kontrolla.notifications.domain.NotificationType;
 import org.kontrolla.organizations.application.OrganizationAccessService;
 import org.kontrolla.organizations.domain.OrganizationMembership;
@@ -157,7 +158,7 @@ public class DeviationService {
 				Instant.now(),
 				"Deviation assigned to " + formatUserDisplayName(assignedUser) + "."
 		));
-		notificationService.createNotification(
+		notificationService.createNotification(new CreateNotificationCommand(
 				assignedUser.getId(),
 				actor.getId(),
 				organizationId,
@@ -168,7 +169,7 @@ public class DeviationService {
 				"You were assigned this deviation.",
 				NotificationResourceType.DEVIATION,
 				deviation.getId()
-		);
+		));
 
 		return deviationRepository.save(deviation);
 	}
@@ -305,7 +306,7 @@ public class DeviationService {
 			return;
 		}
 
-		notificationService.createNotification(
+		notificationService.createNotification(new CreateNotificationCommand(
 				deviation.getAssignedToUser().getId(),
 				actorUserId,
 				organizationId,
@@ -316,7 +317,7 @@ public class DeviationService {
 				message,
 				NotificationResourceType.DEVIATION,
 				deviation.getId()
-		);
+		));
 	}
 
 	private Deviation findDeviationOrThrow(UUID organizationId, UUID establishmentId, UUID deviationId) {
@@ -374,10 +375,10 @@ public class DeviationService {
 		return fullName.isBlank() ? user.getEmail() : fullName;
 	}
 
-	private ChecklistServiceArea toServiceArea(DeviationCategory category) {
+	private NotificationServiceArea toServiceArea(DeviationCategory category) {
 		return switch (category) {
-			case TEMPERATURE, HYGIENE, ALLERGEN, STORAGE -> ChecklistServiceArea.IK_MAT;
-			case AGE_CONTROL, INAPPROPRIATE_BEHAVIOUR, SERVING_HOURS, DOCUMENTATION_AND_TRAINING -> ChecklistServiceArea.IK_ALKOHOL;
+			case TEMPERATURE, HYGIENE, ALLERGEN, STORAGE -> NotificationServiceArea.IK_MAT;
+			case AGE_CONTROL, INAPPROPRIATE_BEHAVIOUR, SERVING_HOURS, DOCUMENTATION_AND_TRAINING -> NotificationServiceArea.IK_ALKOHOL;
 		};
 	}
 }
