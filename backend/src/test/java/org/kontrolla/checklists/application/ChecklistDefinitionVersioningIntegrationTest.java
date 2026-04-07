@@ -27,6 +27,7 @@ import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.support.TestDataCleaner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -63,13 +64,12 @@ class ChecklistDefinitionVersioningIntegrationTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private TestDataCleaner testDataCleaner;
+
 	@BeforeEach
 	void setUp() {
-		checklistRunRepository.deleteAll();
-		checklistDefinitionRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
+		testDataCleaner.clearAll();
 	}
 
 	@Test
