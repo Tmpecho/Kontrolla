@@ -51,17 +51,10 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	@Override
 	@Transactional
 	public void run(ApplicationArguments args) {
-		String bootstrapUserEmail = Optional.ofNullable(properties.getBootstrapUser().getEmail()).orElse("").trim();
 		String organizationName = Optional.ofNullable(properties.getBootstrapOrganization().getName()).orElse("").trim();
 		String establishmentName = Optional.ofNullable(properties.getBootstrapEstablishment().getName()).orElse("").trim();
 
-		if (bootstrapUserEmail.isBlank() || organizationName.isBlank() || establishmentName.isBlank()) {
-			return;
-		}
-
-		User user = userRepository.findByEmailIgnoreCase(bootstrapUserEmail).orElse(null);
-		if (user == null) {
-			log.warn("Skipped bootstrap organization context because bootstrap user {} does not exist", bootstrapUserEmail);
+		if (organizationName.isBlank() || establishmentName.isBlank()) {
 			return;
 		}
 
@@ -80,19 +73,10 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 					return created;
 				});
 
-		organizationMembershipRepository.findByOrganizationIdAndUserId(organization.getId(), user.getId()).ifPresentOrElse(existing -> {
-			existing.setRole(OrganizationRole.ORG_OWNER);
-			existing.setActive(true);
-		}, () -> {
-			OrganizationMembership membership = new OrganizationMembership(
-					organization,
-					user,
-					OrganizationRole.ORG_OWNER,
-					true
-			);
-			organizationMembershipRepository.save(membership);
-			log.info("Created bootstrap membership for {} in {}", bootstrapUserEmail, organizationName);
-		});
+		upsertMembership(properties.getBootstrapAdmin().getEmail(), organization, OrganizationRole.ORG_ADMIN, organizationName);
+		upsertMembership(properties.getBootstrapUser().getEmail(), organization, OrganizationRole.ORG_MANAGER, organizationName);
+		properties.getBootstrapEmployees()
+				.forEach(employee -> upsertMembership(employee.getEmail(), organization, OrganizationRole.ORG_EMPLOYEE, organizationName));
 
 		establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(organization.getId(), establishmentName)
 				.map(existing -> {
@@ -111,5 +95,37 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 					log.info("Created bootstrap establishment {} in {}", establishmentName, organizationName);
 					return created;
 				});
+	}
+
+	private void upsertMembership(
+			String email,
+			Organization organization,
+			OrganizationRole role,
+			String organizationName
+	) {
+		String bootstrapUserEmail = Optional.ofNullable(email).orElse("").trim();
+		if (bootstrapUserEmail.isBlank()) {
+			return;
+		}
+
+		User user = userRepository.findByEmailIgnoreCase(bootstrapUserEmail).orElse(null);
+		if (user == null) {
+			log.warn("Skipped bootstrap organization context because bootstrap user {} does not exist", bootstrapUserEmail);
+			return;
+		}
+
+		organizationMembershipRepository.findByOrganizationIdAndUserId(organization.getId(), user.getId()).ifPresentOrElse(existing -> {
+			existing.setRole(role);
+			existing.setActive(true);
+		}, () -> {
+			OrganizationMembership membership = new OrganizationMembership(
+					organization,
+					user,
+					role,
+					true
+			);
+			organizationMembershipRepository.save(membership);
+			log.info("Created bootstrap membership for {} in {}", bootstrapUserEmail, organizationName);
+		});
 	}
 }

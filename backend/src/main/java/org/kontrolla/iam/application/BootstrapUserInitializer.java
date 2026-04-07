@@ -39,8 +39,13 @@ public class BootstrapUserInitializer implements ApplicationRunner {
 	@Override
 	@Transactional
 	public void run(org.springframework.boot.ApplicationArguments args) {
-		String email = Optional.ofNullable(properties.getBootstrapUser().getEmail()).orElse("").trim();
-		String password = Optional.ofNullable(properties.getBootstrapUser().getPassword()).orElse("").trim();
+		upsertUser(properties.getBootstrapUser());
+		properties.getBootstrapEmployees().forEach(this::upsertUser);
+	}
+
+	private void upsertUser(AppSecurityProperties.BootstrapUser bootstrapUser) {
+		String email = Optional.ofNullable(bootstrapUser.getEmail()).orElse("").trim();
+		String password = Optional.ofNullable(bootstrapUser.getPassword()).orElse("").trim();
 		if (email.isBlank() || password.isBlank()) {
 			return;
 		}
@@ -53,8 +58,8 @@ public class BootstrapUserInitializer implements ApplicationRunner {
 		}, () -> {
 			User created = new User(
 					email,
-					properties.getBootstrapUser().getFirstName(),
-					properties.getBootstrapUser().getLastName(),
+					bootstrapUser.getFirstName(),
+					bootstrapUser.getLastName(),
 					passwordEncoder.encode(password),
 					true,
 					Set.of()

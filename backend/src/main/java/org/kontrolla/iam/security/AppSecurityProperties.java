@@ -21,6 +21,7 @@ public class AppSecurityProperties {
 	private final Cors cors = new Cors();
 	private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
 	private final BootstrapUser bootstrapUser = new BootstrapUser();
+	private final List<BootstrapUser> bootstrapEmployees = new ArrayList<>();
 	private final BootstrapOrganization bootstrapOrganization = new BootstrapOrganization();
 	private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
 
