@@ -44,16 +44,20 @@ async function loadRecentNotifications() {
 }
 
 async function openNotification(notification: NotificationItem) {
-  if (notification.isUnread) {
-    const updatedNotification = await markNotificationRead(notification.id)
-    notifications.value = notifications.value.map((item) =>
-      item.id === notification.id ? updatedNotification : item,
-    )
-    notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
-  }
+	if (notification.isUnread) {
+		await handleMarkRead(notification)
+	}
 
-  emit('close')
-  await router.push(toNotificationRoute(notification))
+	emit('close')
+	await router.push(toNotificationRoute(notification))
+}
+
+async function handleMarkRead(notification: NotificationItem) {
+	const updatedNotification = await markNotificationRead(notification.id)
+	notifications.value = notifications.value.map((item) =>
+		item.id === notification.id ? updatedNotification : item,
+	)
+	notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
 }
 
 function closePopup() {
@@ -88,25 +92,37 @@ onMounted(() => {
             :key="notification.id"
             class="notifications-list-item"
           >
-            <button
-              type="button"
-              class="notification-link"
-              :class="{ 'notification-link-unread': notification.isUnread }"
-              @click="openNotification(notification)"
-            >
-              <div class="notification-meta">
-                <span>{{ formatNotificationTypeLabel(notification.type) }}</span>
-                <time :datetime="notification.createdAt">
-                  {{
-                    new Intl.DateTimeFormat('nb-NO', { dateStyle: 'short', timeStyle: 'short' }).format(
-                      new Date(notification.createdAt),
-                    )
+            <article class="notification-item" :class="{ 'notification-item-unread': notification.isUnread }">
+              <button
+                type="button"
+                class="notification-link"
+                :class="{ 'notification-link-read': !notification.isUnread }"
+                @click="openNotification(notification)"
+              >
+                <span class="notification-meta">
+                  <span>{{ formatNotificationTypeLabel(notification.type) }}</span>
+                  <time :datetime="notification.createdAt">
+                    {{
+                      new Intl.DateTimeFormat('nb-NO', { dateStyle: 'short', timeStyle: 'short' }).format(
+                        new Date(notification.createdAt),
+                      )
                   }}
-                </time>
+                  </time>
+                </span>
+                <strong class="notification-title">{{ notification.title }}</strong>
+                <span class="notification-message">{{ notification.message }}</span>
+              </button>
+
+              <div v-if="notification.isUnread" class="notification-actions">
+                <button
+                  type="button"
+                  class="notification-read-button"
+                  @click="handleMarkRead(notification)"
+                >
+                  Mark read
+                </button>
               </div>
-              <strong class="notification-title">{{ notification.title }}</strong>
-              <span class="notification-message">{{ notification.message }}</span>
-            </button>
+            </article>
           </li>
         </ul>
 
@@ -132,7 +148,7 @@ onMounted(() => {
 }
 
 .notifications-state-error {
-  color: var(--color-danger);
+  color: var(--color-critical);
 }
 
 .notifications-list {
@@ -158,9 +174,18 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.notification-link-unread {
+.notification-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-item-unread .notification-link {
   box-shadow: inset 3px 0 0 var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 4%, var(--color-white));
+}
+
+.notification-link-read {
+  background: color-mix(in srgb, var(--color-text-secondary) 4%, var(--color-white));
 }
 
 .notification-meta {
@@ -179,6 +204,31 @@ onMounted(() => {
 .notification-message {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
+}
+
+.notification-link-read .notification-title {
+  color: color-mix(in srgb, var(--color-text-primary) 68%, var(--color-white));
+}
+
+.notification-link-read .notification-message,
+.notification-link-read .notification-meta {
+  color: color-mix(in srgb, var(--color-text-secondary) 75%, var(--color-white));
+}
+
+.notification-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 14px;
+}
+
+.notification-read-button {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 4px;
+  background: var(--color-white);
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
 }
 
 .notifications-footer {

@@ -104,6 +104,7 @@ describe('NotificationsPage', () => {
 
     expect(markNotificationReadMock).toHaveBeenCalledWith('notification-1')
     expect(setUnreadCountMock).toHaveBeenCalledWith(1)
+    expect(wrapper.find('.notification-row-read').exists()).toBe(true)
   })
 
   it('switches to the unread filter and calls the API with the unread status', async () => {

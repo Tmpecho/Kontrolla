@@ -23,7 +23,7 @@ export type NotificationResponse = {
   resourceType: NotificationResourceType
   resourceId: string
   createdAt: string
-  readAt: string | null
+  readAt?: string | null
 }
 
 export type NotificationItem = NotificationResponse & {
