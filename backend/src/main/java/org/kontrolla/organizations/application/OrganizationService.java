@@ -127,6 +127,9 @@ public class OrganizationService {
 
 		membership.setRole(role);
 		membership.setActive(active);
+		if (active) {
+			membership.getUser().setActive(true);
+		}
 		return membership;
 	}
 

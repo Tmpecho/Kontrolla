@@ -30,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -315,5 +316,103 @@ class AuthControllerIntegrationTest {
 								}
 								"""))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void inactiveInvitedUserCanLogInAfterMembershipIsActivated() throws Exception {
+		User platformAdmin = new User(
+				"admin@example.com",
+				"Admin",
+				"User",
+				passwordEncoder.encode("password123"),
+				true,
+				Set.of(org.kontrolla.iam.domain.GlobalRole.PLATFORM_ADMIN)
+		);
+		User orgAdmin = new User(
+				"orgadmin@example.com",
+				"Org",
+				"Admin",
+				passwordEncoder.encode("password123"),
+				true,
+				Set.of()
+		);
+		userRepository.saveAndFlush(platformAdmin);
+		userRepository.saveAndFlush(orgAdmin);
+
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Invite Organization", OrganizationStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, orgAdmin, OrganizationRole.ORG_ADMIN, true));
+
+		String adminAccessToken = objectMapper.readTree(
+				mockMvc.perform(post("/api/v1/auth/login")
+								.contentType(MediaType.APPLICATION_JSON)
+								.content("""
+										{
+										  "email": "orgadmin@example.com",
+										  "password": "password123"
+										}
+										"""))
+						.andExpect(status().isOk())
+						.andReturn()
+						.getResponse()
+						.getContentAsString()
+		).get("accessToken").asText();
+
+		String inviteResponse = mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organization.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "recoverable.invitee@example.com",
+								  "firstName": "Recoverable",
+								  "lastName": "Invitee",
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.membership.active").value(false))
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		JsonNode inviteJson = objectMapper.readTree(inviteResponse);
+		String membershipId = inviteJson.get("membership").get("id").asText();
+		String inviteUrl = inviteJson.get("inviteUrl").asText();
+		String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+		mockMvc.perform(post("/api/v1/auth/invitations/%s/accept".formatted(token))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organization.getId(), membershipId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "role": "ORG_EMPLOYEE",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.active").value(true));
+
+		mockMvc.perform(post("/api/v1/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "recoverable.invitee@example.com",
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.user.email").value("recoverable.invitee@example.com"));
 	}
 }
