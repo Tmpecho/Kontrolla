@@ -10,6 +10,16 @@ import {
   buildWorkspaceAttentionItems,
 } from '@/workspace/model/workspace-dashboard'
 
+function createLocalIsoTimestamp(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hours: number,
+  minutes: number,
+): string {
+  return new Date(year, monthIndex, day, hours, minutes, 0, 0).toISOString()
+}
+
 function createChecklistRun(id: string, status: ChecklistRun['status'], dueAt: string): ChecklistRun {
   return {
     id,
@@ -102,30 +112,42 @@ describe('workspace-dashboard', () => {
     vi.setSystemTime(new Date(2026, 3, 5, 10, 0, 0))
 
     const checklistRuns = [
-      createChecklistRun('overdue-run', 'OVERDUE', '2026-04-05T07:00:00+02:00'),
-      createChecklistRun('active-run', 'IN_PROGRESS', '2026-04-05T12:00:00+02:00'),
-      createChecklistRun('complete-run', 'COMPLETED', '2026-04-04T12:00:00+02:00'),
+      createChecklistRun('overdue-run', 'OVERDUE', createLocalIsoTimestamp(2026, 3, 5, 7, 0)),
+      createChecklistRun('active-run', 'IN_PROGRESS', createLocalIsoTimestamp(2026, 3, 5, 12, 0)),
+      createChecklistRun('complete-run', 'COMPLETED', createLocalIsoTimestamp(2026, 3, 4, 12, 0)),
     ]
     const temperatureUnits = [
       createTemperatureUnit({
         id: 'walk-in',
         dueByTime: '08:30',
-        measuredAt: '2026-04-05T08:10:00+02:00',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 5, 8, 10),
         temperatureCelsius: 5.3,
       }),
       createTemperatureUnit({
         id: 'dessert',
         dueByTime: '20:30',
-        measuredAt: '2026-04-05T08:00:00+02:00',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 5, 8, 0),
         temperatureCelsius: 3.4,
       }),
     ]
     const ikMatDeviations = [
-      createDeviation('food-open', 'IK_MAT', 'HIGH', 'OPEN', '2026-04-05T09:15:00+02:00'),
-      createDeviation('food-resolved', 'IK_MAT', 'LOW', 'RESOLVED', '2026-04-04T09:15:00+02:00'),
+      createDeviation('food-open', 'IK_MAT', 'HIGH', 'OPEN', createLocalIsoTimestamp(2026, 3, 5, 9, 15)),
+      createDeviation(
+        'food-resolved',
+        'IK_MAT',
+        'LOW',
+        'RESOLVED',
+        createLocalIsoTimestamp(2026, 3, 4, 9, 15),
+      ),
     ]
     const ikAlkoholDeviations = [
-      createDeviation('alcohol-open', 'IK_ALKOHOL', 'CRITICAL', 'OPEN', '2026-04-05T00:15:00+02:00'),
+      createDeviation(
+        'alcohol-open',
+        'IK_ALKOHOL',
+        'CRITICAL',
+        'OPEN',
+        createLocalIsoTimestamp(2026, 3, 5, 0, 15),
+      ),
     ]
     const documents = [
       createDocumentRecord('expired', '2026-04-04'),
@@ -168,25 +190,33 @@ describe('workspace-dashboard', () => {
   })
 
   it('orders attention items by operational urgency across services', () => {
-    const checklistRuns = [createChecklistRun('late-open', 'OVERDUE', '2026-04-05T07:00:00+02:00')]
+    const checklistRuns = [
+      createChecklistRun('late-open', 'OVERDUE', createLocalIsoTimestamp(2026, 3, 5, 7, 0)),
+    ]
     const temperatureUnits = [
       createTemperatureUnit({
         id: 'walk-in',
         dueByTime: '08:30',
-        measuredAt: '2026-04-05T08:20:00+02:00',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 5, 8, 20),
         temperatureCelsius: 5.7,
       }),
       createTemperatureUnit({
         id: 'dessert',
         dueByTime: '10:30',
-        measuredAt: '2026-04-04T20:00:00+02:00',
+        measuredAt: createLocalIsoTimestamp(2026, 3, 4, 20, 0),
         temperatureCelsius: 3.2,
       }),
     ]
     const deviationsByService: Record<'IK_MAT' | 'IK_ALKOHOL', DeviationListItem[]> = {
       IK_MAT: [],
       IK_ALKOHOL: [
-        createDeviation('alcohol-critical', 'IK_ALKOHOL', 'CRITICAL', 'OPEN', '2026-04-05T00:18:00+02:00'),
+        createDeviation(
+          'alcohol-critical',
+          'IK_ALKOHOL',
+          'CRITICAL',
+          'OPEN',
+          createLocalIsoTimestamp(2026, 3, 5, 0, 18),
+        ),
       ],
     }
     const documents = [createDocumentRecord('expired-licence', '2026-04-04')]
@@ -196,7 +226,7 @@ describe('workspace-dashboard', () => {
       temperatureUnits,
       deviationsByService,
       documents,
-      now: new Date('2026-04-05T09:00:00+02:00'),
+      now: new Date(2026, 3, 5, 9, 0, 0),
     })
 
     expect(items.map((item) => item.id)).toEqual([
