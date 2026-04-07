@@ -254,6 +254,26 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 	}
 
+	@Test
+	void membershipListCapsRequestedPageSize() throws Exception {
+		User admin = createUser("admin-cap@example.com", "Admin", "Cap", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-cap@example.com", "Manager", "Cap", Set.of());
+		User employee = createUser("employee-cap@example.com", "Employee", "Cap", Set.of());
+
+		String adminToken = login("admin-cap@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Capped Org");
+
+		addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+		addMembership(adminToken, organizationId, employee.getId(), "ORG_EMPLOYEE");
+
+		String managerToken = login("manager-cap@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?size=500".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.size").value(100));
+	}
+
 	private User createUser(String email, String firstName, String lastName, Set<GlobalRole> roles) {
 		User user = new User(
 				email,

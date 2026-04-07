@@ -254,6 +254,41 @@ class DeviationControllerIntegrationTest {
 	}
 
 	@Test
+	void listDeviationEndpointsCapRequestedPageSize() throws Exception {
+		User manager = createUser("manager-cap@example.com", "Manager", "Cap");
+		Organization organization = createOrganization("Kontrolla Pagination Cap");
+		Establishment establishment = createEstablishment(organization, "Cap Kitchen");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+
+		String token = login("manager-cap@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
+						organization.getId(), establishment.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "Page size cap check",
+								  "description": "Verifies the requested page size is clamped.",
+								  "category": "TEMPERATURE",
+								  "severity": "LOW"
+								}
+								"""))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/deviations?size=500".formatted(
+						organization.getId(), establishment.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.size").value(100));
+
+		mockMvc.perform(get("/api/v1/organizations/%s/deviations?size=500".formatted(organization.getId()))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.size").value(100));
+	}
+
+	@Test
 	void employeeCanCreateDeviationButCannotRunManagementEndpoints() throws Exception {
 		User employee = createUser("employee@example.com", "Employee", "User");
 		Organization organization = createOrganization("Kontrolla Employee Access");
