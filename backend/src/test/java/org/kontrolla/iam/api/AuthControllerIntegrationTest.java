@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.iam.application.LoginAttemptTracker;
+import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.iam.infrastructure.UserRepository;
@@ -70,6 +71,9 @@ class AuthControllerIntegrationTest {
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private RefreshTokenRepository refreshTokenRepository;
 
 	@Autowired
 	private JwtEncoder jwtEncoder;
@@ -223,6 +227,60 @@ class AuthControllerIntegrationTest {
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
 				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+	}
+
+	@Test
+	void logoutRevokesRefreshTokenAndClearsRefreshCookie() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String refreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+				.andExpect(status().isNoContent())
+				.andExpect(cookie().value("kontrolla_refresh_token", ""))
+				.andExpect(cookie().maxAge("kontrolla_refresh_token", 0));
+
+		String hashedRefreshToken = hashToken(refreshCookie);
+		org.assertj.core.api.Assertions.assertThat(
+				refreshTokenRepository.findByTokenHash(hashedRefreshToken)
+		).isPresent()
+				.get()
+				.satisfies(token -> org.assertj.core.api.Assertions.assertThat(token.getRevokedAt()).isNotNull());
+	}
+
+	@Test
+	void logoutMakesRefreshTokenUnusableForFutureRefresh() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String refreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+				.andExpect(status().isNoContent());
+
+		performRefresh(refreshCookie)
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+	}
+
+	@Test
+	void logoutWithoutRefreshCookieStillReturnsNoContentAndClearsCookie() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/logout"))
+				.andExpect(status().isNoContent())
+				.andExpect(cookie().value("kontrolla_refresh_token", ""))
+				.andExpect(cookie().maxAge("kontrolla_refresh_token", 0));
 	}
 
 	@Test
@@ -385,6 +443,16 @@ class AuthControllerIntegrationTest {
 						claims
 				)
 		).getTokenValue();
+	}
+
+	private String hashToken(String rawRefreshToken) {
+		try {
+			java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(rawRefreshToken.getBytes(StandardCharsets.UTF_8));
+			return java.util.HexFormat.of().formatHex(hash);
+		} catch (java.security.NoSuchAlgorithmException exception) {
+			throw new IllegalStateException("SHA-256 not available", exception);
+		}
 	}
 
 	@TestConfiguration
