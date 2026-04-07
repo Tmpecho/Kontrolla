@@ -66,7 +66,7 @@ public class OrganizationService {
 	@Transactional(readOnly = true)
 	public Page<OrganizationMembership> listMemberships(UUID organizationId, CurrentUser currentUser, Pageable pageable) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
-		organizationAccessService.requireMembershipManagement(currentUser, organizationId);
+		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
 		return membershipRepository.findByOrganizationId(organizationId, pageable);
 	}
 
