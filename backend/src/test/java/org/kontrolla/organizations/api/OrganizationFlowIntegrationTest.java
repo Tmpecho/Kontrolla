@@ -180,6 +180,25 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
+	void organizationMemberCanListOwnOrganizationsMembers() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgManager = createUser("manager@example.com", "Manager", "User", Set.of());
+		User orgEmployee = createUser("employee@example.com", "Employee", "User", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Readable Org");
+		addMembership(adminToken, organizationId, orgManager.getId(), "ORG_MANAGER");
+		addMembership(adminToken, organizationId, orgEmployee.getId(), "ORG_EMPLOYEE");
+
+		String employeeToken = login("employee@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].id").isNotEmpty());
+	}
+
+	@Test
 	void tenantMemberCannotModifyAnotherOrganizationsData() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAManager = createUser("orga@example.com", "Org", "AManager", Set.of());

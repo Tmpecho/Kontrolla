@@ -6,6 +6,7 @@ import org.kontrolla.iam.domain.UserInvite;
 import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.organizations.domain.Organization;
+import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,17 +22,20 @@ import java.util.HexFormat;
 public class UserInviteService {
 
 	private final UserInviteRepository userInviteRepository;
+	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final AppSecurityProperties securityProperties;
 	private final InviteNotificationService inviteNotificationService;
 
 	public UserInviteService(
 			UserInviteRepository userInviteRepository,
+			OrganizationMembershipRepository organizationMembershipRepository,
 			PasswordEncoder passwordEncoder,
 			AppSecurityProperties securityProperties,
 			InviteNotificationService inviteNotificationService
 	) {
 		this.userInviteRepository = userInviteRepository;
+		this.organizationMembershipRepository = organizationMembershipRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.securityProperties = securityProperties;
 		this.inviteNotificationService = inviteNotificationService;
@@ -76,7 +80,11 @@ public class UserInviteService {
 		UserInvite invite = resolveActiveInvite(rawToken, Instant.now());
 		User user = invite.getUser();
 		user.setPasswordHash(passwordEncoder.encode(password));
-		user.setActive(true);
+		boolean hasActiveMembership = organizationMembershipRepository
+				.findByOrganizationIdAndUserId(invite.getOrganization().getId(), user.getId())
+				.map(org.kontrolla.organizations.domain.OrganizationMembership::isActive)
+				.orElse(false);
+		user.setActive(hasActiveMembership);
 		invite.accept(Instant.now());
 	}
 
