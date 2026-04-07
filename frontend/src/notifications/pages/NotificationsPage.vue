@@ -149,7 +149,13 @@ onMounted(async () => {
     <div v-else class="notifications-surface">
       <ul v-if="hasNotifications" class="notifications-list">
         <li v-for="notification in notifications" :key="notification.id" class="notifications-list-item">
-          <article class="notification-row" :class="{ 'notification-row-unread': notification.isUnread }">
+          <article
+            class="notification-row"
+            :class="{
+              'notification-row-unread': notification.isUnread,
+              'notification-row-read': !notification.isUnread,
+            }"
+          >
             <div class="notification-copy">
               <div class="notification-meta">
                 <span class="notification-type">{{ formatNotificationTypeLabel(notification.type) }}</span>
@@ -280,7 +286,7 @@ onMounted(async () => {
 }
 
 .state-card-error {
-  color: var(--color-danger);
+  color: var(--color-critical);
 }
 
 .notifications-list {
@@ -304,6 +310,10 @@ onMounted(async () => {
 .notification-row-unread {
   box-shadow: inset 3px 0 0 var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 4%, var(--color-white));
+}
+
+.notification-row-read {
+  background: color-mix(in srgb, var(--color-text-secondary) 4%, var(--color-white));
 }
 
 .notification-copy {
@@ -335,6 +345,15 @@ onMounted(async () => {
 .notification-message {
   margin-top: 6px;
   color: var(--color-text-secondary);
+}
+
+.notification-row-read .notification-title {
+  color: color-mix(in srgb, var(--color-text-primary) 70%, var(--color-white));
+}
+
+.notification-row-read .notification-message,
+.notification-row-read .notification-meta {
+  color: color-mix(in srgb, var(--color-text-secondary) 75%, var(--color-white));
 }
 
 .notification-actions {

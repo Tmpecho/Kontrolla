@@ -75,4 +75,71 @@ describe('NotificationsPopup', () => {
 
     expect(wrapper.get('.view-all-link').attributes('href')).toBe('/app/notifications')
   })
+
+  it('marks an unread notification as read from the popup', async () => {
+    listNotificationsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'notification-1',
+          recipientUserId: 'user-1',
+          organizationId: 'org-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          type: 'CHECKLIST_ASSIGNED',
+          title: 'Morning shift',
+          message: 'You were assigned this checklist run.',
+          resourceType: 'CHECKLIST_RUN',
+          resourceId: 'run-1',
+          createdAt: '2026-04-07T08:00:00Z',
+          readAt: null,
+          isUnread: true,
+        },
+      ],
+      page: 0,
+      size: 5,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    markNotificationReadMock.mockResolvedValue({
+      id: 'notification-1',
+      recipientUserId: 'user-1',
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_MAT',
+      type: 'CHECKLIST_ASSIGNED',
+      title: 'Morning shift',
+      message: 'You were assigned this checklist run.',
+      resourceType: 'CHECKLIST_RUN',
+      resourceId: 'run-1',
+      createdAt: '2026-04-07T08:00:00Z',
+      readAt: '2026-04-07T08:30:00Z',
+      isUnread: false,
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/app/notifications', name: 'notifications', component: { template: '<div />' } }],
+    })
+    router.push({ name: 'notifications' })
+    await router.isReady()
+
+    const { default: NotificationsPopup } = await import('@/app/components/NotificationsPopup.vue')
+    const wrapper = mount(NotificationsPopup, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('.notification-read-button').exists()).toBe(true)
+    })
+
+    await wrapper.get('.notification-read-button').trigger('click')
+
+    expect(markNotificationReadMock).toHaveBeenCalledWith('notification-1')
+    expect(setUnreadCountMock).toHaveBeenCalledWith(2)
+    expect(wrapper.find('.notification-read-button').exists()).toBe(false)
+    expect(wrapper.find('.notification-link-read').exists()).toBe(true)
+  })
 })

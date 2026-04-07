@@ -10,7 +10,8 @@ import type {
 export function mapNotificationResponse(notification: NotificationResponse): NotificationItem {
   return {
     ...notification,
-    isUnread: notification.readAt === null,
+    isUnread: notification.readAt == null,
+    readAt: notification.readAt ?? null,
   }
 }
 

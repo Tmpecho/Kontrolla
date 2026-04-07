@@ -1,6 +1,38 @@
 import { describe, expect, it } from 'vitest'
 
-import { toNotificationRoute } from '@/notifications/model/notification.utils'
+import { mapNotificationResponse, toNotificationRoute } from '@/notifications/model/notification.utils'
+
+describe('notification response mapping', () => {
+  it('treats a missing readAt field as unread', () => {
+    expect(mapNotificationResponse({
+      id: 'notification-0',
+      recipientUserId: 'user-1',
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_MAT',
+      type: 'CHECKLIST_ASSIGNED',
+      title: 'Morning shift',
+      message: 'You were assigned this checklist run.',
+      resourceType: 'CHECKLIST_RUN',
+      resourceId: 'run-1',
+      createdAt: '2026-04-07T08:00:00Z',
+    })).toEqual({
+      id: 'notification-0',
+      recipientUserId: 'user-1',
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_MAT',
+      type: 'CHECKLIST_ASSIGNED',
+      title: 'Morning shift',
+      message: 'You were assigned this checklist run.',
+      resourceType: 'CHECKLIST_RUN',
+      resourceId: 'run-1',
+      createdAt: '2026-04-07T08:00:00Z',
+      readAt: null,
+      isUnread: true,
+    })
+  })
+})
 
 describe('notification route mapping', () => {
   it('maps deviation notifications to the relevant deviation page', () => {
