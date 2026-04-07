@@ -11,6 +11,7 @@ import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.support.TestDataCleaner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -55,13 +56,12 @@ class OrganizationFlowIntegrationTest {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private TestDataCleaner testDataCleaner;
+
 	@BeforeEach
 	void setUp() {
-		refreshTokenRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		membershipRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
+		testDataCleaner.clearAll();
 	}
 
 	@Test
@@ -252,6 +252,128 @@ class OrganizationFlowIntegrationTest {
 		mockMvc.perform(get("/api/v1/organizations/%s/establishments".formatted(organizationId))
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + noMemberToken))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void nonPlatformAdminCannotAccessAdminOrganizationsOrUsersEndpoints() throws Exception {
+		createUser("admin-access@example.com", "Admin", "Access", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-access@example.com", "Manager", "Access", Set.of());
+
+		String adminToken = login("admin-access@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Manager Access Org");
+		addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+
+		String managerToken = login("manager-access@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/admin/organizations")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/api/v1/admin/organizations")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Should Not Be Created"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(get("/api/v1/admin/users")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/api/v1/admin/users")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "blocked-user@example.com",
+								  "firstName": "Blocked",
+								  "lastName": "User",
+								  "password": "password123"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void organizationEmployeeCannotCreateEstablishmentInOwnOrganization() throws Exception {
+		createUser("admin-establishments@example.com", "Admin", "Establishments", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User employee = createUser("employee-establishments@example.com", "Employee", "Establishments", Set.of());
+
+		String adminToken = login("admin-establishments@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Establishment Guard Org");
+		addMembership(adminToken, organizationId, employee.getId(), "ORG_EMPLOYEE");
+
+		String employeeToken = login("employee-establishments@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Should Not Exist",
+								  "type": "RESTAURANT"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void organizationManagerCannotManageMembersInOwnOrganization() throws Exception {
+		createUser("admin-members@example.com", "Admin", "Members", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-members@example.com", "Manager", "Members", Set.of());
+		User employee = createUser("employee-members@example.com", "Employee", "Members", Set.of());
+
+		String adminToken = login("admin-members@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Member Guard Org");
+		String membershipResponse = addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+		String managerMembershipId = objectMapper.readTree(membershipResponse).get("id").asText();
+
+		String managerToken = login("manager-members@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE"
+								}
+								""".formatted(employee.getId())))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organizationId, managerMembershipId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "role": "ORG_ADMIN",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void membershipListCapsRequestedPageSize() throws Exception {
+		User admin = createUser("admin-cap@example.com", "Admin", "Cap", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-cap@example.com", "Manager", "Cap", Set.of());
+		User employee = createUser("employee-cap@example.com", "Employee", "Cap", Set.of());
+
+		String adminToken = login("admin-cap@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Capped Org");
+
+		addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+		addMembership(adminToken, organizationId, employee.getId(), "ORG_EMPLOYEE");
+
+		String managerToken = login("manager-cap@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?size=500".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.size").value(100));
 	}
 
 	private User createUser(String email, String firstName, String lastName, Set<GlobalRole> roles) {

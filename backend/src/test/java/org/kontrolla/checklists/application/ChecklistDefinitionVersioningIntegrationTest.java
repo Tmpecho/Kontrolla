@@ -6,6 +6,8 @@ import org.kontrolla.checklists.api.ChecklistRunResponse;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
 import org.kontrolla.checklists.domain.ChecklistRun;
+import org.kontrolla.checklists.domain.ChecklistRunEvent;
+import org.kontrolla.checklists.domain.ChecklistRunEventType;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistScheduleType;
@@ -25,6 +27,7 @@ import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.support.TestDataCleaner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -61,13 +64,12 @@ class ChecklistDefinitionVersioningIntegrationTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private TestDataCleaner testDataCleaner;
+
 	@BeforeEach
 	void setUp() {
-		checklistRunRepository.deleteAll();
-		checklistDefinitionRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
+		testDataCleaner.clearAll();
 	}
 
 	@Test
@@ -288,6 +290,96 @@ class ChecklistDefinitionVersioningIntegrationTest {
 
 		assertThatThrownBy(() -> checklistRunRepository.saveAndFlush(run))
 				.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void checklistRunResponseDeduplicatesTasksWhenRunHasManyEvents() {
+		User actor = createPlatformAdmin("dedupe-admin@example.com");
+		User assignee = createActiveUser("dedupe-employee@example.com", Set.of());
+		Organization organization = createOrganization("Dedupe Org");
+		Establishment establishment = createEstablishment(organization, "Dedupe Sushi");
+		CurrentUser currentUser = currentUser(actor);
+
+		ChecklistDefinition definition = checklistDefinitionService.createChecklistDefinition(
+				organization.getId(),
+				establishment.getId(),
+				ChecklistServiceArea.IK_MAT,
+				"Morning shift",
+				"Opening routine",
+				List.of(
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Check fridge temperature",
+								"Record the opening fridge reading",
+								ChecklistTaskKind.MEASUREMENT,
+								true,
+								0,
+								"C",
+								java.math.BigDecimal.ZERO,
+								java.math.BigDecimal.valueOf(4)
+						),
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Confirm handwash station is stocked",
+								"Verify soap and paper are available",
+								ChecklistTaskKind.VERIFICATION,
+								true,
+								1,
+								null,
+								null,
+								null
+						)
+				),
+				List.of(),
+				currentUser
+		);
+
+		ChecklistRun run = new ChecklistRun(
+				definition,
+				definition.getDefinitionGroupId(),
+				establishment,
+				definition.getServiceArea(),
+				definition.getTitle(),
+				definition.getDescription(),
+				Instant.parse("2026-03-26T08:00:00Z"),
+				ChecklistRunStatus.PENDING,
+				actor
+		);
+		run.snapshotTasksFromDefinition(definition.getTasks());
+		run.addAssignment(new ChecklistRunAssignment(assignee, actor, Instant.parse("2026-03-26T06:45:00Z")));
+		run.addEvent(new ChecklistRunEvent(
+				ChecklistRunEventType.CREATED,
+				actor,
+				Instant.parse("2026-03-26T06:40:00Z"),
+				null
+		));
+		run.addEvent(new ChecklistRunEvent(
+				ChecklistRunEventType.STARTED,
+				actor,
+				Instant.parse("2026-03-26T06:50:00Z"),
+				null
+		));
+		run.addEvent(new ChecklistRunEvent(
+				ChecklistRunEventType.REOPENED,
+				actor,
+				Instant.parse("2026-03-26T07:00:00Z"),
+				null
+		));
+		checklistRunRepository.saveAndFlush(run);
+
+		ChecklistRun persistedRun = checklistRunRepository.findByIdAndEstablishmentId(run.getId(), establishment.getId())
+				.orElseThrow();
+		ChecklistRunResponse response = ChecklistRunResponse.from(persistedRun);
+
+		assertThat(response.tasks())
+				.extracting(ChecklistRunResponse.ChecklistTaskExecutionResponse::title)
+				.containsExactly("Check fridge temperature", "Confirm handwash station is stocked");
+		assertThat(response.assignments()).hasSize(1);
+		assertThat(response.events())
+				.extracting(ChecklistRunResponse.ChecklistRunEventResponse::eventType)
+				.containsExactly(
+						ChecklistRunEventType.CREATED,
+						ChecklistRunEventType.STARTED,
+						ChecklistRunEventType.REOPENED
+				);
 	}
 
 	private User createPlatformAdmin(String email) {

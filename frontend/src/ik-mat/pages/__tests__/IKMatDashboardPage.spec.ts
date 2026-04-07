@@ -1,8 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError } from '@/shared/api/http'
+
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
+import { ApiError } from '@/shared/api/http'
 
 const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
   listChecklistRunsMock: vi.fn(),
@@ -41,6 +42,21 @@ function createDeferred<T>() {
   }
 }
 
+function mountPage() {
+  return mount(IKMatDashboardPage, {
+    global: {
+      stubs: {
+        RouterLink: {
+          template: '<a><slot /></a>',
+        },
+        DeviationsTile: {
+          template: '<div>Deviations tile</div>',
+        },
+      },
+    },
+  })
+}
+
 describe('IKMatDashboardPage', () => {
   afterEach(() => {
     listChecklistRunsMock.mockReset()
@@ -58,15 +74,16 @@ describe('IKMatDashboardPage', () => {
       totalElements: number
       totalPages: number
     }>()
+
     listChecklistRunsMock.mockReturnValue(deferred.promise)
 
-    const wrapper = mount(IKMatDashboardPage)
+    const wrapper = mountPage()
     await nextTick()
 
     expect(wrapper.text()).toContain('Loading checklist runs...')
   })
 
-  it('renders checklist runs after a successful request', async () => {
+  it('renders checklist summary details after a successful request', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -85,35 +102,8 @@ describe('IKMatDashboardPage', () => {
           createdByUserId: 'user-1',
           createdAt: '2026-03-26T07:00:00Z',
           updatedAt: '2026-03-26T07:00:00Z',
-          assignments: [
-            {
-              id: 'assignment-1',
-              assignedUserId: 'user-2',
-              assignedByUserId: 'user-1',
-              assignedAt: '2026-03-26T07:05:00Z',
-            },
-          ],
-          tasks: [
-            {
-              checklistTaskExecutionId: 'task-execution-1',
-              sourceChecklistTaskDefinitionId: 'definition-task-1',
-              title: 'Prepare oven for first shift',
-              details: 'Switch on and verify preheating',
-              taskKind: 'ACTION',
-              required: true,
-              sortOrder: 0,
-              measurementUnit: null,
-              minimumAllowedValue: null,
-              maximumAllowedValue: null,
-              executionStatus: 'PENDING',
-              resolvedAt: null,
-              resolvedByUserId: null,
-              comment: null,
-              verificationResult: null,
-              measuredValue: null,
-              enteredText: null,
-            },
-          ],
+          assignments: [],
+          tasks: [],
           events: [],
         },
       ],
@@ -123,14 +113,69 @@ describe('IKMatDashboardPage', () => {
       totalPages: 1,
     })
 
-    const wrapper = mount(IKMatDashboardPage)
+    const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Morning shift')
-    expect(wrapper.text()).toContain('Status: Pending')
-    expect(wrapper.text()).toContain('Assignments: 1')
-    expect(wrapper.text()).toContain('Prepare oven for first shift')
-    expect(wrapper.text()).toContain('Pending')
+    expect(wrapper.text()).toContain('Checklists')
+    expect(wrapper.text()).toContain('1 active run')
+    expect(wrapper.text()).toContain('0 overdue • 0 in progress')
+  })
+
+  it('counts only the latest run for the same checklist definition group', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-older',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'PENDING',
+          startedAt: null,
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T07:00:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+        {
+          id: 'run-latest',
+          checklistDefinitionId: 'definition-2',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift (edited)',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T10:00:00Z',
+          status: 'IN_PROGRESS',
+          startedAt: '2026-03-26T09:15:00Z',
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T09:00:00Z',
+          updatedAt: '2026-03-26T09:30:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 2,
+      totalPages: 1,
+    })
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1 active run')
+    expect(wrapper.text()).toContain('0 overdue • 1 in progress')
   })
 
   it('renders an empty state when no checklist runs are returned', async () => {
@@ -142,7 +187,7 @@ describe('IKMatDashboardPage', () => {
       totalPages: 0,
     })
 
-    const wrapper = mount(IKMatDashboardPage)
+    const wrapper = mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain('No checklist runs found.')
@@ -151,7 +196,7 @@ describe('IKMatDashboardPage', () => {
   it('renders an api error message when the request fails', async () => {
     listChecklistRunsMock.mockRejectedValue(new ApiError('Forbidden', 403))
 
-    const wrapper = mount(IKMatDashboardPage)
+    const wrapper = mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain('Forbidden')
@@ -163,7 +208,7 @@ describe('IKMatDashboardPage', () => {
     appEnvMock.defaultOrganizationId = undefined
     appEnvMock.defaultEstablishmentId = undefined
 
-    const wrapper = mount(IKMatDashboardPage)
+    const wrapper = mountPage()
     await flushPromises()
 
     expect(wrapper.text()).toContain(

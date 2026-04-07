@@ -281,7 +281,7 @@ function buildDeviationQuery(unit: TemperatureUnitListItem) {
 
   return {
     title: `Temperature deviation - ${unit.name}`,
-    category: 'temperature',
+    category: 'Temperature',
     description: [
       `Unit: ${unit.name}`,
       `Location: ${unit.location}`,
@@ -293,7 +293,6 @@ function buildDeviationQuery(unit: TemperatureUnitListItem) {
     ]
       .filter(Boolean)
       .join('\n'),
-    date: currentSaveResult.value.measuredAt,
   }
 }
 
