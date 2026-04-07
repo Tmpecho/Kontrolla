@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
@@ -14,6 +13,7 @@ import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.notifications.domain.Notification;
 import org.kontrolla.notifications.domain.NotificationResourceType;
+import org.kontrolla.notifications.domain.NotificationServiceArea;
 import org.kontrolla.notifications.domain.NotificationType;
 import org.kontrolla.notifications.infrastructure.NotificationRepository;
 import org.kontrolla.organizations.domain.Organization;
@@ -210,7 +210,7 @@ class NotificationControllerIntegrationTest {
 				recipientUserId,
 				organizationId,
 				establishmentId,
-				ChecklistServiceArea.IK_MAT,
+				NotificationServiceArea.IK_MAT,
 				type,
 				title,
 				message,

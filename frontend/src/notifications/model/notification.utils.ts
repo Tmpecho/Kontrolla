@@ -3,6 +3,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import type {
   NotificationItem,
   NotificationResponse,
+  NotificationServiceArea,
   NotificationType,
 } from '@/notifications/model/notification.types'
 
@@ -25,29 +26,45 @@ export function formatNotificationTypeLabel(type: NotificationType): string {
       return 'Deviation updated'
     case 'DEVIATION_NOTE_ADDED':
       return 'Deviation note'
+    default:
+      return assertNever(type)
   }
 }
 
 export function toNotificationRoute(notification: NotificationItem): RouteLocationRaw {
-  if (notification.resourceType === 'DEVIATION') {
-    return {
-      name: notification.serviceArea === 'IK_MAT' ? 'ik-mat-deviation' : 'ik-alkohol-deviation',
-      query: {
-        deviationId: notification.resourceId,
-      },
-    }
+  switch (notification.resourceType) {
+    case 'DEVIATION':
+      return {
+        name: notification.serviceArea === 'IK_MAT' ? 'ik-mat-deviation' : 'ik-alkohol-deviation',
+        query: {
+          deviationId: notification.resourceId,
+        },
+      }
+    case 'CHECKLIST_RUN':
+      return toChecklistRoute(notification.serviceArea, notification.resourceId)
+    default:
+      return assertNever(notification.resourceType)
   }
+}
 
-  if (notification.serviceArea === 'IK_MAT') {
-    return {
-      name: 'ik-mat-checklists',
-      query: {
-        checklistRunId: notification.resourceId,
-      },
-    }
+function toChecklistRoute(serviceArea: NotificationServiceArea, resourceId: string): RouteLocationRaw {
+  switch (serviceArea) {
+    case 'IK_MAT':
+      return {
+        name: 'ik-mat-checklists',
+        query: {
+          checklistRunId: resourceId,
+        },
+      }
+    case 'IK_ALKOHOL':
+      return {
+        name: 'ik-alkohol-dashboard',
+      }
+    default:
+      return assertNever(serviceArea)
   }
+}
 
-  return {
-    name: 'ik-alkohol-dashboard',
-  }
+function assertNever(value: never): never {
+  throw new Error(`Unhandled notification mapping value: ${String(value)}`)
 }

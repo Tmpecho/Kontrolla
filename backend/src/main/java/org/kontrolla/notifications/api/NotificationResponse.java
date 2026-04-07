@@ -1,8 +1,8 @@
 package org.kontrolla.notifications.api;
 
-import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.notifications.domain.Notification;
 import org.kontrolla.notifications.domain.NotificationResourceType;
+import org.kontrolla.notifications.domain.NotificationServiceArea;
 import org.kontrolla.notifications.domain.NotificationType;
 
 import java.time.Instant;
@@ -13,7 +13,7 @@ public record NotificationResponse(
 		UUID recipientUserId,
 		UUID organizationId,
 		UUID establishmentId,
-		ChecklistServiceArea serviceArea,
+		NotificationServiceArea serviceArea,
 		NotificationType type,
 		String title,
 		String message,

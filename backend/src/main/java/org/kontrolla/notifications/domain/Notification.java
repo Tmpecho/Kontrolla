@@ -8,7 +8,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 
 import java.time.Instant;
@@ -33,7 +32,7 @@ public class Notification extends AbstractAuditableUuidEntity {
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "service_area", nullable = false, updatable = false, length = 32)
-	private ChecklistServiceArea serviceArea;
+	private NotificationServiceArea serviceArea;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, updatable = false, length = 64)
@@ -63,7 +62,7 @@ public class Notification extends AbstractAuditableUuidEntity {
 			UUID recipientUserId,
 			UUID organizationId,
 			UUID establishmentId,
-			ChecklistServiceArea serviceArea,
+			NotificationServiceArea serviceArea,
 			NotificationType type,
 			String title,
 			String message,
