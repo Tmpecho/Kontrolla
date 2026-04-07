@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -32,39 +33,53 @@ public class AuthService {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final EstablishmentRepository establishmentRepository;
+	private final LoginAttemptTracker loginAttemptTracker;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final AppSecurityProperties securityProperties;
+	private final Clock clock;
 
 	public AuthService(
 			UserRepository userRepository,
 			RefreshTokenRepository refreshTokenRepository,
 			OrganizationMembershipRepository organizationMembershipRepository,
 			EstablishmentRepository establishmentRepository,
+			LoginAttemptTracker loginAttemptTracker,
 			PasswordEncoder passwordEncoder,
 			JwtService jwtService,
-			AppSecurityProperties securityProperties
+			AppSecurityProperties securityProperties,
+			Clock clock
 	) {
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.organizationMembershipRepository = organizationMembershipRepository;
 		this.establishmentRepository = establishmentRepository;
+		this.loginAttemptTracker = loginAttemptTracker;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.securityProperties = securityProperties;
+		this.clock = clock;
 	}
 
 	@Transactional
 	public AuthSession login(String email, String password) {
+		Instant now = Instant.now(clock);
+		loginAttemptTracker.assertLoginAllowed(email, now);
+
 		User user = userRepository.findByEmailIgnoreCase(email)
 				.filter(User::isActive)
-				.orElseThrow(() -> new UnauthorizedException("invalid_credentials", "Invalid email or password"));
+				.orElseThrow(() -> {
+					loginAttemptTracker.recordFailedAttempt(email, now);
+					return new UnauthorizedException("invalid_credentials", "Invalid email or password");
+				});
 
 		if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+			loginAttemptTracker.recordFailedAttempt(email, now);
 			throw new UnauthorizedException("invalid_credentials", "Invalid email or password");
 		}
 
-		return issueSession(user, Instant.now());
+		loginAttemptTracker.reset(email);
+		return issueSession(user, now);
 	}
 
 	@Transactional
