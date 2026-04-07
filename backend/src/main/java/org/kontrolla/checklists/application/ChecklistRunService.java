@@ -18,6 +18,9 @@ import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.CurrentUser;
+import org.kontrolla.notifications.application.NotificationService;
+import org.kontrolla.notifications.domain.NotificationResourceType;
+import org.kontrolla.notifications.domain.NotificationType;
 import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.springframework.data.domain.Page;
@@ -49,19 +52,22 @@ public class ChecklistRunService {
 	private final ChecklistAccessService checklistAccessService;
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final UserRepository userRepository;
+	private final NotificationService notificationService;
 
 	public ChecklistRunService(
 			ChecklistRunRepository checklistRunRepository,
 			ChecklistRunAssignmentRepository checklistRunAssignmentRepository,
 			ChecklistAccessService checklistAccessService,
 			OrganizationMembershipRepository organizationMembershipRepository,
-			UserRepository userRepository
+			UserRepository userRepository,
+			NotificationService notificationService
 	) {
 		this.checklistRunRepository = checklistRunRepository;
 		this.checklistRunAssignmentRepository = checklistRunAssignmentRepository;
 		this.checklistAccessService = checklistAccessService;
 		this.organizationMembershipRepository = organizationMembershipRepository;
 		this.userRepository = userRepository;
+		this.notificationService = notificationService;
 	}
 
 	@Transactional(readOnly = true)
@@ -134,6 +140,18 @@ public class ChecklistRunService {
 					now,
 					"{\"assignedUserId\":\"%s\"}".formatted(assignedUserId)
 			));
+			notificationService.createNotification(
+					assignedUserId,
+					actor.getId(),
+					organizationId,
+					establishmentId,
+					checklistRun.getServiceArea(),
+					NotificationType.CHECKLIST_ASSIGNED,
+					checklistRun.getTitleSnapshot(),
+					"You were assigned this checklist run.",
+					NotificationResourceType.CHECKLIST_RUN,
+					checklistRun.getId()
+			);
 			existingAssignments.add(assignedUserId);
 		});
 
@@ -369,7 +387,7 @@ public class ChecklistRunService {
 	}
 
 	@Transactional
-	public int markOverdueRuns(UUID establishmentId, Instant now) {
+	public int markOverdueRuns(UUID organizationId, UUID establishmentId, Instant now, UUID actorUserId) {
 		List<ChecklistRun> overdueRuns = checklistRunRepository.findByEstablishmentIdAndStatusInAndDueAtBefore(
 				establishmentId,
 				OVERDUE_CANDIDATE_STATUSES,
@@ -382,6 +400,18 @@ public class ChecklistRunService {
 				continue;
 			}
 			checklistRun.setStatus(ChecklistRunStatus.OVERDUE);
+			checklistRun.getAssignments().forEach(assignment -> notificationService.createNotification(
+					assignment.getAssignedUser().getId(),
+					actorUserId,
+					organizationId,
+					establishmentId,
+					checklistRun.getServiceArea(),
+					NotificationType.CHECKLIST_OVERDUE,
+					checklistRun.getTitleSnapshot(),
+					"This assigned checklist run is overdue.",
+					NotificationResourceType.CHECKLIST_RUN,
+					checklistRun.getId()
+			));
 			updatedRuns++;
 		}
 
