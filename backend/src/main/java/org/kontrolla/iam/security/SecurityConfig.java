@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.Customizer;
@@ -211,8 +212,8 @@ public class SecurityConfig {
 		@Override
 		protected void doFilterInternal(
 				HttpServletRequest request,
-				HttpServletResponse response,
-				FilterChain filterChain
+				@NonNull HttpServletResponse response,
+				@NonNull FilterChain filterChain
 		) throws ServletException, IOException {
 			CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
 			if (csrfToken != null) {
