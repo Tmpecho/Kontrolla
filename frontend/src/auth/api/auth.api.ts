@@ -1,4 +1,5 @@
 import type { AuthSession, LoginCredentials } from '@/auth/model/auth.types'
+import { getCsrfHeaders } from '@/shared/api/csrf'
 import { buildApiUrl } from '@/shared/config/api'
 
 type ApiProblem = {
@@ -31,12 +32,19 @@ async function requestSession(
     body?: string
   },
 ): Promise<AuthSession> {
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+  })
+
+  const csrfHeaders = await getCsrfHeaders('POST')
+  for (const [key, value] of Object.entries(csrfHeaders)) {
+    headers.set(key, value)
+  }
+
   const response = await fetch(buildApiUrl(path), {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: options?.body,
   })
 
@@ -54,10 +62,21 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
 }
 
 export async function logout(): Promise<void> {
-  await fetch(buildApiUrl('/api/v1/auth/logout'), {
+  const headers = new Headers()
+  const csrfHeaders = await getCsrfHeaders('POST')
+  for (const [key, value] of Object.entries(csrfHeaders)) {
+    headers.set(key, value)
+  }
+
+  const response = await fetch(buildApiUrl('/api/v1/auth/logout'), {
     method: 'POST',
     credentials: 'include',
+    headers,
   })
+
+  if (!response.ok) {
+    throw new AuthApiError(await readProblemMessage(response), response.status)
+  }
 }
 
 export async function refreshSession(): Promise<AuthSession> {

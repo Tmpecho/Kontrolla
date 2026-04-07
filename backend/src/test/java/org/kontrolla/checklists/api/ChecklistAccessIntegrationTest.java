@@ -39,6 +39,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -98,6 +99,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/checklists/definitions"
 						.formatted(organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(validCreateDefinitionPayload()))
@@ -105,6 +107,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/definitions/%s"
 						.formatted(organization.getId(), establishment.getId(), definition.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(validUpdateDefinitionPayload()))
@@ -128,6 +131,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/assignments"
 						.formatted(organization.getId(), establishment.getId(), run.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -164,6 +168,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/tasks/%s"
 						.formatted(organization.getId(), establishment.getId(), run.getId(), taskId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -274,6 +279,7 @@ class ChecklistAccessIntegrationTest {
 
 	private String login(String email, String password) throws Exception {
 		String response = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{

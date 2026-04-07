@@ -2,6 +2,8 @@ package org.kontrolla.iam.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.kontrolla.common.api.ApiProblemDetails;
@@ -28,6 +30,14 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,6 +49,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -54,12 +65,22 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	CsrfTokenRepository csrfTokenRepository() {
+		return CookieCsrfTokenRepository.withHttpOnlyFalse();
+	}
+
+	@Bean
+	SecurityFilterChain securityFilterChain(HttpSecurity http, CsrfTokenRepository csrfTokenRepository) throws Exception {
 		return http
 				.cors(Customizer.withDefaults())
+				.csrf(csrf -> csrf
+						.csrfTokenRepository(csrfTokenRepository)
+						.csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
+				)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
 						.anyRequest().authenticated()
 				)
@@ -80,6 +101,7 @@ public class SecurityConfig {
 								"Access denied"
 						))
 				)
+				.addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
 				.build();
 	}
 
@@ -88,7 +110,7 @@ public class SecurityConfig {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOrigins(properties.getCors().getAllowedOrigins());
 		configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
-		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-XSRF-TOKEN"));
 		configuration.setAllowCredentials(true);
 		configuration.setMaxAge(3600L);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -158,5 +180,46 @@ public class SecurityConfig {
 		response.setStatus(status.value());
 		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
 		objectMapper.writeValue(response.getOutputStream(), ApiProblemDetails.create(status, code, message, request.getRequestURI()));
+	}
+
+	private static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
+
+		private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
+		private final CsrfTokenRequestHandler xor = new XorCsrfTokenRequestAttributeHandler();
+
+		@Override
+		public void handle(
+				HttpServletRequest request,
+				HttpServletResponse response,
+				Supplier<CsrfToken> csrfToken
+		) {
+			xor.handle(request, response, csrfToken);
+			csrfToken.get();
+		}
+
+		@Override
+		public String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken csrfToken) {
+			String headerValue = request.getHeader(csrfToken.getHeaderName());
+			if (StringUtils.hasText(headerValue)) {
+				return plain.resolveCsrfTokenValue(request, csrfToken);
+			}
+			return xor.resolveCsrfTokenValue(request, csrfToken);
+		}
+	}
+
+	private static final class CsrfCookieFilter extends org.springframework.web.filter.OncePerRequestFilter {
+
+		@Override
+		protected void doFilterInternal(
+				HttpServletRequest request,
+				HttpServletResponse response,
+				FilterChain filterChain
+		) throws ServletException, IOException {
+			CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+			if (csrfToken != null) {
+				csrfToken.getToken();
+			}
+			filterChain.doFilter(request, response);
+		}
 	}
 }

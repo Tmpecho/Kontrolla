@@ -53,6 +53,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -126,6 +127,7 @@ class AuthControllerIntegrationTest {
 				""";
 
 		String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginBody))
 				.andExpect(status().isOk())
@@ -150,6 +152,22 @@ class AuthControllerIntegrationTest {
 	}
 
 	@Test
+	void loginRejectsMissingCsrfToken() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "alice@example.com",
+								  "password": "password123"
+								}
+								"""))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("access_denied"));
+	}
+
+	@Test
 	void refreshReturnsSessionWithAppContext() throws Exception {
 		User user = new User("alice@example.com", "Alice", "Example", passwordEncoder.encode("password123"), true, Set.of());
 		userRepository.saveAndFlush(user);
@@ -168,6 +186,7 @@ class AuthControllerIntegrationTest {
 				""";
 
 		MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(loginBody))
 				.andExpect(status().isOk())
@@ -177,11 +196,29 @@ class AuthControllerIntegrationTest {
 		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/refresh")
+						.with(csrf())
 						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
 				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
+	}
+
+	@Test
+	void refreshRejectsMissingCsrfTokenEvenWithRefreshCookie() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("access_denied"));
 	}
 
 	@Test
@@ -216,7 +253,8 @@ class AuthControllerIntegrationTest {
 
 	@Test
 	void refreshRejectsMissingRefreshCookie() throws Exception {
-		mockMvc.perform(post("/api/v1/auth/refresh"))
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.with(csrf()))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("missing_refresh_token"))
 				.andExpect(jsonPath("$.message").value("Refresh token is missing"));
@@ -242,6 +280,7 @@ class AuthControllerIntegrationTest {
 		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/logout")
+						.with(csrf())
 						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
 				.andExpect(status().isNoContent())
 				.andExpect(cookie().value("kontrolla_refresh_token", ""))
@@ -256,7 +295,7 @@ class AuthControllerIntegrationTest {
 	}
 
 	@Test
-	void logoutMakesRefreshTokenUnusableForFutureRefresh() throws Exception {
+	void logoutRejectsMissingCsrfToken() throws Exception {
 		createUserWithOrganizationContext("alice@example.com", "password123");
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
@@ -268,6 +307,24 @@ class AuthControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("access_denied"));
+	}
+
+	@Test
+	void logoutMakesRefreshTokenUnusableForFutureRefresh() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.with(csrf())
+						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
 				.andExpect(status().isNoContent());
 
 		performRefresh(refreshCookie)
@@ -278,7 +335,8 @@ class AuthControllerIntegrationTest {
 
 	@Test
 	void logoutWithoutRefreshCookieStillReturnsNoContentAndClearsCookie() throws Exception {
-		mockMvc.perform(post("/api/v1/auth/logout"))
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.with(csrf()))
 				.andExpect(status().isNoContent())
 				.andExpect(cookie().value("kontrolla_refresh_token", ""))
 				.andExpect(cookie().maxAge("kontrolla_refresh_token", 0));
@@ -451,6 +509,7 @@ class AuthControllerIntegrationTest {
 
 	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password) throws Exception {
 		return mockMvc.perform(post("/api/v1/auth/login")
+				.with(csrf())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{
@@ -467,6 +526,7 @@ class AuthControllerIntegrationTest {
 
 	private org.springframework.test.web.servlet.ResultActions performRefresh(String refreshCookie) throws Exception {
 		return mockMvc.perform(post("/api/v1/auth/refresh")
+				.with(csrf())
 				.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)));
 	}
 

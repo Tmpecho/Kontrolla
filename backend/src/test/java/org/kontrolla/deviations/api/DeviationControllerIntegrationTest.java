@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Set;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -97,6 +98,7 @@ class DeviationControllerIntegrationTest {
 
 		String createResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -120,6 +122,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/deviations/%s/assignment".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -134,6 +137,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/deviations/%s/status".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -147,6 +151,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/deviations/%s".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -165,6 +170,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations/%s/timeline".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -211,6 +217,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -227,6 +234,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -264,6 +272,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -299,6 +308,7 @@ class DeviationControllerIntegrationTest {
 
 		String createResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -318,6 +328,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/deviations/%s/status".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -329,6 +340,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations/%s/timeline".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -349,6 +361,7 @@ class DeviationControllerIntegrationTest {
 		String token = login("manager-trim@example.com", "password123");
 		String createResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -368,6 +381,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations/%s/timeline".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -381,6 +395,7 @@ class DeviationControllerIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations/%s/timeline".formatted(
 						organization.getId(), establishment.getId(), deviationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -406,6 +421,7 @@ class DeviationControllerIntegrationTest {
 
 		String createResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/deviations".formatted(
 						organizationA.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -467,6 +483,7 @@ class DeviationControllerIntegrationTest {
 
 	private String login(String email, String password) throws Exception {
 		String response = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
