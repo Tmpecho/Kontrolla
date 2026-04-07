@@ -27,6 +27,7 @@ public class JwtService {
 		Set<String> roles = user.getGlobalRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.toSet());
 		JwtClaimsSet claims = JwtClaimsSet.builder()
 				.issuer(properties.getJwt().getIssuer())
+				.audience(java.util.List.of(properties.getJwt().getAudience()))
 				.issuedAt(issuedAt)
 				.expiresAt(expiresAt)
 				.subject(user.getId().toString())

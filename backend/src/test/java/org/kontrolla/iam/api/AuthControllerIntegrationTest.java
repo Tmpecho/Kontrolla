@@ -45,6 +45,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -173,7 +174,7 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andReturn();
 
-		String refreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/refresh")
 						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
@@ -192,14 +193,14 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andReturn();
 
-		String initialRefreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+		String initialRefreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		MvcResult refreshResult = performRefresh(initialRefreshCookie)
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andReturn();
 
-		String rotatedRefreshCookie = refreshResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+		String rotatedRefreshCookie = Objects.requireNonNull(refreshResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		org.junit.jupiter.api.Assertions.assertNotEquals(initialRefreshCookie, rotatedRefreshCookie);
 
@@ -238,7 +239,7 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andReturn();
 
-		String refreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
@@ -263,7 +264,7 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andReturn();
 
-		String refreshCookie = loginResult.getResponse().getCookie("kontrolla_refresh_token").getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
@@ -325,6 +326,66 @@ class AuthControllerIntegrationTest {
 				.andExpect(status().isUnauthorized())
 				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
 				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("Invalid signature")));
+	}
+
+	@Test
+	void meRejectsBearerTokenWithWrongIssuer() throws Exception {
+		User user = createUserWithOrganizationContext("alice@example.com", "password123");
+		Instant issuedAt = Instant.now().minusSeconds(60);
+		Instant expiresAt = Instant.now().plusSeconds(900);
+		String wrongIssuerToken = issueAccessToken(
+				jwtEncoder,
+				user.getId(),
+				user.getEmail(),
+				"wrong-issuer",
+				java.util.List.of(securityProperties.getJwt().getAudience()),
+				issuedAt,
+				expiresAt);
+
+		performMe(wrongIssuerToken)
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("iss claim")));
+	}
+
+	@Test
+	void meRejectsBearerTokenWithMissingAudience() throws Exception {
+		User user = createUserWithOrganizationContext("alice@example.com", "password123");
+		Instant issuedAt = Instant.now().minusSeconds(60);
+		Instant expiresAt = Instant.now().plusSeconds(900);
+		String missingAudienceToken = issueAccessToken(
+				jwtEncoder,
+				user.getId(),
+				user.getEmail(),
+				securityProperties.getJwt().getIssuer(),
+				null,
+				issuedAt,
+				expiresAt);
+
+		performMe(missingAudienceToken)
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("audience")));
+	}
+
+	@Test
+	void meRejectsBearerTokenWithWrongAudience() throws Exception {
+		User user = createUserWithOrganizationContext("alice@example.com", "password123");
+		Instant issuedAt = Instant.now().minusSeconds(60);
+		Instant expiresAt = Instant.now().plusSeconds(900);
+		String wrongAudienceToken = issueAccessToken(
+				jwtEncoder,
+				user.getId(),
+				user.getEmail(),
+				securityProperties.getJwt().getIssuer(),
+				java.util.List.of("wrong-audience"),
+				issuedAt,
+				expiresAt);
+
+		performMe(wrongAudienceToken)
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("invalid_token")))
+				.andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, org.hamcrest.Matchers.containsString("audience")));
 	}
 
 	@Test
@@ -428,14 +489,38 @@ class AuthControllerIntegrationTest {
 			Instant issuedAt,
 			Instant expiresAt
 	) {
+		return issueAccessToken(
+				encoder,
+				userId,
+				email,
+				securityProperties.getJwt().getIssuer(),
+				java.util.List.of(securityProperties.getJwt().getAudience()),
+				issuedAt,
+				expiresAt
+		);
+	}
+
+	private String issueAccessToken(
+			JwtEncoder encoder,
+			UUID userId,
+			String email,
+			String issuer,
+			java.util.List<String> audience,
+			Instant issuedAt,
+			Instant expiresAt
+	) {
 		JwtClaimsSet claims = JwtClaimsSet.builder()
-				.issuer(securityProperties.getJwt().getIssuer())
+				.issuer(issuer)
 				.issuedAt(issuedAt)
 				.expiresAt(expiresAt)
 				.subject(userId.toString())
 				.claim("email", email)
 				.claim("roles", Set.of())
 				.build();
+
+		if (audience != null) {
+			claims = JwtClaimsSet.from(claims).audience(audience).build();
+		}
 
 		return encoder.encode(
 				JwtEncoderParameters.from(

@@ -29,6 +29,7 @@ public class AppSecurityProperties {
 	public static class Jwt {
 
 		private String issuer;
+		private String audience;
 		private String secret;
 		private Duration accessTokenTtl = Duration.ofMinutes(15);
 
