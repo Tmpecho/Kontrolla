@@ -30,7 +30,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Objects;
 import java.util.Set;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -126,7 +125,7 @@ class AuthCsrfFlowIntegrationTest {
 				.isEqualTo("alice@example.com");
 	}
 
-	private User createUserWithOrganizationContext(String email, String password) {
+	private void createUserWithOrganizationContext(String email, String password) {
 		User user = userRepository.saveAndFlush(
 				new User(email, "Alice", "Example", passwordEncoder.encode(password), true, Set.of()));
 		Organization organization = organizationRepository.saveAndFlush(
@@ -135,7 +134,6 @@ class AuthCsrfFlowIntegrationTest {
 				new Establishment(organization, "Alice Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
 		organizationMembershipRepository.saveAndFlush(
 				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
-		return user;
 	}
 
 	private HttpClientWithCookies newClient() {
