@@ -23,6 +23,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -102,7 +106,12 @@ public class SecurityConfig {
 	JwtDecoder jwtDecoder() {
 		byte[] secret = properties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8);
 		SecretKeySpec key = new SecretKeySpec(secret, "HmacSHA256");
-		return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+		NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+		jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+				JwtValidators.createDefaultWithIssuer(properties.getJwt().getIssuer()),
+				audienceValidator()
+		));
+		return jwtDecoder;
 	}
 
 	@Bean
@@ -125,6 +134,19 @@ public class SecurityConfig {
 				roles
 		);
 		return new UsernamePasswordAuthenticationToken(principal, jwt, authorities);
+	}
+
+	private OAuth2TokenValidator<Jwt> audienceValidator() {
+		String expectedAudience = properties.getJwt().getAudience();
+		return jwt -> jwt.getAudience() != null && jwt.getAudience().contains(expectedAudience)
+				? OAuth2TokenValidatorResult.success()
+				: OAuth2TokenValidatorResult.failure(
+						new OAuth2Error(
+								"invalid_token",
+								"The required audience is missing",
+								null
+						)
+				);
 	}
 
 	private void writeProblem(
