@@ -133,15 +133,17 @@ async function loadChecklistRuns(organizationId: string, establishmentId: string
 }
 
 watch(
-  checklistContext,
-  async (context) => {
-    if (!context) {
+  () => [checklistContext.value?.organizationId ?? null, checklistContext.value?.establishmentId ?? null],
+  async ([organizationId, establishmentId]) => {
+    if (!organizationId || !establishmentId) {
       checklistRuns.value = null
+      checklistErrorMessage.value = null
+      isLoadingChecklistRuns.value = false
 
       return
     }
 
-    await loadChecklistRuns(context.organizationId, context.establishmentId)
+    await loadChecklistRuns(organizationId, establishmentId)
   },
   { immediate: true },
 )

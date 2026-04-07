@@ -79,6 +79,7 @@ function createDeviation(
     category: serviceArea === 'IK_MAT' ? 'Temperature' : 'Serving hours',
     severity,
     status,
+    assignedToUserId: 'user-1',
     assignedTo: ['Nora Johansen'],
     description: `${id} description`,
     timeline: [],
