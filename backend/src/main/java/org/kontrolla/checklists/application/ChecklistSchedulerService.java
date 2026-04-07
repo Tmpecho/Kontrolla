@@ -118,7 +118,7 @@ public class ChecklistSchedulerService {
 	) {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
-		return checklistRunService.markOverdueRuns(establishmentId, now);
+		return checklistRunService.markOverdueRuns(organizationId, establishmentId, now, currentUser.userId());
 	}
 
 	private List<Instant> calculateDueInstants(ChecklistSchedule schedule, Instant windowStart, Instant windowEnd) {
