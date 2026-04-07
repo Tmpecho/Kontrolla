@@ -320,7 +320,7 @@ onMounted(() => {
           Open or share this link for {{ latestInvite.membership.userEmail }}. It expires at
           {{ latestInvite.inviteExpiresAt }}.
         </span>
-        <a :href="latestInvite.inviteUrl" target="_blank" rel="noreferrer">
+        <a :href="latestInvite.inviteUrl" target="_blank" rel="noopener noreferrer">
           {{ latestInvite.inviteUrl }}
         </a>
       </div>
