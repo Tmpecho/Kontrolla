@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kontrolla.iam.application.LoginAttemptTracker;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
@@ -24,10 +25,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -37,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(AuthControllerIntegrationTest.TestClockConfiguration.class)
 class AuthControllerIntegrationTest {
 
 	@Autowired
@@ -66,9 +75,17 @@ class AuthControllerIntegrationTest {
 	@Autowired
 	private TestDataCleaner testDataCleaner;
 
+	@Autowired
+	private LoginAttemptTracker loginAttemptTracker;
+
+	@Autowired
+	private MutableClock mutableClock;
+
 	@BeforeEach
 	void setUp() {
 		testDataCleaner.clearAll();
+		loginAttemptTracker.clear();
+		mutableClock.set(Instant.parse("2026-04-07T08:00:00Z"));
 	}
 
 	@Test
@@ -146,5 +163,134 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().exists("kontrolla_refresh_token"))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
 				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
+	}
+
+	@Test
+	void loginLocksOutAccountAfterRepeatedFailedAttempts() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		for (int attempt = 0; attempt < 5; attempt++) {
+			performLogin("alice@example.com", "wrong-password")
+					.andExpect(status().isUnauthorized())
+					.andExpect(cookie().doesNotExist("kontrolla_refresh_token"))
+					.andExpect(jsonPath("$.message").value("Invalid email or password"));
+		}
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isUnauthorized())
+				.andExpect(cookie().doesNotExist("kontrolla_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Invalid email or password"));
+	}
+
+	@Test
+	void loginAllowsCorrectPasswordAfterLockoutWindowExpires() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		for (int attempt = 0; attempt < 5; attempt++) {
+			performLogin("alice@example.com", "wrong-password")
+					.andExpect(status().isUnauthorized());
+		}
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isUnauthorized());
+
+		mutableClock.advanceSeconds(15 * 60 + 1);
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(jsonPath("$.user.email").value("alice@example.com"));
+	}
+
+	@Test
+	void successfulLoginResetsFailedAttemptCounter() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		for (int attempt = 0; attempt < 4; attempt++) {
+			performLogin("alice@example.com", "wrong-password")
+					.andExpect(status().isUnauthorized());
+		}
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"));
+
+		for (int attempt = 0; attempt < 4; attempt++) {
+			performLogin("alice@example.com", "wrong-password")
+					.andExpect(status().isUnauthorized());
+		}
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(jsonPath("$.user.email").value("alice@example.com"));
+	}
+
+	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password) throws Exception {
+		return mockMvc.perform(post("/api/v1/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{
+						  "email": "%s",
+						  "password": "%s"
+						}
+						""".formatted(email, password)));
+	}
+
+	private void createUserWithOrganizationContext(String email, String password) {
+		User user = new User(email, "Alice", "Example", passwordEncoder.encode(password), true, Set.of());
+		userRepository.saveAndFlush(user);
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
+		establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Alice Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
+	}
+
+	@TestConfiguration
+	static class TestClockConfiguration {
+
+		@Bean
+		@Primary
+		MutableClock mutableClock() {
+			return new MutableClock(Instant.parse("2026-04-07T08:00:00Z"), ZoneId.of("UTC"));
+		}
+
+	}
+
+	static class MutableClock extends Clock {
+
+		private Instant currentInstant;
+		private final ZoneId zoneId;
+
+		MutableClock(Instant currentInstant, ZoneId zoneId) {
+			this.currentInstant = currentInstant;
+			this.zoneId = zoneId;
+		}
+
+		void set(Instant instant) {
+			this.currentInstant = instant;
+		}
+
+		void advanceSeconds(long seconds) {
+			this.currentInstant = this.currentInstant.plusSeconds(seconds);
+		}
+
+		@Override
+		public ZoneId getZone() {
+			return zoneId;
+		}
+
+		@Override
+		public Clock withZone(ZoneId zone) {
+			return new MutableClock(currentInstant, zone);
+		}
+
+		@Override
+		public Instant instant() {
+			return currentInstant;
+		}
+
 	}
 }
