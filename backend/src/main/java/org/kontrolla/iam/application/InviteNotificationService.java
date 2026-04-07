@@ -22,7 +22,6 @@ public class InviteNotificationService {
 				recipientEmail,
 				organizationName,
 				expiresAt,
-				inviteUrl
 		);
 	}
 }
