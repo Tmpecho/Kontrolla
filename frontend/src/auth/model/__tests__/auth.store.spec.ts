@@ -3,11 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 
-const loginMock = vi.fn()
-const refreshSessionMock = vi.fn()
-const logoutRequestMock = vi.fn()
-const clearCsrfTokenMock = vi.fn()
-const { listEstablishmentsMock } = vi.hoisted(() => ({
+const {
+  loginMock,
+  refreshSessionMock,
+  logoutRequestMock,
+  clearCsrfTokenMock,
+  listEstablishmentsMock,
+} = vi.hoisted(() => ({
+  loginMock: vi.fn(),
+  refreshSessionMock: vi.fn(),
+  logoutRequestMock: vi.fn(),
+  clearCsrfTokenMock: vi.fn(),
   listEstablishmentsMock: vi.fn(),
 }))
 
@@ -184,6 +190,97 @@ describe('auth.store', () => {
     expect(window.localStorage.getItem('kontrolla.establishmentSelectionByOrganization')).toBe(
       JSON.stringify({ 'org-1': 'est-2' }),
     )
+  })
+
+  it('loads every establishment page before synchronizing the selector state', async () => {
+    listEstablishmentsMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'est-1',
+            organizationId: 'org-1',
+            name: 'Kitchen',
+            type: 'RESTAURANT',
+            status: 'ACTIVE',
+            createdAt: '2026-04-08T08:00:00Z',
+            updatedAt: '2026-04-08T08:00:00Z',
+          },
+          {
+            id: 'est-2',
+            organizationId: 'org-1',
+            name: 'Bar',
+            type: 'BAR',
+            status: 'ACTIVE',
+            createdAt: '2026-04-08T08:00:00Z',
+            updatedAt: '2026-04-08T08:00:00Z',
+          },
+        ],
+        page: 0,
+        size: 100,
+        totalElements: 3,
+        totalPages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'est-3',
+            organizationId: 'org-1',
+            name: 'Cafe',
+            type: 'CAFE',
+            status: 'ACTIVE',
+            createdAt: '2026-04-08T08:00:00Z',
+            updatedAt: '2026-04-08T08:00:00Z',
+          },
+        ],
+        page: 1,
+        size: 100,
+        totalElements: 3,
+        totalPages: 2,
+      })
+
+    const authStore = useAuthStore()
+
+    authStore.setSession({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        active: true,
+        globalRoles: [],
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      appContext: {
+        organizationId: 'org-1',
+        organizationName: 'Org 1',
+        organizationRole: 'ORG_MANAGER',
+        establishmentId: 'est-1',
+        establishmentName: 'Kitchen',
+      },
+    })
+
+    await authStore.hydrateEstablishments()
+
+    expect(listEstablishmentsMock).toHaveBeenCalledTimes(2)
+    expect(listEstablishmentsMock).toHaveBeenNthCalledWith(1, {
+      organizationId: 'org-1',
+      page: 0,
+      size: 100,
+    })
+    expect(listEstablishmentsMock).toHaveBeenNthCalledWith(2, {
+      organizationId: 'org-1',
+      page: 1,
+      size: 100,
+    })
+    expect(authStore.establishments.map((establishment) => establishment.id)).toEqual([
+      'est-2',
+      'est-3',
+      'est-1',
+    ])
   })
 
   it('clears the local session after a successful logout', async () => {

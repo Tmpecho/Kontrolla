@@ -164,12 +164,23 @@ export const useAuthStore = defineStore('auth', () => {
     isLoadingEstablishments.value = true
 
     try {
-      const page = await listEstablishments({
-        organizationId,
-        size: 100,
-      })
+      const fetchedEstablishments: Establishment[] = []
+      let pageNumber = 0
+      let totalPages = 1
 
-      establishments.value = page.items
+      do {
+        const page = await listEstablishments({
+          organizationId,
+          page: pageNumber,
+          size: 100,
+        })
+
+        fetchedEstablishments.push(...page.items)
+        totalPages = page.totalPages
+        pageNumber += 1
+      } while (pageNumber < totalPages)
+
+      establishments.value = fetchedEstablishments
         .filter((establishment) => establishment.status === 'ACTIVE')
         .sort((left, right) => left.name.localeCompare(right.name))
       synchronizeEstablishmentSelection()

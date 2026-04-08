@@ -122,10 +122,10 @@ public class OrganizationService {
 		org.kontrolla.iam.domain.User user = userRepository.findById(userId)
 				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
 
-		boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments);
-		List<Establishment> accessibleEstablishments = resolveAccessibleEstablishments(
+		MembershipScope membershipScope = resolveRequestedMembershipScope(
 				organizationId,
-				accessAllEstablishments,
+				role,
+				allEstablishments,
 				establishmentIds
 		);
 		OrganizationMembership membership = new OrganizationMembership(
@@ -133,9 +133,9 @@ public class OrganizationService {
 				user,
 				role,
 				active,
-				accessAllEstablishments
+				membershipScope.accessAllEstablishments()
 		);
-		membership.replaceAccessibleEstablishments(accessibleEstablishments);
+		membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
 		return membershipRepository.save(membership);
 	}
 
@@ -155,10 +155,10 @@ public class OrganizationService {
 		organizationAccessService.requireMembershipManagement(currentUser, organizationId);
 
 		org.kontrolla.iam.domain.User user = userAdministrationService.createInvitedUser(email, firstName, lastName);
-		boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments);
-		List<Establishment> accessibleEstablishments = resolveAccessibleEstablishments(
+		MembershipScope membershipScope = resolveRequestedMembershipScope(
 				organizationId,
-				accessAllEstablishments,
+				role,
+				allEstablishments,
 				establishmentIds
 		);
 		OrganizationMembership membership = new OrganizationMembership(
@@ -166,9 +166,9 @@ public class OrganizationService {
 				user,
 				role,
 				active,
-				accessAllEstablishments
+				membershipScope.accessAllEstablishments()
 		);
-		membership.replaceAccessibleEstablishments(accessibleEstablishments);
+		membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
 		membership = membershipRepository.save(membership);
 		UserInviteService.IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
 		return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
@@ -190,28 +190,83 @@ public class OrganizationService {
 		OrganizationMembership membership = membershipRepository.findByIdAndOrganizationId(membershipId, organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("membership_not_found", "Membership not found"));
 
-		boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments);
-		List<Establishment> accessibleEstablishments = resolveAccessibleEstablishments(
+		MembershipScope membershipScope = resolveUpdatedMembershipScope(
 				organizationId,
-				accessAllEstablishments,
+				membership,
+				role,
+				allEstablishments,
 				establishmentIds
 		);
 		membership.setRole(role);
 		membership.setActive(active);
-		membership.setAccessAllEstablishments(accessAllEstablishments);
-		membership.replaceAccessibleEstablishments(accessibleEstablishments);
+		membership.setAccessAllEstablishments(membershipScope.accessAllEstablishments());
+		membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
 		if (active) {
 			membership.getUser().setActive(true);
 		}
 		return membership;
 	}
 
-	private boolean resolveAccessAllEstablishments(OrganizationRole role, Boolean allEstablishments) {
+	private MembershipScope resolveRequestedMembershipScope(
+			UUID organizationId,
+			OrganizationRole role,
+			Boolean allEstablishments,
+			Collection<UUID> establishmentIds
+	) {
+		boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments, establishmentIds, true);
+		return new MembershipScope(
+				accessAllEstablishments,
+				resolveAccessibleEstablishments(organizationId, accessAllEstablishments, establishmentIds)
+		);
+	}
+
+	private MembershipScope resolveUpdatedMembershipScope(
+			UUID organizationId,
+			OrganizationMembership membership,
+			OrganizationRole role,
+			Boolean allEstablishments,
+			Collection<UUID> establishmentIds
+	) {
+		if (role == OrganizationRole.ORG_OWNER || role == OrganizationRole.ORG_ADMIN) {
+			return new MembershipScope(true, List.of());
+		}
+
+		boolean scopeProvided = allEstablishments != null || establishmentIds != null;
+		if (!scopeProvided) {
+			return new MembershipScope(
+					membership.isAccessAllEstablishments(),
+					membership.isAccessAllEstablishments()
+							? List.of()
+							: List.copyOf(membership.getAccessibleEstablishments())
+			);
+		}
+
+		boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments, establishmentIds, true);
+		return new MembershipScope(
+				accessAllEstablishments,
+				resolveAccessibleEstablishments(organizationId, accessAllEstablishments, establishmentIds)
+		);
+	}
+
+	private boolean resolveAccessAllEstablishments(
+			OrganizationRole role,
+			Boolean allEstablishments,
+			Collection<UUID> establishmentIds,
+			boolean defaultAllEstablishments
+	) {
 		if (role == OrganizationRole.ORG_OWNER || role == OrganizationRole.ORG_ADMIN) {
 			return true;
 		}
 
-		return allEstablishments == null || allEstablishments;
+		if (allEstablishments != null) {
+			return allEstablishments;
+		}
+
+		if (establishmentIds != null) {
+			return false;
+		}
+
+		return defaultAllEstablishments;
 	}
 
 	private List<Establishment> resolveAccessibleEstablishments(
@@ -249,6 +304,12 @@ public class OrganizationService {
 			OrganizationMembership membership,
 			java.time.Instant inviteExpiresAt,
 			String inviteUrl
+	) {
+	}
+
+	private record MembershipScope(
+			boolean accessAllEstablishments,
+			List<Establishment> accessibleEstablishments
 	) {
 	}
 }

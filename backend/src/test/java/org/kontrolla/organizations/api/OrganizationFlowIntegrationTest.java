@@ -340,6 +340,80 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
+	void membershipUpdatePreservesScopedEstablishmentAccessWhenScopeIsOmitted() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+		User scopedEmployee = createUser("scoped@example.com", "Scoped", "Employee", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Scoped Update Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String restaurantResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Restaurant",
+								  "type": "RESTAURANT"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Bar",
+								  "type": "BAR"
+								}
+								"""))
+				.andExpect(status().isCreated());
+
+		String restaurantId = objectMapper.readTree(restaurantResponse).get("id").asText();
+		String membershipResponse = mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "allEstablishments": false,
+								  "establishmentIds": ["%s"]
+								}
+								""".formatted(scopedEmployee.getId(), restaurantId)))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String membershipId = objectMapper.readTree(membershipResponse).get("id").asText();
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organizationId, membershipId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.active").value(false))
+				.andExpect(jsonPath("$.allEstablishments").value(false))
+				.andExpect(jsonPath("$.establishments.length()").value(1))
+				.andExpect(jsonPath("$.establishments[0].id").value(restaurantId));
+	}
+
+	@Test
 	void tenantMemberCannotModifyAnotherOrganizationsData() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAManager = createUser("orga@example.com", "Org", "AManager", Set.of());
