@@ -55,16 +55,16 @@ public class TestDataCleaner {
   }
 
   public void clearAll() {
-    refreshTokenRepository.deleteAllInBatch();
-    notificationRepository.deleteAllInBatch();
-    deviationRepository.deleteAllInBatch();
-    documentFileRepository.deleteAllInBatch();
-    documentRepository.deleteAllInBatch();
-    checklistRunRepository.deleteAllInBatch();
-    checklistDefinitionRepository.deleteAllInBatch();
-    organizationMembershipRepository.deleteAllInBatch();
-    establishmentRepository.deleteAllInBatch();
-    organizationRepository.deleteAllInBatch();
-    userRepository.deleteAllInBatch();
+    refreshTokenRepository.deleteAll();
+    notificationRepository.deleteAll();
+    deviationRepository.deleteAll();
+    documentFileRepository.deleteAll();
+    documentRepository.deleteAll();
+    checklistRunRepository.deleteAll();
+    checklistDefinitionRepository.deleteAll();
+    organizationMembershipRepository.deleteAll();
+    establishmentRepository.deleteAll();
+    organizationRepository.deleteAll();
+    userRepository.deleteAll();
   }
 }
