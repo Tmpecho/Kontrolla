@@ -33,7 +33,7 @@ public class AuthService {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final EstablishmentRepository establishmentRepository;
-	private final LoginAttemptTracker loginAttemptTracker;
+	private final AuthAttemptThrottleService authAttemptThrottleService;
 	private final PasswordEncoder passwordEncoder;
 	private final UserInviteService userInviteService;
 	private final JwtService jwtService;
@@ -45,7 +45,7 @@ public class AuthService {
 			RefreshTokenRepository refreshTokenRepository,
 			OrganizationMembershipRepository organizationMembershipRepository,
 			EstablishmentRepository establishmentRepository,
-			LoginAttemptTracker loginAttemptTracker,
+			AuthAttemptThrottleService authAttemptThrottleService,
 			PasswordEncoder passwordEncoder,
 			UserInviteService userInviteService,
 			JwtService jwtService,
@@ -56,7 +56,7 @@ public class AuthService {
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.organizationMembershipRepository = organizationMembershipRepository;
 		this.establishmentRepository = establishmentRepository;
-		this.loginAttemptTracker = loginAttemptTracker;
+		this.authAttemptThrottleService = authAttemptThrottleService;
 		this.passwordEncoder = passwordEncoder;
 		this.userInviteService = userInviteService;
 		this.jwtService = jwtService;
@@ -65,32 +65,38 @@ public class AuthService {
 	}
 
 	@Transactional
-	public AuthSession login(String email, String password) {
+	public AuthSession login(String email, String password, String clientIp) {
 		Instant now = Instant.now(clock);
-		loginAttemptTracker.assertLoginAllowed(email, now);
+		authAttemptThrottleService.assertLoginAllowed(email, clientIp, now);
 
 		User user = userRepository.findByEmailIgnoreCase(email)
 				.filter(User::isActive)
 				.orElseThrow(() -> {
-					loginAttemptTracker.recordFailedAttempt(email, now);
+					authAttemptThrottleService.recordLoginFailure(email, clientIp, now);
 					return new UnauthorizedException("invalid_credentials", "Invalid email or password");
 				});
 
 		if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-			loginAttemptTracker.recordFailedAttempt(email, now);
+			authAttemptThrottleService.recordLoginFailure(email, clientIp, now);
 			throw new UnauthorizedException("invalid_credentials", "Invalid email or password");
 		}
 
-		loginAttemptTracker.reset(email);
+		authAttemptThrottleService.resetLogin(email, clientIp);
 		return issueSession(user, now);
 	}
 
 	@Transactional
-	public AuthSession refresh(String rawRefreshToken) {
-		Instant now = Instant.now();
-		RefreshToken refreshToken = resolveActiveRefreshToken(rawRefreshToken, now);
-		refreshToken.revoke(now);
-		return issueSession(refreshToken.getUser(), now);
+	public AuthSession refresh(String rawRefreshToken, String clientIp) {
+		Instant now = Instant.now(clock);
+		RefreshToken refreshToken = rawRefreshToken == null || rawRefreshToken.isBlank()
+				? null
+				: refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)).orElse(null);
+		String accountIdentifier = refreshToken == null ? null : refreshToken.getUser().getEmail();
+		authAttemptThrottleService.assertRefreshAllowed(accountIdentifier, clientIp, now);
+		RefreshToken activeRefreshToken = resolveActiveRefreshToken(rawRefreshToken, refreshToken, clientIp, now);
+		activeRefreshToken.revoke(now);
+		authAttemptThrottleService.resetRefresh(activeRefreshToken.getUser().getEmail(), clientIp);
+		return issueSession(activeRefreshToken.getUser(), now);
 	}
 
 	@Transactional
@@ -100,7 +106,7 @@ public class AuthService {
 		}
 
 		refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken))
-				.ifPresent(token -> token.revoke(Instant.now()));
+				.ifPresent(token -> token.revoke(Instant.now(clock)));
 	}
 
 	@Transactional(readOnly = true)
@@ -157,15 +163,19 @@ public class AuthService {
 		);
 	}
 
-	private RefreshToken resolveActiveRefreshToken(String rawRefreshToken, Instant now) {
+	private RefreshToken resolveActiveRefreshToken(String rawRefreshToken, RefreshToken refreshToken, String clientIp, Instant now) {
 		if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+			authAttemptThrottleService.recordRefreshFailure(clientIp, now);
 			throw new UnauthorizedException("missing_refresh_token", "Refresh token is missing");
 		}
 
-		RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken))
-				.orElseThrow(() -> new UnauthorizedException("invalid_refresh_token", "Refresh token is invalid"));
+		if (refreshToken == null) {
+			authAttemptThrottleService.recordRefreshFailure(clientIp, now);
+			throw new UnauthorizedException("invalid_refresh_token", "Refresh token is invalid");
+		}
 
 		if (!refreshToken.isActiveAt(now) || !refreshToken.getUser().isActive()) {
+			authAttemptThrottleService.recordRefreshFailure(refreshToken.getUser().getEmail(), clientIp, now);
 			throw new UnauthorizedException("invalid_refresh_token", "Refresh token is invalid");
 		}
 

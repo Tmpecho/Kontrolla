@@ -9,10 +9,9 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
-import org.kontrolla.iam.application.LoginAttemptTracker;
-import org.kontrolla.iam.domain.GlobalRole;
-import org.kontrolla.iam.domain.User;
+import org.kontrolla.iam.application.AuthAttemptThrottleService;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
+import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.organizations.domain.Organization;
@@ -41,6 +40,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -65,6 +65,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Import(AuthControllerIntegrationTest.TestClockConfiguration.class)
 class AuthControllerIntegrationTest {
+
+	private static final String REFRESH_COOKIE_NAME = "kontrolla_refresh_token";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -100,7 +102,7 @@ class AuthControllerIntegrationTest {
 	private TestDataCleaner testDataCleaner;
 
 	@Autowired
-	private LoginAttemptTracker loginAttemptTracker;
+	private AuthAttemptThrottleService authAttemptThrottleService;
 
 	@Autowired
 	private MutableClock mutableClock;
@@ -108,7 +110,7 @@ class AuthControllerIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		testDataCleaner.clearAll();
-		loginAttemptTracker.clear();
+		authAttemptThrottleService.clear();
 		mutableClock.set(Instant.parse("2026-04-07T08:00:00Z"));
 	}
 
@@ -125,7 +127,7 @@ class AuthControllerIntegrationTest {
 
 		String loginResponse = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.accessToken").isString())
 				.andExpect(jsonPath("$.user.email").value("alice@example.com"))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
@@ -173,14 +175,16 @@ class AuthControllerIntegrationTest {
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
-		performRefresh(refreshCookie)
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.with(csrf())
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
 				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
 	}
@@ -191,13 +195,13 @@ class AuthControllerIntegrationTest {
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/refresh")
-						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value("access_denied"));
 	}
@@ -208,17 +212,17 @@ class AuthControllerIntegrationTest {
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String initialRefreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String initialRefreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
 		MvcResult refreshResult = performRefresh(initialRefreshCookie)
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String rotatedRefreshCookie = Objects.requireNonNull(refreshResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String rotatedRefreshCookie = Objects.requireNonNull(refreshResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
 		org.junit.jupiter.api.Assertions.assertNotEquals(initialRefreshCookie, rotatedRefreshCookie);
 
@@ -229,7 +233,7 @@ class AuthControllerIntegrationTest {
 
 		performRefresh(rotatedRefreshCookie)
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"));
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME));
 	}
 
 	@Test
@@ -255,17 +259,17 @@ class AuthControllerIntegrationTest {
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.with(csrf())
-						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isNoContent())
-				.andExpect(cookie().value("kontrolla_refresh_token", ""))
-				.andExpect(cookie().maxAge("kontrolla_refresh_token", 0));
+				.andExpect(cookie().value(REFRESH_COOKIE_NAME, ""))
+				.andExpect(cookie().maxAge(REFRESH_COOKIE_NAME, 0));
 
 		String hashedRefreshToken = hashToken(refreshCookie);
 		org.assertj.core.api.Assertions.assertThat(refreshTokenRepository.findByTokenHash(hashedRefreshToken))
@@ -280,13 +284,13 @@ class AuthControllerIntegrationTest {
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/logout")
-						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value("access_denied"));
 	}
@@ -297,14 +301,14 @@ class AuthControllerIntegrationTest {
 
 		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
 
-		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie("kontrolla_refresh_token")).getValue();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.with(csrf())
-						.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)))
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isNoContent());
 
 		performRefresh(refreshCookie)
@@ -318,8 +322,8 @@ class AuthControllerIntegrationTest {
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.with(csrf()))
 				.andExpect(status().isNoContent())
-				.andExpect(cookie().value("kontrolla_refresh_token", ""))
-				.andExpect(cookie().maxAge("kontrolla_refresh_token", 0));
+				.andExpect(cookie().value(REFRESH_COOKIE_NAME, ""))
+				.andExpect(cookie().maxAge(REFRESH_COOKIE_NAME, 0));
 	}
 
 	@Test
@@ -431,16 +435,39 @@ class AuthControllerIntegrationTest {
 		createUserWithOrganizationContext("alice@example.com", "password123");
 
 		for (int attempt = 0; attempt < 5; attempt++) {
-			performLogin("alice@example.com", "wrong-password")
+			performLogin("alice@example.com", "wrong-password", "203.0.113." + (attempt + 1))
 					.andExpect(status().isUnauthorized())
-					.andExpect(cookie().doesNotExist("kontrolla_refresh_token"))
+					.andExpect(cookie().doesNotExist(REFRESH_COOKIE_NAME))
 					.andExpect(jsonPath("$.message").value("Invalid email or password"));
 		}
 
-		performLogin("alice@example.com", "password123")
+		performLogin("alice@example.com", "password123", "198.51.100.10")
 				.andExpect(status().isUnauthorized())
-				.andExpect(cookie().doesNotExist("kontrolla_refresh_token"))
+				.andExpect(cookie().doesNotExist(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.message").value("Invalid email or password"));
+	}
+
+	@Test
+	void loginLocksOutIpAfterRepeatedFailedAttemptsAcrossAccounts() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+		createUserWithOrganizationContext("bob@example.com", "password123");
+
+		for (int attempt = 0; attempt < 5; attempt++) {
+			String email = attempt % 2 == 0 ? "alice@example.com" : "bob@example.com";
+			performLogin(email, "wrong-password", "203.0.113.50")
+					.andExpect(status().isUnauthorized())
+					.andExpect(cookie().doesNotExist(REFRESH_COOKIE_NAME));
+		}
+
+		performLogin("alice@example.com", "password123", "203.0.113.50")
+				.andExpect(status().isUnauthorized())
+				.andExpect(cookie().doesNotExist(REFRESH_COOKIE_NAME))
+				.andExpect(jsonPath("$.message").value("Invalid email or password"));
+
+		performLogin("alice@example.com", "password123", "198.51.100.20")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andExpect(jsonPath("$.user.email").value("alice@example.com"));
 	}
 
 	@Test
@@ -459,7 +486,7 @@ class AuthControllerIntegrationTest {
 
 		performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.user.email").value("alice@example.com"));
 	}
 
@@ -474,7 +501,7 @@ class AuthControllerIntegrationTest {
 
 		performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"));
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME));
 
 		for (int attempt = 0; attempt < 4; attempt++) {
 			performLogin("alice@example.com", "wrong-password")
@@ -483,33 +510,125 @@ class AuthControllerIntegrationTest {
 
 		performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
-				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.user.email").value("alice@example.com"));
 	}
 
 	@Test
-	void appContextUsesFirstOrganizationEstablishment() throws Exception {
-		User user = new User("alice@example.com", "Alice", "Example", passwordEncoder.encode("password123"), true, Set.of());
-		userRepository.saveAndFlush(user);
-		Organization organization = organizationRepository.saveAndFlush(
-				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
-		Establishment firstEstablishment = establishmentRepository.saveAndFlush(
-				new Establishment(organization, "First Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
-		establishmentRepository.saveAndFlush(
-				new Establishment(organization, "Second Establishment", EstablishmentType.BAR, EstablishmentStatus.ACTIVE));
-		organizationMembershipRepository.saveAndFlush(
-				new OrganizationMembership(organization, user, OrganizationRole.ORG_EMPLOYEE, true));
+	void refreshLocksOutIpAfterRepeatedFailedAttempts() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
 
-		performLogin("alice@example.com", "password123")
+		MvcResult loginResult = performLogin("alice@example.com", "password123", "198.51.100.31")
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
-				.andExpect(jsonPath("$.appContext.establishmentId").value(firstEstablishment.getId().toString()))
-				.andExpect(jsonPath("$.appContext.establishmentName").value("First Establishment"));
+				.andExpect(cookie().exists("kontrolla_refresh_token"))
+				.andReturn();
+
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		for (int attempt = 0; attempt < 5; attempt++) {
+			performRefresh("forged-refresh-token", "203.0.113.60")
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+					.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+		}
+
+		performRefresh(refreshCookie, "203.0.113.60")
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+
+		performRefresh(refreshCookie, "198.51.100.61")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME));
+	}
+
+	@Test
+	void refreshLocksOutAccountAfterRepeatedReplayAttempts() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123", "198.51.100.70")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String initialRefreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		MvcResult refreshResult = performRefresh(initialRefreshCookie, "198.51.100.70")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String rotatedRefreshCookie = Objects.requireNonNull(refreshResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		for (int attempt = 0; attempt < 5; attempt++) {
+			performRefresh(initialRefreshCookie, "203.0.113." + (70 + attempt))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+					.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+		}
+
+		performRefresh(rotatedRefreshCookie, "198.51.100.75")
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+
+		mutableClock.advanceSeconds(10 * 60 + 1);
+
+		performRefresh(rotatedRefreshCookie, "198.51.100.75")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME));
+	}
+
+	@Test
+	void successfulRefreshResetsFailedAttemptCounters() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123", "198.51.100.80")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String tokenA = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		MvcResult firstRefreshResult = performRefresh(tokenA, "198.51.100.80")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String tokenB = Objects.requireNonNull(firstRefreshResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		for (int attempt = 0; attempt < 4; attempt++) {
+			performRefresh(tokenA, "198.51.100.80")
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.code").value("invalid_refresh_token"));
+		}
+
+		MvcResult secondRefreshResult = performRefresh(tokenB, "198.51.100.80")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String tokenC = Objects.requireNonNull(secondRefreshResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		for (int attempt = 0; attempt < 4; attempt++) {
+			performRefresh(tokenB, "198.51.100.80")
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.code").value("invalid_refresh_token"));
+		}
+
+		performRefresh(tokenC, "198.51.100.80")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME));
 	}
 
 	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password) throws Exception {
+		return performLogin(email, password, "127.0.0.1");
+	}
+
+	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password, String remoteAddr) throws Exception {
 		return mockMvc.perform(post("/api/v1/auth/login")
 				.with(csrf())
+				.with(remoteAddr(remoteAddr))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{
@@ -525,9 +644,21 @@ class AuthControllerIntegrationTest {
 	}
 
 	private org.springframework.test.web.servlet.ResultActions performRefresh(String refreshCookie) throws Exception {
+		return performRefresh(refreshCookie, "127.0.0.1");
+	}
+
+	private org.springframework.test.web.servlet.ResultActions performRefresh(String refreshCookie, String remoteAddr) throws Exception {
 		return mockMvc.perform(post("/api/v1/auth/refresh")
 				.with(csrf())
-				.cookie(new jakarta.servlet.http.Cookie("kontrolla_refresh_token", refreshCookie)));
+				.with(remoteAddr(remoteAddr))
+				.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)));
+	}
+
+	private RequestPostProcessor remoteAddr(String remoteAddr) {
+		return request -> {
+			request.setRemoteAddr(remoteAddr);
+			return request;
+		};
 	}
 
 	private User createUserWithOrganizationContext(String email, String password) {

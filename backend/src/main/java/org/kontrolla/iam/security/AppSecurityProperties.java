@@ -18,7 +18,7 @@ public class AppSecurityProperties {
 	private final Jwt jwt = new Jwt();
 	private final Refresh refresh = new Refresh();
 	private final Invite invite = new Invite();
-	private final Login login = new Login();
+	private final AuthThrottling authThrottling = new AuthThrottling();
 	private final Cors cors = new Cors();
 	private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
 	private final BootstrapUser bootstrapUser = new BootstrapUser();
@@ -62,7 +62,7 @@ public class AppSecurityProperties {
 
 	@Setter
 	@Getter
-	public static class Login {
+	public static class AuthThrottling {
 
 		private int maxFailedAttempts = 5;
 		private Duration lockoutDuration = Duration.ofMinutes(10);
