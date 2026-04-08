@@ -38,8 +38,8 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-		AuthSession session = authService.login(request.email(), request.password());
+	public ResponseEntity<LoginResponse> login(HttpServletRequest httpRequest, @Valid @RequestBody LoginRequest request) {
+		AuthSession session = authService.login(request.email(), request.password(), httpRequest.getRemoteAddr());
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
 				.body(
@@ -53,7 +53,7 @@ public class AuthController {
 
 	@PostMapping("/refresh")
 	public ResponseEntity<LoginResponse> refresh(HttpServletRequest request) {
-		AuthSession session = authService.refresh(extractRefreshCookie(request));
+		AuthSession session = authService.refresh(extractRefreshCookie(request), request.getRemoteAddr());
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
 				.body(
