@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import {
   createManagedOrganizationMember,
@@ -66,6 +66,7 @@ const isCreatingMember = ref(false)
 const savingMembershipId = ref<string | null>(null)
 const isCreateComposerOpen = ref(false)
 const latestInvite = ref<ManagedOrganizationMemberProvision | null>(null)
+const showInactiveMembers = ref(false)
 const createDraft = ref<MemberProvisionDraft>({
   mode: 'existing_user',
   existingUserId: '',
@@ -97,6 +98,14 @@ const canManageMembers = computed(() => {
 })
 const totalMembers = computed(() => members.value.length)
 const activeMembers = computed(() => members.value.filter((member) => member.active).length)
+const inactiveMembers = computed(() => totalMembers.value - activeMembers.value)
+const memberSummary = computed(() => {
+  if (showInactiveMembers.value) {
+    return `${activeMembers.value} active, ${inactiveMembers.value} inactive`
+  }
+
+  return `${activeMembers.value} active members`
+})
 
 const canSubmitNewMember = computed(() => {
   if (createDraft.value.mode === 'existing_user') {
@@ -149,6 +158,7 @@ async function loadMembers(): Promise<void> {
 
     const page = await listOrganizationMembers({
       organizationId,
+      includeInactive: showInactiveMembers.value,
       size: 100,
     })
 
@@ -226,6 +236,7 @@ async function handleCreateMember(): Promise<void> {
       successMessage.value = 'Invitation created for the new member.'
     }
 
+    await loadMembers()
     closeCreateComposer()
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : 'Failed to create the member.'
@@ -271,6 +282,7 @@ async function handleSaveMember(member: EditableMembership): Promise<void> {
     }
 
     successMessage.value = `Updated ${getFullName(updatedMember)}.`
+    await loadMembers()
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : 'Failed to update the member.'
   } finally {
@@ -279,6 +291,10 @@ async function handleSaveMember(member: EditableMembership): Promise<void> {
 }
 
 onMounted(() => {
+  void loadMembers()
+})
+
+watch(showInactiveMembers, () => {
   void loadMembers()
 })
 </script>
@@ -299,10 +315,9 @@ onMounted(() => {
     </section>
 
     <template v-else>
-      <header class="hero">
-        <p class="eyebrow">Entity Management / {{ resolvedOrganizationName }}</p>
-        <h1>Member Directory</h1>
-        <p class="hero-copy">
+      <header class="page-header">
+        <h1>Organization members</h1>
+        <p class="page-copy">
           Manage staff access, member roles, and organization membership for
           {{ resolvedOrganizationName }}.
         </p>
@@ -329,11 +344,18 @@ onMounted(() => {
         <section class="directory-panel">
           <header class="directory-header">
             <div>
-              <h2>Active Personnel</h2>
-              <p>{{ activeMembers }} active of {{ totalMembers }} total members</p>
+              <h2>Members</h2>
+              <p>{{ memberSummary }}</p>
             </div>
 
             <div class="directory-actions">
+              <button
+                type="button"
+                class="secondary-button"
+                @click="showInactiveMembers = !showInactiveMembers"
+              >
+                {{ showInactiveMembers ? 'Hide inactive' : 'Show inactive' }}
+              </button>
               <button
                 type="button"
                 class="primary-button"
@@ -354,7 +376,11 @@ onMounted(() => {
 
           <p v-if="isLoading" class="state-message">Loading members...</p>
           <p v-else-if="members.length === 0" class="state-message">
-            No members found for this organization yet.
+            {{
+              showInactiveMembers
+                ? 'No members found for this organization yet.'
+                : 'No active members found for this organization.'
+            }}
           </p>
 
           <div v-else class="directory-table-shell">
@@ -565,19 +591,18 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-.hero,
+.page-header,
 .directory-panel,
 .notice-panel {
   display: flex;
   flex-direction: column;
 }
 
-.hero {
-  gap: 10px;
+.page-header {
+  gap: 8px;
   max-width: 72ch;
 }
 
-.eyebrow,
 .panel-kicker,
 .field-label {
   color: var(--color-text-secondary);
@@ -587,8 +612,8 @@ onMounted(() => {
   text-transform: uppercase;
 }
 
-.hero h1,
-.hero p,
+.page-header h1,
+.page-header p,
 .directory-header h2,
 .directory-header p,
 .notice-panel h2,
@@ -597,13 +622,7 @@ onMounted(() => {
   margin: 0;
 }
 
-.hero h1 {
-  font-size: clamp(2.5rem, 5vw, 4rem);
-  line-height: 0.94;
-  letter-spacing: -0.05em;
-}
-
-.hero-copy {
+.page-copy {
   color: var(--color-text-secondary);
   font-size: 1.05rem;
   line-height: 1.45;

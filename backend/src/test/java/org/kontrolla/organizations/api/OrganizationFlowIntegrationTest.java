@@ -199,6 +199,47 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
+	void memberListingHidesInactiveMembershipsByDefaultButCanIncludeThem() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+		User activeEmployee = createUser("active@example.com", "Active", "Member", Set.of());
+		User inactiveEmployee = createUser("inactive@example.com", "Inactive", "Member", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Filtered Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+		addMembership(adminToken, organizationId, activeEmployee.getId(), "ORG_EMPLOYEE");
+		String inactiveMembershipResponse = mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								""".formatted(inactiveEmployee.getId())))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.active").value(false))
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String inactiveMembershipId = objectMapper.readTree(inactiveMembershipResponse).get("id").asText();
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(inactiveMembershipId))));
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?includeInactive=true".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.hasItem(inactiveMembershipId)));
+	}
+
+	@Test
 	void tenantMemberCannotModifyAnotherOrganizationsData() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAManager = createUser("orga@example.com", "Org", "AManager", Set.of());

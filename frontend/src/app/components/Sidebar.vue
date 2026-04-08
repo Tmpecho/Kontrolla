@@ -22,7 +22,7 @@ type AppRouteName =
   | 'organization-members'
   | 'settings'
 
-type AppSection = 'workspace' | 'ik-mat' | 'ik-alkohol' | 'account'
+type AppSection = 'workspace' | 'ik-mat' | 'ik-alkohol' | 'admin' | 'account'
 
 type NavigationItem = {
   label: string
@@ -31,7 +31,10 @@ type NavigationItem = {
 
 type MainAreaItem = {
   label: string
-  routeName: Extract<AppRouteName, 'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard'>
+  routeName: Extract<
+    AppRouteName,
+    'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard' | 'organization-members'
+  >
   section: Exclude<AppSection, 'account'>
 }
 
@@ -80,7 +83,11 @@ const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
 const currentAppSection = computed<AppSection>(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
 
-  if (routeName === 'my-profile' || routeName === 'organization-members' || routeName === 'settings') {
+  if (routeName === 'organization-members') {
+    return 'admin'
+  }
+
+  if (routeName === 'my-profile' || routeName === 'settings') {
     return 'account'
   }
 
@@ -95,7 +102,7 @@ const currentAppSection = computed<AppSection>(() => {
   return 'workspace'
 })
 
-const mainAreaItems: MainAreaItem[] = [
+const mainAreaItems = computed<MainAreaItem[]>(() => [
   {
     label: 'Workspace',
     routeName: 'workspace-home',
@@ -111,7 +118,16 @@ const mainAreaItems: MainAreaItem[] = [
     routeName: 'ik-alkohol-dashboard',
     section: 'ik-alkohol',
   },
-]
+  ...(canManageMembers.value
+    ? [
+        {
+          label: 'Admin',
+          routeName: 'organization-members' as const,
+          section: 'admin' as const,
+        },
+      ]
+    : []),
+])
 
 const currentSectionLabel = computed(() => {
   switch (visibleSection.value) {
@@ -119,6 +135,8 @@ const currentSectionLabel = computed(() => {
       return 'IK-mat'
     case 'ik-alkohol':
       return 'IK-alkohol'
+    case 'admin':
+      return 'Admin'
     case 'account':
       return 'Account'
     default:
@@ -180,16 +198,15 @@ const navigationItems = computed<NavigationItem[]>(() => {
           routeName: 'ik-alkohol-deviation',
         },
       ]
+    case 'admin':
+      return [
+        {
+          label: 'Organization members',
+          routeName: 'organization-members',
+        },
+      ]
     case 'account':
       return [
-        ...(canManageMembers.value
-          ? [
-              {
-                label: 'Organization members',
-                routeName: 'organization-members' as const,
-              },
-            ]
-          : []),
         {
           label: 'My profile',
           routeName: 'my-profile',

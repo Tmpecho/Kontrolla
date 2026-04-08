@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
+import { useAuthStore } from '@/auth/model/auth.store'
 
 const props = withDefaults(
   defineProps<{
@@ -25,10 +26,25 @@ const notificationsButton = ref<HTMLButtonElement | null>(null)
 const profileButton = ref<HTMLButtonElement | null>(null)
 const notificationsPopup = ref<InstanceType<typeof NotificationsPopup> | null>(null)
 const profilePopup = ref<InstanceType<typeof ProfilePopup> | null>(null)
+const authStore = useAuthStore()
 const route = useRoute()
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 
 const currentSectionLabel = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName === 'organization-members') {
+    return 'Admin'
+  }
 
   if (routeName === 'my-profile' || routeName === 'settings') {
     return 'Account'
@@ -45,8 +61,12 @@ const currentSectionLabel = computed(() => {
   return 'Workspace'
 })
 
-function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
+function isServiceActive(section: 'admin' | 'ik-mat' | 'ik-alkohol') {
   const routeName = typeof route.name === 'string' ? route.name : ''
+  if (section === 'admin') {
+    return routeName === 'organization-members'
+  }
+
   return routeName.startsWith(`${section}-`)
 }
 
@@ -198,6 +218,14 @@ defineExpose({
           :to="{ name: 'ik-alkohol-dashboard' }"
         >
           IK-Alkohol
+        </RouterLink>
+        <RouterLink
+          v-if="canManageMembers"
+          class="nav-link"
+          :data-active="isServiceActive('admin')"
+          :to="{ name: 'organization-members' }"
+        >
+          Admin
         </RouterLink>
       </div>
     </div>

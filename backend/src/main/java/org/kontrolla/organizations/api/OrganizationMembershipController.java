@@ -27,10 +27,11 @@ public class OrganizationMembershipController {
 	public PageResponse<MembershipResponse> listMembers(
 			@PathVariable UUID organizationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
+			@RequestParam(defaultValue = "false") boolean includeInactive,
 			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
 	) {
 		return PageResponse.from(
-				organizationService.listMemberships(organizationId, currentUser, pageable),
+				organizationService.listMemberships(organizationId, currentUser, pageable, includeInactive),
 				MembershipResponse::from
 		);
 	}

@@ -64,10 +64,18 @@ public class OrganizationService {
 	}
 
 	@Transactional(readOnly = true)
-	public Page<OrganizationMembership> listMemberships(UUID organizationId, CurrentUser currentUser, Pageable pageable) {
+	public Page<OrganizationMembership> listMemberships(
+			UUID organizationId,
+			CurrentUser currentUser,
+			Pageable pageable,
+			boolean includeInactive
+	) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
 		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
-		return membershipRepository.findByOrganizationId(organizationId, pageable);
+		if (includeInactive) {
+			return membershipRepository.findByOrganizationId(organizationId, pageable);
+		}
+		return membershipRepository.findByOrganizationIdAndActiveTrue(organizationId, pageable);
 	}
 
 	@Transactional
