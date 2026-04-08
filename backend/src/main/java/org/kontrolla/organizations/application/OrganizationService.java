@@ -1,9 +1,15 @@
 package org.kontrolla.organizations.application;
 
+import org.kontrolla.audit.application.AuditRecord;
+import org.kontrolla.audit.application.AuditRecorder;
+import org.kontrolla.audit.domain.AuditAction;
+import org.kontrolla.audit.domain.AuditOutcome;
+import org.kontrolla.audit.domain.AuditTargetType;
 import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
+import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.application.UserAdministrationService;
 import org.kontrolla.iam.application.UserInviteService;
 import org.kontrolla.iam.infrastructure.UserRepository;
@@ -33,6 +39,7 @@ public class OrganizationService {
 	private final UserAdministrationService userAdministrationService;
 	private final UserInviteService userInviteService;
 	private final OrganizationAccessService organizationAccessService;
+	private final AuditRecorder auditRecorder;
 
 	public OrganizationService(
 			OrganizationRepository organizationRepository,
@@ -41,7 +48,8 @@ public class OrganizationService {
 			UserRepository userRepository,
 			UserAdministrationService userAdministrationService,
 			UserInviteService userInviteService,
-			OrganizationAccessService organizationAccessService
+			OrganizationAccessService organizationAccessService,
+			AuditRecorder auditRecorder
 	) {
 		this.organizationRepository = organizationRepository;
 		this.membershipRepository = membershipRepository;
@@ -50,6 +58,7 @@ public class OrganizationService {
 		this.userAdministrationService = userAdministrationService;
 		this.userInviteService = userInviteService;
 		this.organizationAccessService = organizationAccessService;
+		this.auditRecorder = auditRecorder;
 	}
 
 	@Transactional
@@ -171,6 +180,7 @@ public class OrganizationService {
 		membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
 		membership = membershipRepository.save(membership);
 		UserInviteService.IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
+		auditRecorder.record(managedUserCreateAudit(organization.getId(), user));
 		return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
 	}
 
@@ -298,6 +308,17 @@ public class OrganizationService {
 		}
 
 		return establishments;
+	}
+
+	private AuditRecord managedUserCreateAudit(UUID organizationId, org.kontrolla.iam.domain.User user) {
+		return AuditRecord.builder(AuditAction.USER_CREATE, AuditOutcome.SUCCESS, "managed_user_created")
+				.organizationId(organizationId)
+				.target(AuditTargetType.USER, user.getId())
+				.metadata("createdEmail", user.getEmail())
+				.metadata("active", user.isActive())
+				.metadata("globalRoles", user.getGlobalRoles().stream().map(GlobalRole::name).sorted().toList())
+				.metadata("creationPath", "managed_invite")
+				.build();
 	}
 
 	public record ManagedMembershipProvision(
