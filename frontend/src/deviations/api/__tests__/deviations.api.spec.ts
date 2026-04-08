@@ -9,6 +9,10 @@ vi.mock('@/auth/model/auth.store', () => ({
   getAccessToken: () => 'test-access-token',
 }))
 
+vi.mock('@/shared/api/csrf', () => ({
+  getCsrfHeaders: async (method: string) => (method === 'GET' ? {} : { 'X-XSRF-TOKEN': 'csrf-token' }),
+}))
+
 vi.mock('@/shared/config/env', () => ({
   appEnv: {
     mode: 'test',

@@ -11,6 +11,7 @@ import org.kontrolla.organizations.infrastructure.OrganizationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
@@ -31,7 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 		"app.security.bootstrap-employees[1].first-name=Noah",
 		"app.security.bootstrap-employees[1].last-name=Berg",
 		"app.security.bootstrap-organization.name=Kontrolla Dev Org",
-		"app.security.bootstrap-establishment.name=Kontrolla Demo Restaurant"
+		"app.security.bootstrap-establishment.name=Kontrolla Demo Restaurant",
+		"app.security.bootstrap-establishment.type=RESTAURANT"
 })
 @ActiveProfiles({"dev", "test"})
 class BootstrapOrganizationContextInitializerIntegrationTest {

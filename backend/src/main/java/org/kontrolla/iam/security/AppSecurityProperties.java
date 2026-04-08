@@ -18,18 +18,21 @@ public class AppSecurityProperties {
 	private final Jwt jwt = new Jwt();
 	private final Refresh refresh = new Refresh();
 	private final Invite invite = new Invite();
+	private final Login login = new Login();
 	private final Cors cors = new Cors();
 	private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
 	private final BootstrapUser bootstrapUser = new BootstrapUser();
 	private final List<BootstrapUser> bootstrapEmployees = new ArrayList<>();
 	private final BootstrapOrganization bootstrapOrganization = new BootstrapOrganization();
 	private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
+	private final List<BootstrapEstablishment> bootstrapEstablishments = new ArrayList<>();
 
 	@Setter
 	@Getter
 	public static class Jwt {
 
 		private String issuer;
+		private String audience;
 		private String secret;
 		private Duration accessTokenTtl = Duration.ofMinutes(15);
 
@@ -54,6 +57,15 @@ public class AppSecurityProperties {
 		private Duration tokenTtl = Duration.ofDays(7);
 		private String frontendBaseUrl = "http://localhost:5173";
 		private boolean exposeInviteUrlInResponse;
+
+	}
+
+	@Setter
+	@Getter
+	public static class Login {
+
+		private int maxFailedAttempts = 5;
+		private Duration lockoutDuration = Duration.ofMinutes(10);
 
 	}
 
