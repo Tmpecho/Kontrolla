@@ -2,6 +2,7 @@ package org.kontrolla.organizations.application;
 
 import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
+import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationMembership;
@@ -29,13 +30,16 @@ public class OrganizationAccessService {
 	);
 
 	private final OrganizationRepository organizationRepository;
+	private final EstablishmentRepository establishmentRepository;
 	private final OrganizationMembershipRepository membershipRepository;
 
 	public OrganizationAccessService(
 			OrganizationRepository organizationRepository,
+			EstablishmentRepository establishmentRepository,
 			OrganizationMembershipRepository membershipRepository
 	) {
 		this.organizationRepository = organizationRepository;
+		this.establishmentRepository = establishmentRepository;
 		this.membershipRepository = membershipRepository;
 	}
 
@@ -94,6 +98,9 @@ public class OrganizationAccessService {
 
 	@Transactional(readOnly = true)
 	public void requireEstablishmentAccess(CurrentUser currentUser, UUID organizationId, UUID establishmentId) {
+		establishmentRepository.findByIdAndOrganizationId(establishmentId, organizationId)
+				.orElseThrow(() -> new ResourceNotFoundException("establishment_not_found", "Establishment not found"));
+
 		if (currentUser.isPlatformAdmin()) {
 			return;
 		}

@@ -340,6 +340,39 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
+	void memberListingRejectsForeignEstablishmentId() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String orgAId = createOrganization(adminToken, "Org A");
+		String orgBId = createOrganization(adminToken, "Org B");
+		addMembership(adminToken, orgAId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String foreignEstablishmentResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(orgBId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Foreign Bar",
+								  "type": "BAR"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String foreignEstablishmentId = objectMapper.readTree(foreignEstablishmentResponse).get("id").asText();
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?establishmentId=%s".formatted(orgAId, foreignEstablishmentId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
 	void membershipUpdatePreservesScopedEstablishmentAccessWhenScopeIsOmitted() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
