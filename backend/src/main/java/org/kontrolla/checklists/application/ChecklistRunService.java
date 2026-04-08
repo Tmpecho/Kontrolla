@@ -78,7 +78,13 @@ public class ChecklistRunService {
 			Pageable pageable
 	) {
 		checklistAccessService.requireChecklistReadAccess(organizationId, establishmentId, currentUser);
-		UUID effectiveAssignedUserId = resolveAssignedUserFilter(organizationId, assignedUserId, assignedToCurrentUser, currentUser);
+		UUID effectiveAssignedUserId = resolveAssignedUserFilter(
+				organizationId,
+				establishmentId,
+				assignedUserId,
+				assignedToCurrentUser,
+				currentUser
+		);
 		List<ChecklistRunStatus> normalizedStatuses = statuses == null ? List.of() : statuses.stream().filter(Objects::nonNull).distinct().toList();
 		Collection<ChecklistRunStatus> statusesForQuery = normalizedStatuses.isEmpty()
 				? List.of(ChecklistRunStatus.PENDING)
@@ -115,12 +121,12 @@ public class ChecklistRunService {
 			List<UUID> assignedUserIds,
 			CurrentUser currentUser
 	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, currentUser);
+		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
 		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
 		User actor = getUserOrThrow(currentUser.userId());
 		Instant now = Instant.now();
 
-		Map<UUID, User> usersById = getAssignableUsersById(organizationId, assignedUserIds);
+		Map<UUID, User> usersById = getAssignableUsersById(organizationId, establishmentId, assignedUserIds);
 		Set<UUID> existingAssignments = checklistRun.getAssignments().stream()
 				.map(assignment -> assignment.getAssignedUser().getId())
 				.collect(LinkedHashSet::new, Set::add, Set::addAll);
@@ -148,7 +154,7 @@ public class ChecklistRunService {
 			UUID assignmentId,
 			CurrentUser currentUser
 	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, currentUser);
+		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
 		findChecklistRunOrThrow(establishmentId, checklistRunId);
 
 		ChecklistRunAssignment assignment = checklistRunAssignmentRepository.findByIdAndChecklistRunId(assignmentId, checklistRunId)
@@ -316,7 +322,7 @@ public class ChecklistRunService {
 			UUID checklistRunId,
 			CurrentUser currentUser
 	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, currentUser);
+		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
 		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
 
 		if (checklistRun.getStatus() != ChecklistRunStatus.COMPLETED && checklistRun.getStatus() != ChecklistRunStatus.CANCELLED) {
@@ -346,7 +352,7 @@ public class ChecklistRunService {
 			UUID checklistRunId,
 			CurrentUser currentUser
 	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, currentUser);
+		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
 		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
 
 		if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
@@ -414,6 +420,7 @@ public class ChecklistRunService {
 
 	private UUID resolveAssignedUserFilter(
 			UUID organizationId,
+			UUID establishmentId,
 			UUID assignedUserId,
 			boolean assignedToCurrentUser,
 			CurrentUser currentUser
@@ -428,7 +435,7 @@ public class ChecklistRunService {
 			return currentUser.userId();
 		}
 
-		checklistAccessService.requireAssignmentFilterAccess(organizationId, assignedUserId, currentUser);
+		checklistAccessService.requireAssignmentFilterAccess(organizationId, establishmentId, assignedUserId, currentUser);
 		return assignedUserId;
 	}
 
@@ -437,7 +444,7 @@ public class ChecklistRunService {
 				.orElseThrow(checklistAccessService::checklistRunNotFound);
 	}
 
-	private Map<UUID, User> getAssignableUsersById(UUID organizationId, Collection<UUID> userIds) {
+	private Map<UUID, User> getAssignableUsersById(UUID organizationId, UUID establishmentId, Collection<UUID> userIds) {
 		List<User> users = userRepository.findAllById(userIds);
 		Map<UUID, User> usersById = users.stream()
 				.collect(LinkedHashMap::new, (map, user) -> map.put(user.getId(), user), Map::putAll);
@@ -447,12 +454,13 @@ public class ChecklistRunService {
 				throw new ResourceNotFoundException("user_not_found", "User not found");
 			}
 			boolean hasActiveMembership = organizationMembershipRepository.findByOrganizationIdAndUserId(organizationId, userId)
-					.map(OrganizationMembership::isActive)
-					.orElse(false);
+					.filter(OrganizationMembership::isActive)
+					.filter(membership -> membership.hasEstablishmentAccess(establishmentId))
+					.isPresent();
 			if (!hasActiveMembership) {
 				throw new ForbiddenException(
 						"checklist_assignment_user_forbidden",
-						"Checklist runs can only be assigned to active members of the organization"
+						"Checklist runs can only be assigned to active members with access to the establishment"
 				);
 			}
 		});

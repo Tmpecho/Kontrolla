@@ -16,10 +16,16 @@ const getBaseUrl = ({ organizationId }: OrganizationContext) =>
   `/api/v1/organizations/${organizationId}/members`
 
 export async function listOrganizationMembers(
-  params: OrganizationContext & { includeInactive?: boolean; page?: number; size?: number },
+  params: OrganizationContext & {
+    establishmentId?: string
+    includeInactive?: boolean
+    page?: number
+    size?: number
+  },
 ): Promise<OrganizationMembershipPage> {
   return requestJson<OrganizationMembershipPage>(getBaseUrl(params), {
     query: {
+      establishmentId: params.establishmentId,
       includeInactive: params.includeInactive,
       page: params.page,
       size: params.size,

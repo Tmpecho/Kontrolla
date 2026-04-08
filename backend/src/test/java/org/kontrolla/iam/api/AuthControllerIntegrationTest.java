@@ -146,6 +146,39 @@ class AuthControllerIntegrationTest {
 	}
 
 	@Test
+	void scopedMembershipUsesAccessibleEstablishmentInAppContext() throws Exception {
+		User user = new User("alice@example.com", "Alice", "Example", passwordEncoder.encode("password123"), true, Set.of());
+		userRepository.saveAndFlush(user);
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
+		establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Blocked Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
+		Establishment accessibleEstablishment = establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Accessible Establishment", EstablishmentType.BAR, EstablishmentStatus.ACTIVE));
+		OrganizationMembership membership = new OrganizationMembership(
+				organization,
+				user,
+				OrganizationRole.ORG_EMPLOYEE,
+				true,
+				false
+		);
+		membership.replaceAccessibleEstablishments(java.util.List.of(accessibleEstablishment));
+		organizationMembershipRepository.saveAndFlush(membership);
+
+		mockMvc.perform(post("/api/v1/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "alice@example.com",
+								  "password": "password123"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
+				.andExpect(jsonPath("$.appContext.establishmentName").value("Accessible Establishment"));
+	}
+
+	@Test
 	void invitedUserCanAcceptInvitationAndThenLogIn() throws Exception {
 		User platformAdmin = new User(
 				"admin@example.com",

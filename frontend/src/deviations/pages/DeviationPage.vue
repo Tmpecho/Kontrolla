@@ -65,6 +65,10 @@ const missingContextMessage = computed(() => {
     return null
   }
 
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Choose an establishment to load deviations.'
+  }
+
   if (!appEnv.isDevelopment) {
     return 'Deviations cannot be loaded until organization and establishment context is available.'
   }
@@ -248,6 +252,8 @@ async function loadDeviations() {
       }),
       listOrganizationMembers({
         organizationId: resolvedOrganizationId,
+        establishmentId: resolvedEstablishmentId,
+        includeInactive: true,
         size: 200,
       }).catch(() => null),
     ])

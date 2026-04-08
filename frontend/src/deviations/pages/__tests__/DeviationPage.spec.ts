@@ -126,6 +126,8 @@ describe('DeviationPage', () => {
           userLastName: 'User',
           role: 'ORG_EMPLOYEE',
           active: true,
+          allEstablishments: false,
+          establishments: [{ id: 'est-1', name: 'Restaurant' }],
           createdAt: '2026-04-06T08:00:00Z',
           updatedAt: '2026-04-06T08:00:00Z',
         },
@@ -196,6 +198,12 @@ describe('DeviationPage', () => {
     await flushPromises()
 
     expect(listEstablishmentDeviationsMock).toHaveBeenCalled()
+    expect(listOrganizationMembersMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      includeInactive: true,
+      size: 200,
+    })
     expect(getDeviationMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
       establishmentId: 'est-1',
@@ -250,6 +258,8 @@ describe('DeviationPage', () => {
           userLastName: 'User',
           role: 'ORG_EMPLOYEE',
           active: true,
+          allEstablishments: false,
+          establishments: [{ id: 'est-1', name: 'Restaurant' }],
           createdAt: '2026-04-06T08:00:00Z',
           updatedAt: '2026-04-06T08:00:00Z',
         },
@@ -261,6 +271,8 @@ describe('DeviationPage', () => {
           userLastName: 'User',
           role: 'ORG_EMPLOYEE',
           active: false,
+          allEstablishments: false,
+          establishments: [{ id: 'est-1', name: 'Restaurant' }],
           createdAt: '2026-04-06T08:00:00Z',
           updatedAt: '2026-04-06T08:00:00Z',
         },

@@ -240,6 +240,94 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
+	void memberListingCanBeFilteredByEstablishmentScope() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+		User restaurantEmployee = createUser("restaurant@example.com", "Restaurant", "Employee", Set.of());
+		User barEmployee = createUser("bar@example.com", "Bar", "Employee", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Scoped Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String restaurantResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Restaurant",
+								  "type": "RESTAURANT"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		String barResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Bar",
+								  "type": "BAR"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String restaurantId = objectMapper.readTree(restaurantResponse).get("id").asText();
+		String barId = objectMapper.readTree(barResponse).get("id").asText();
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "allEstablishments": false,
+								  "establishmentIds": ["%s"]
+								}
+								""".formatted(restaurantEmployee.getId(), restaurantId)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.allEstablishments").value(false))
+				.andExpect(jsonPath("$.establishments[0].id").value(restaurantId));
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "allEstablishments": false,
+								  "establishmentIds": ["%s"]
+								}
+								""".formatted(barEmployee.getId(), barId)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.allEstablishments").value(false))
+				.andExpect(jsonPath("$.establishments[0].id").value(barId));
+
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?establishmentId=%s".formatted(organizationId, restaurantId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("orgadmin@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("restaurant@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("bar@example.com"))));
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?establishmentId=%s".formatted(organizationId, barId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("orgadmin@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("bar@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("restaurant@example.com"))));
+	}
+
+	@Test
 	void tenantMemberCannotModifyAnotherOrganizationsData() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAManager = createUser("orga@example.com", "Org", "AManager", Set.of());

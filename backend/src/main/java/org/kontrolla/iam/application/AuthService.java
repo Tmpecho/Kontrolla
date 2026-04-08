@@ -1,6 +1,7 @@
 package org.kontrolla.iam.application;
 
 import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.common.exception.UnauthorizedException;
 import org.kontrolla.iam.domain.RefreshToken;
@@ -22,6 +23,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.Optional;
 
@@ -130,8 +132,19 @@ public class AuthService {
 		}
 
 		OrganizationMembership activeMembership = membership.get();
-		Optional<Establishment> establishment = establishmentRepository
-				.findFirstByOrganizationIdOrderByCreatedAtAsc(activeMembership.getOrganization().getId());
+		Optional<Establishment> establishment;
+		if (activeMembership.getRole() == org.kontrolla.organizations.domain.OrganizationRole.ORG_OWNER
+				|| activeMembership.getRole() == org.kontrolla.organizations.domain.OrganizationRole.ORG_ADMIN
+				|| activeMembership.isAccessAllEstablishments()) {
+			establishment = establishmentRepository.findFirstByOrganizationIdAndStatusOrderByCreatedAtAsc(
+					activeMembership.getOrganization().getId(),
+					EstablishmentStatus.ACTIVE
+			);
+		} else {
+			establishment = activeMembership.getAccessibleEstablishments().stream()
+					.filter(candidate -> candidate.getStatus() == EstablishmentStatus.ACTIVE)
+					.min(Comparator.comparing(Establishment::getCreatedAt));
+		}
 
 		return new UserAppContext(
 				activeMembership.getOrganization().getId(),

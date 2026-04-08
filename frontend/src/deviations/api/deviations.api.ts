@@ -55,6 +55,11 @@ export type OrganizationMemberResponse = {
   userLastName: string
   role: string
   active: boolean
+  allEstablishments: boolean
+  establishments: Array<{
+    id: string
+    name: string
+  }>
   createdAt: string
   updatedAt: string
 }
@@ -201,6 +206,8 @@ export async function addDeviationTimelineNote(
 
 export async function listOrganizationMembers(params: {
   organizationId: string
+  establishmentId?: string
+  includeInactive?: boolean
   page?: number
   size?: number
 }): Promise<PageResponse<OrganizationMemberResponse>> {
@@ -208,6 +215,8 @@ export async function listOrganizationMembers(params: {
     `/api/v1/organizations/${params.organizationId}/members`,
     {
       query: {
+        establishmentId: params.establishmentId,
+        includeInactive: params.includeInactive,
         page: params.page,
         size: params.size,
       },
