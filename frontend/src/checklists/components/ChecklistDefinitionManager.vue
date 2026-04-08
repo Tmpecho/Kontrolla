@@ -62,6 +62,15 @@ const emit = defineEmits<{
 
 const DEFAULT_TIMEZONE = 'Europe/Oslo'
 const WEEKDAY_LABELS = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su']
+const TIMEZONE_OPTIONS = [
+  'Europe/Oslo',
+  'Europe/Stockholm',
+  'Europe/Copenhagen',
+  'Europe/Helsinki',
+  'Europe/London',
+  'Europe/Berlin',
+  'UTC',
+]
 
 const definitions = ref<ChecklistDefinition[]>([])
 const isLoading = ref(false)
@@ -774,7 +783,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 
                   <label class="field-block">
                     <span>Timezone</span>
-                    <input v-model="schedule.timezone" type="text" maxlength="64" />
+                    <input
+                      v-model="schedule.timezone"
+                      type="text"
+                      maxlength="64"
+                      list="checklist-timezone-options"
+                      placeholder="Select or type timezone"
+                    />
                   </label>
 
                   <label v-if="schedule.scheduleType === 'MONTHLY'" class="field-block">
@@ -960,7 +975,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 
               <label class="field-block">
                 <span>Timezone</span>
-                <input v-model="schedule.timezone" type="text" maxlength="64" />
+                <input
+                  v-model="schedule.timezone"
+                  type="text"
+                  maxlength="64"
+                  list="checklist-timezone-options"
+                  placeholder="Select or type timezone"
+                />
               </label>
 
               <label v-if="schedule.scheduleType === 'MONTHLY'" class="field-block">
@@ -1001,6 +1022,9 @@ watch(definitions, maybeOpenRequestedDefinition)
         </button>
       </footer>
     </form>
+    <datalist id="checklist-timezone-options">
+      <option v-for="timezone in TIMEZONE_OPTIONS" :key="timezone" :value="timezone" />
+    </datalist>
   </section>
 </template>
 
