@@ -16,28 +16,49 @@ const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(() => {
-  if (authStore.appContext?.organizationId) {
-    return authStore.appContext.establishmentId ?? null
+
+const resolvedChecklistContext = computed(() => {
+  if (!authStore.isSessionReady) {
+    return null
   }
 
-  return appEnv.defaultEstablishmentId ?? null
-})
-const availableEstablishmentIds = computed(() => {
-  if (establishmentId.value) {
-    return [establishmentId.value]
+  const organizationId = authStore.appContext?.organizationId ?? null
+
+  if (organizationId) {
+    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
+
+    if (selectedEstablishmentId) {
+      return { organizationId, establishmentIds: [selectedEstablishmentId] }
+    }
+
+    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
+    if (establishmentIds.length > 0) {
+      return { organizationId, establishmentIds }
+    }
   }
 
-  return (authStore.establishments ?? []).map((establishment) => establishment.id)
+  if (!authStore.isAuthenticated) {
+    const defaultOrganizationId = appEnv.defaultOrganizationId
+    const defaultEstablishmentId = appEnv.defaultEstablishmentId
+
+    if (defaultOrganizationId && defaultEstablishmentId) {
+      return {
+        organizationId: defaultOrganizationId,
+        establishmentIds: [defaultEstablishmentId],
+      }
+    }
+  }
+
+  return null
 })
-const hasChecklistContext = computed(
-  () => Boolean(organizationId.value && availableEstablishmentIds.value.length > 0),
-)
+
+const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
 
 const missingContextMessage = computed(() => {
+  if (!authStore.isSessionReady) {
+    return 'Loading checklist context...'
+  }
+
   if (hasChecklistContext.value) {
     return null
   }
@@ -75,9 +96,9 @@ function formatUnitSummary(count: number, label: string): string {
 }
 
 async function loadChecklistRuns(): Promise<void> {
-  const resolvedOrganizationId = organizationId.value
+  const context = resolvedChecklistContext.value
 
-  if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
+  if (!context) {
     checklistRuns.value = []
     errorMessage.value = null
     return
@@ -88,10 +109,10 @@ async function loadChecklistRuns(): Promise<void> {
 
   try {
     const pages = await Promise.all(
-      availableEstablishmentIds.value.map((nextEstablishmentId) =>
+      context.establishmentIds.map((establishmentId) =>
         listChecklistRuns({
-          organizationId: resolvedOrganizationId,
-          establishmentId: nextEstablishmentId,
+          organizationId: context.organizationId,
+          establishmentId,
           serviceArea: 'IK_MAT',
           size: 20,
         }),
@@ -108,9 +129,16 @@ async function loadChecklistRuns(): Promise<void> {
 }
 
 watch(
-  [organizationId, establishmentId, availableEstablishmentIds],
-  () => {
-    void loadChecklistRuns()
+  resolvedChecklistContext,
+  async (context) => {
+    if (!context) {
+      checklistRuns.value = []
+      errorMessage.value = null
+      isLoading.value = false
+      return
+    }
+
+    await loadChecklistRuns()
   },
   { immediate: true },
 )

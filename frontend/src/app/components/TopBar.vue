@@ -2,10 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
-import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useNotificationsStore } from '@/notifications/model/notifications.store'
 
 const props = withDefaults(
   defineProps<{
@@ -39,6 +40,11 @@ const canManageMembers = computed(() => {
     authStore.appContext?.organizationRole === 'ORG_ADMIN'
   )
 })
+
+const notificationsStore = useNotificationsStore()
+const unreadBadgeLabel = computed(() =>
+  notificationsStore.unreadCount > 9 ? '9+' : String(notificationsStore.unreadCount),
+)
 
 const currentSectionLabel = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
@@ -247,10 +253,14 @@ defineExpose({
           @click.stop="togglePopup('notifications')"
         >
           <img alt="" class="top-bar-img" src="@/assets/icons/notification.png" />
+          <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">
+            {{ unreadBadgeLabel }}
+          </span>
         </button>
         <NotificationsPopup
           v-if="activePopup === 'notifications'"
           ref="notificationsPopup"
+          @close="closePopup"
         />
       </div>
 
@@ -268,11 +278,7 @@ defineExpose({
         >
           <img alt="" class="top-bar-img" src="@/assets/icons/profile.png" />
         </button>
-        <ProfilePopup
-          v-if="activePopup === 'profile'"
-          ref="profilePopup"
-          @close="closePopup"
-        />
+        <ProfilePopup v-if="activePopup === 'profile'" ref="profilePopup" @close="closePopup" />
       </div>
     </div>
   </div>
@@ -409,6 +415,22 @@ defineExpose({
   width: 25px;
   height: 25px;
   cursor: pointer;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: var(--color-white);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
 }
 
 @media (max-width: 960px) {

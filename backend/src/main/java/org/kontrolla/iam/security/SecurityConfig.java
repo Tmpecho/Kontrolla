@@ -2,8 +2,6 @@ package org.kontrolla.iam.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.kontrolla.common.api.ApiProblemDetails;
@@ -13,7 +11,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.Customizer;
@@ -33,23 +30,17 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
-import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
-import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -88,14 +79,14 @@ public class SecurityConfig {
 				)
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(this::toAuthentication)))
 				.exceptionHandling(exceptions -> exceptions
-						.authenticationEntryPoint((request, response, exception) -> writeProblem(
+						.authenticationEntryPoint((request, response, _) -> writeProblem(
 								request,
 								response,
 								HttpStatus.UNAUTHORIZED,
 								"unauthorized",
 								"Authentication is required"
 						))
-						.accessDeniedHandler((request, response, exception) -> writeProblem(
+						.accessDeniedHandler((request, response, _) -> writeProblem(
 								request,
 								response,
 								HttpStatus.FORBIDDEN,
@@ -182,46 +173,5 @@ public class SecurityConfig {
 		response.setStatus(status.value());
 		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
 		objectMapper.writeValue(response.getOutputStream(), ApiProblemDetails.create(status, code, message, request.getRequestURI()));
-	}
-
-	private static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
-
-		private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
-		private final CsrfTokenRequestHandler xor = new XorCsrfTokenRequestAttributeHandler();
-
-		@Override
-		public void handle(
-				HttpServletRequest request,
-				HttpServletResponse response,
-				Supplier<CsrfToken> csrfToken
-		) {
-			xor.handle(request, response, csrfToken);
-			csrfToken.get();
-		}
-
-		@Override
-		public String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken csrfToken) {
-			String headerValue = request.getHeader(csrfToken.getHeaderName());
-			if (StringUtils.hasText(headerValue)) {
-				return plain.resolveCsrfTokenValue(request, csrfToken);
-			}
-			return xor.resolveCsrfTokenValue(request, csrfToken);
-		}
-	}
-
-	private static final class CsrfCookieFilter extends org.springframework.web.filter.OncePerRequestFilter {
-
-		@Override
-		protected void doFilterInternal(
-				HttpServletRequest request,
-				@NonNull HttpServletResponse response,
-				@NonNull FilterChain filterChain
-		) throws ServletException, IOException {
-			CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
-			if (csrfToken != null) {
-				csrfToken.getToken();
-			}
-			filterChain.doFilter(request, response);
-		}
 	}
 }

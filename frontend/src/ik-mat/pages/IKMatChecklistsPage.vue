@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
@@ -12,42 +13,57 @@ import { appEnv } from '@/shared/config/env'
 type TriageFilter = 'OVERDUE' | 'DUE_TODAY' | 'IN_PROGRESS' | 'COMPLETED'
 
 const authStore = useAuthStore()
+const route = useRoute()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const activeFilter = ref<TriageFilter>('OVERDUE')
 const searchQuery = ref('')
-const pinnedRunIdsByFilter = ref<Record<TriageFilter, string[]>>({
-  OVERDUE: [],
-  DUE_TODAY: [],
-  IN_PROGRESS: [],
-  COMPLETED: [],
-})
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(() => {
-  if (authStore.appContext?.organizationId) {
-    return authStore.appContext.establishmentId ?? null
+const resolvedChecklistContext = computed(() => {
+  if (!authStore.isSessionReady) {
+    return null
   }
 
-  return appEnv.defaultEstablishmentId ?? null
-})
-const availableEstablishmentIds = computed(() => {
-  if (establishmentId.value) {
-    return [establishmentId.value]
+  const organizationId = authStore.appContext?.organizationId ?? null
+
+  if (organizationId) {
+    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
+
+    if (selectedEstablishmentId) {
+      return { organizationId, establishmentIds: [selectedEstablishmentId] }
+    }
+
+    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
+    if (establishmentIds.length > 0) {
+      return { organizationId, establishmentIds }
+    }
   }
 
-  return (authStore.establishments ?? []).map((establishment) => establishment.id)
+  if (!authStore.isAuthenticated) {
+    const defaultOrganizationId = appEnv.defaultOrganizationId
+    const defaultEstablishmentId = appEnv.defaultEstablishmentId
+
+    if (defaultOrganizationId && defaultEstablishmentId) {
+      return {
+        organizationId: defaultOrganizationId,
+        establishmentIds: [defaultEstablishmentId],
+      }
+    }
+  }
+
+  return null
 })
-const hasChecklistContext = computed(
-  () => Boolean(organizationId.value && availableEstablishmentIds.value.length > 0),
-)
+
+const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
 
 const missingContextMessage = computed(() => {
+  if (!authStore.isSessionReady) {
+    return 'Loading checklist context...'
+  }
+
   if (hasChecklistContext.value) {
     return null
   }
@@ -64,9 +80,9 @@ const missingContextMessage = computed(() => {
 })
 
 async function loadChecklistRuns(): Promise<void> {
-  const resolvedOrganizationId = organizationId.value
+  const context = resolvedChecklistContext.value
 
-  if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
+  if (!context) {
     checklistRuns.value = []
     errorMessage.value = null
     return
@@ -77,10 +93,10 @@ async function loadChecklistRuns(): Promise<void> {
 
   try {
     const pages = await Promise.all(
-      availableEstablishmentIds.value.map((nextEstablishmentId) =>
+      context.establishmentIds.map((establishmentId) =>
         listChecklistRuns({
-          organizationId: resolvedOrganizationId,
-          establishmentId: nextEstablishmentId,
+          organizationId: context.organizationId,
+          establishmentId,
           serviceArea: 'IK_MAT',
           size: 20,
         }),
@@ -88,12 +104,6 @@ async function loadChecklistRuns(): Promise<void> {
     )
 
     checklistRuns.value = selectLatestChecklistRuns(pages.flatMap((page) => page.items))
-    pinnedRunIdsByFilter.value = {
-      OVERDUE: [],
-      DUE_TODAY: [],
-      IN_PROGRESS: [],
-      COMPLETED: [],
-    }
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -106,27 +116,9 @@ function handleRunUpdate(updatedRun: ChecklistRun) {
   checklistRuns.value = checklistRuns.value.map((run) =>
     run.id === updatedRun.id ? updatedRun : run,
   )
-
-  if (!hasSearchQuery.value) {
-    pinnedRunIdsByFilter.value = {
-      ...pinnedRunIdsByFilter.value,
-      [activeFilter.value]: [
-        ...new Set([...pinnedRunIdsByFilter.value[activeFilter.value], updatedRun.id]),
-      ],
-    }
-  }
 }
 
 function handleFilterSelect(filter: TriageFilter) {
-  if (filter !== activeFilter.value) {
-    pinnedRunIdsByFilter.value = {
-      OVERDUE: [],
-      DUE_TODAY: [],
-      IN_PROGRESS: [],
-      COMPLETED: [],
-    }
-  }
-
   activeFilter.value = filter
   if (hasSearchQuery.value) {
     searchQuery.value = ''
@@ -185,12 +177,15 @@ const triageOptions = computed(() => {
 })
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
+const selectedChecklistRunId = computed(() => {
+  const routeQueryValue = route.query.checklistRunId
+  return typeof routeQueryValue === 'string' && routeQueryValue.length > 0 ? routeQueryValue : null
+})
 const isFilterVisuallyActive = (filter: TriageFilter) =>
   !hasSearchQuery.value && activeFilter.value === filter
 
 const filteredChecklistRuns = computed(() => {
   const normalizedQuery = searchQuery.value.trim().toLowerCase()
-  const pinnedRunIds = new Set(pinnedRunIdsByFilter.value[activeFilter.value])
 
   return checklistRuns.value.filter((run) => {
     const haystack = [run.title, run.description ?? '', run.status.replace(/_/g, ' ')]
@@ -201,14 +196,21 @@ const filteredChecklistRuns = computed(() => {
       return haystack.includes(normalizedQuery)
     }
 
-    return matchesFilter(run, activeFilter.value) || pinnedRunIds.has(run.id)
+    return matchesFilter(run, activeFilter.value) || selectedChecklistRunId.value === run.id
   })
 })
 
 watch(
-  [organizationId, establishmentId, availableEstablishmentIds],
-  () => {
-    void loadChecklistRuns()
+  resolvedChecklistContext,
+  async (context) => {
+    if (!context) {
+      checklistRuns.value = []
+      errorMessage.value = null
+      isLoading.value = false
+      return
+    }
+
+    await loadChecklistRuns()
   },
   { immediate: true },
 )
@@ -268,8 +270,10 @@ watch(
           v-for="run in filteredChecklistRuns"
           :key="run.id"
           :run="run"
-          :organization-id="organizationId ?? ''"
-          :establishment-id="establishmentId ?? ''"
+          :organization-id="resolvedChecklistContext!.organizationId"
+          :establishment-id="resolvedChecklistContext!.establishmentIds[0] ?? ''"
+          :selected="selectedChecklistRunId === run.id"
+          :force-expanded="selectedChecklistRunId === run.id"
           @update:run="handleRunUpdate"
         />
       </div>
@@ -360,31 +364,31 @@ watch(
   align-items: center;
   justify-content: center;
   min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.35rem;
+  padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-border-muted) 70%, white);
-  color: inherit;
-  font-size: 0.8125rem;
-  font-weight: 700;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .search-field {
-  min-width: min(100%, 320px);
+  min-width: min(100%, 280px);
 }
 
 .search-field input {
   width: 100%;
-  padding: 12px 14px;
+  min-height: 2.75rem;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 999px;
-  background: var(--color-container);
+  border-radius: 4px;
+  background: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
 }
 
-.search-field input::placeholder {
-  color: var(--color-text-secondary);
+.search-field input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .runs-grid {
@@ -393,15 +397,14 @@ watch(
 }
 
 .state-card {
-  padding: 24px;
-  border: 1px solid var(--color-border-muted);
+  padding: 20px;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background-color: var(--color-container);
-  color: var(--color-text-secondary);
+  background: var(--color-container);
 }
 
 .state-card-error {
-  color: var(--color-critical);
+  border-color: color-mix(in srgb, var(--color-critical) 35%, var(--color-border));
 }
 
 .sr-only {

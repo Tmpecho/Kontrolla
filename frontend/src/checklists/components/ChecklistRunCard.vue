@@ -17,6 +17,8 @@ const props = defineProps<{
   run: ChecklistRun
   organizationId: string
   establishmentId: string
+  selected?: boolean
+  forceExpanded?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +37,16 @@ watch(
   () => props.run.tasks,
   (tasks) => {
     workingTasks.value = cloneTasks(tasks)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.forceExpanded,
+  (forceExpanded) => {
+    if (forceExpanded) {
+      isExpanded.value = true
+    }
   },
   { immediate: true },
 )
@@ -206,7 +218,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 </script>
 
 <template>
-  <article class="run-card">
+  <article class="run-card" :class="{ 'run-card-selected': selected }">
     <header
       class="run-header"
       role="button"
@@ -335,6 +347,12 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   flex-direction: column;
   overflow: hidden;
 }
+
+.run-card-selected {
+  border-color: var(--color-primary);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 .run-header,
 .tasks-container,
 .run-footer {

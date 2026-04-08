@@ -38,8 +38,8 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-		AuthSession session = authService.login(request.email(), request.password());
+	public ResponseEntity<LoginResponse> login(HttpServletRequest httpRequest, @Valid @RequestBody LoginRequest request) {
+		AuthSession session = authService.login(request.email(), request.password(), httpRequest.getRemoteAddr());
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
 				.body(
@@ -53,7 +53,7 @@ public class AuthController {
 
 	@PostMapping("/refresh")
 	public ResponseEntity<LoginResponse> refresh(HttpServletRequest request) {
-		AuthSession session = authService.refresh(extractRefreshCookie(request));
+		AuthSession session = authService.refresh(extractRefreshCookie(request), request.getRemoteAddr());
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
 				.body(
@@ -73,16 +73,6 @@ public class AuthController {
 				.build();
 	}
 
-	@GetMapping("/csrf")
-	public CsrfTokenResponse csrf(HttpServletRequest request, HttpServletResponse response) {
-		CsrfToken csrfToken = csrfTokenRepository.loadToken(request);
-		if (csrfToken == null) {
-			csrfToken = csrfTokenRepository.generateToken(request);
-			csrfTokenRepository.saveToken(csrfToken, request, response);
-		}
-		return CsrfTokenResponse.from(csrfToken);
-	}
-
 	@GetMapping("/invitations/{token}")
 	public InviteDetailsResponse getInvite(@PathVariable String token) {
 		return InviteDetailsResponse.from(authService.getInviteDetails(token));
@@ -92,6 +82,16 @@ public class AuthController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void acceptInvite(@PathVariable String token, @Valid @RequestBody AcceptInviteRequest request) {
 		authService.acceptInvite(token, request.password());
+	}
+
+	@GetMapping("/csrf")
+	public CsrfTokenResponse csrf(HttpServletRequest request, HttpServletResponse response) {
+		CsrfToken csrfToken = csrfTokenRepository.loadToken(request);
+		if (csrfToken == null) {
+			csrfToken = csrfTokenRepository.generateToken(request);
+			csrfTokenRepository.saveToken(csrfToken, request, response);
+		}
+		return CsrfTokenResponse.from(csrfToken);
 	}
 
 	@GetMapping("/me")

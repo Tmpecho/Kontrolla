@@ -8,7 +8,6 @@ import org.kontrolla.organizations.domain.OrganizationRole;
 
 import java.util.List;
 import java.util.UUID;
-
 public record CreateManagedMemberRequest(
 		@NotBlank @Email String email,
 		@NotBlank @Size(max = 255) String firstName,

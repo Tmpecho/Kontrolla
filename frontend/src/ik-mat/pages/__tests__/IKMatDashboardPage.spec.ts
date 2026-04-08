@@ -17,6 +17,8 @@ const { listChecklistRunsMock, appEnvMock, authStoreMock } = vi.hoisted(() => ({
     showDevLoginHint: false,
   },
   authStoreMock: {
+    isSessionReady: true,
+    isAuthenticated: false,
     appContext: null,
     establishments: [],
     requiresEstablishmentSelection: false,
@@ -27,12 +29,12 @@ vi.mock('@/checklists/api/checklist-runs.api', () => ({
   listChecklistRuns: listChecklistRunsMock,
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  appEnv: appEnvMock,
-}))
-
 vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
+}))
+
+vi.mock('@/shared/config/env', () => ({
+  appEnv: appEnvMock,
 }))
 
 function createDeferred<T>() {
@@ -73,6 +75,8 @@ describe('IKMatDashboardPage', () => {
     appEnvMock.isProduction = false
     appEnvMock.defaultOrganizationId = 'org-1'
     appEnvMock.defaultEstablishmentId = 'est-1'
+    authStoreMock.isSessionReady = true
+    authStoreMock.isAuthenticated = false
     authStoreMock.appContext = null
     authStoreMock.establishments = []
     authStoreMock.requiresEstablishmentSelection = false

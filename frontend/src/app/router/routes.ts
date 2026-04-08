@@ -21,6 +21,7 @@ import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 import MyProfilePage from '@/account/pages/MyProfilePage.vue'
 import SettingsPage from '@/account/pages/SettingsPage.vue'
 import OrganizationMembersPage from '@/account/pages/OrganizationMembersPage.vue'
+import NotificationsPage from '@/notifications/pages/NotificationsPage.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -147,6 +148,11 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           requiresMemberManagement: true,
         },
+      },
+      {
+        path: 'notifications',
+        name: 'notifications',
+        component: NotificationsPage,
       },
       {
         path: ':pathMatch(.*)*',
