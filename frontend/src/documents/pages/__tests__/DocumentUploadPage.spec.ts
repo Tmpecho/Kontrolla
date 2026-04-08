@@ -142,10 +142,10 @@ describe('DocumentUploadPage', () => {
   })
 
   it('prevents duplicate submissions while an upload is already in flight', async () => {
-    let resolveUpload: ((value: { id: string }) => void) | null = null
+    let resolveUpload: ((value: { id: string }) => void) | undefined
     createDocumentMock.mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise<{ id: string }>((resolve) => {
           resolveUpload = resolve
         }),
     )
