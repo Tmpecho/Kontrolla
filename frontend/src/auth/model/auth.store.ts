@@ -35,6 +35,10 @@ export const useAuthStore = defineStore('auth', () => {
     currentAccessToken = session.accessToken
   }
 
+  function setCurrentUser(nextUser: AuthUser) {
+    user.value = nextUser
+  }
+
   function clearSession() {
     user.value = null
     accessToken.value = null
@@ -85,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     isSessionReady,
     isAuthenticated,
     setSession,
+    setCurrentUser,
     clearSession,
     login,
     logout,

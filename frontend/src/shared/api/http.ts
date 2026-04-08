@@ -94,5 +94,14 @@ export async function requestJson<T>(path: string, options: RequestJsonOptions =
     throw new ApiError(await readProblemMessage(response), response.status)
   }
 
-  return (await response.json()) as T
+  if (response.status === 204 || response.status === 205) {
+    return undefined as T
+  }
+
+  const responseText = await response.text()
+  if (!responseText) {
+    return undefined as T
+  }
+
+  return JSON.parse(responseText) as T
 }
