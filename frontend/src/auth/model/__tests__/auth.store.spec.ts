@@ -46,6 +46,22 @@ vi.mock('@/shared/api/csrf', () => ({
   clearCsrfToken: clearCsrfTokenMock,
 }))
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return {
+    promise,
+    resolve,
+    reject,
+  }
+}
+
 describe('auth.store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -333,6 +349,106 @@ describe('auth.store', () => {
     expect(authStore.appContext?.organizationRole).toBeNull()
     expect(authStore.appContext?.establishmentId).toBe('est-2')
     expect(window.localStorage.getItem('kontrolla.organizationSelection')).toBe('org-2')
+  })
+
+  it('clears stale establishments immediately while switching organizations', async () => {
+    const deferred = createDeferred<{
+      items: Array<{
+        id: string
+        organizationId: string
+        name: string
+        type: 'RESTAURANT' | 'BAR' | 'CAFE' | 'OTHER'
+        status: 'ACTIVE' | 'INACTIVE'
+        createdAt: string
+        updatedAt: string
+      }>
+      page: number
+      size: number
+      totalElements: number
+      totalPages: number
+    }>()
+
+    listEstablishmentsMock.mockReturnValue(deferred.promise)
+
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        active: true,
+        globalRoles: ['PLATFORM_ADMIN'],
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      appContext: {
+        organizationId: 'org-1',
+        organizationName: 'Alpha Group',
+        organizationRole: 'ORG_ADMIN',
+        establishmentId: 'est-1',
+        establishmentName: 'Alpha Kitchen',
+      },
+    })
+    authStore.organizations = [
+      {
+        id: 'org-1',
+        name: 'Alpha Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      {
+        id: 'org-2',
+        name: 'Beta Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+    ]
+    authStore.establishments = [
+      {
+        id: 'est-1',
+        organizationId: 'org-1',
+        name: 'Alpha Kitchen',
+        type: 'RESTAURANT',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+    ]
+
+    const switchPromise = authStore.updateSelectedOrganization('org-2')
+
+    expect(authStore.appContext?.organizationId).toBe('org-2')
+    expect(authStore.appContext?.establishmentId).toBeNull()
+    expect(authStore.establishments).toEqual([])
+
+    deferred.resolve({
+      items: [
+        {
+          id: 'est-2',
+          organizationId: 'org-2',
+          name: 'Beta Bar',
+          type: 'BAR',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    await switchPromise
+
+    expect(authStore.appContext?.establishmentId).toBe('est-2')
+    expect(authStore.establishments.map((establishment) => establishment.id)).toEqual(['est-2'])
   })
 
   it('loads every establishment page before synchronizing the selector state', async () => {

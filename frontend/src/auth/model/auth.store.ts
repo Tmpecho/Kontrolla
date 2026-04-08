@@ -190,6 +190,7 @@ export const useAuthStore = defineStore('auth', () => {
       establishmentId: null,
       establishmentName: null,
     }
+    establishments.value = []
 
     writeStoredOrganizationSelection(nextOrganization.id)
     await hydrateEstablishments()
