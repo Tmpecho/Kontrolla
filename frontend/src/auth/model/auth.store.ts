@@ -7,7 +7,12 @@ import {
   refreshSession,
   logout as logoutRequest,
 } from '@/auth/api/auth.api'
-import type { AuthAppContext, AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
+import type {
+  AuthAppContext,
+  AuthSession,
+  AuthUser,
+  LoginCredentials,
+} from '@/auth/model/auth.types'
 import { listEstablishments } from '@/establishments/api/establishments.api'
 import type { Establishment } from '@/establishments/model/establishment.types'
 import { clearCsrfToken } from '@/shared/api/csrf'
@@ -35,7 +40,8 @@ function readStoredSelectionByOrganization(): Record<string, string> {
 
     return Object.fromEntries(
       Object.entries(parsedValue).filter(
-        (entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string',
+        (entry): entry is [string, string] =>
+          typeof entry[0] === 'string' && typeof entry[1] === 'string',
       ),
     )
   } catch {
@@ -83,6 +89,10 @@ export const useAuthStore = defineStore('auth', () => {
     currentAccessToken = session.accessToken
   }
 
+  function setCurrentUser(nextUser: AuthUser) {
+    user.value = nextUser
+  }
+
   function clearSession() {
     user.value = null
     accessToken.value = null
@@ -104,7 +114,7 @@ export const useAuthStore = defineStore('auth', () => {
     const establishment =
       establishmentId === null
         ? null
-        : establishments.value.find((candidate) => candidate.id === establishmentId) ?? null
+        : (establishments.value.find((candidate) => candidate.id === establishmentId) ?? null)
 
     appContext.value = {
       ...appContext.value,
@@ -239,6 +249,7 @@ export const useAuthStore = defineStore('auth', () => {
     setSession,
     updateSelectedEstablishment,
     hydrateEstablishments,
+    setCurrentUser,
     clearSession,
     login,
     logout,
