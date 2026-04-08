@@ -11,10 +11,15 @@ import {
   toNotificationRoute,
 } from '@/notifications/model/notification.utils'
 
+const notificationDateTimeFormatter = new Intl.DateTimeFormat('nb-NO', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
 const popupRef = ref<InstanceType<typeof AppPopupShell> | null>(null)
 const notifications = ref<NotificationItem[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const actionErrorMessage = ref<string | null>(null)
 const notificationsStore = useNotificationsStore()
 const router = useRouter()
 
@@ -30,6 +35,7 @@ function focusPopup() {
 async function loadRecentNotifications() {
   isLoading.value = true
   errorMessage.value = null
+  actionErrorMessage.value = null
 
   try {
     const page = await listNotifications({
@@ -44,24 +50,38 @@ async function loadRecentNotifications() {
 }
 
 async function openNotification(notification: NotificationItem) {
-  if (notification.isUnread) {
-    await handleMarkRead(notification)
+  actionErrorMessage.value = null
+
+  if (notification.isUnread && !(await handleMarkRead(notification))) {
+    return
   }
 
   emit('close')
   await router.push(toNotificationRoute(notification))
 }
 
-async function handleMarkRead(notification: NotificationItem) {
-  const updatedNotification = await markNotificationRead(notification.id)
-  notifications.value = notifications.value.map((item) =>
-    item.id === notification.id ? updatedNotification : item,
-  )
-  notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
+async function handleMarkRead(notification: NotificationItem): Promise<boolean> {
+  actionErrorMessage.value = null
+
+  try {
+    const updatedNotification = await markNotificationRead(notification.id)
+    notifications.value = notifications.value.map((item) =>
+      item.id === notification.id ? updatedNotification : item,
+    )
+    notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
+    return true
+  } catch {
+    actionErrorMessage.value = 'Unable to mark this notification as read.'
+    return false
+  }
 }
 
 function closePopup() {
   emit('close')
+}
+
+function formatDateTime(createdAt: string): string {
+  return notificationDateTimeFormatter.format(new Date(createdAt))
 }
 
 defineExpose({
@@ -86,6 +106,9 @@ onMounted(() => {
       <p v-if="isLoading" class="notifications-state">Loading notifications...</p>
       <p v-else-if="errorMessage" class="notifications-state notifications-state-error">{{ errorMessage }}</p>
       <template v-else-if="notifications.length > 0">
+        <p v-if="actionErrorMessage" class="notifications-state notifications-state-error">
+          {{ actionErrorMessage }}
+        </p>
         <ul class="notifications-list">
           <li
             v-for="notification in notifications"
@@ -101,13 +124,7 @@ onMounted(() => {
               >
                 <span class="notification-meta">
                   <span>{{ formatNotificationTypeLabel(notification.type) }}</span>
-                  <time :datetime="notification.createdAt">
-                    {{
-                      new Intl.DateTimeFormat('nb-NO', { dateStyle: 'short', timeStyle: 'short' }).format(
-                        new Date(notification.createdAt),
-                      )
-                  }}
-                  </time>
+                  <time :datetime="notification.createdAt">{{ formatDateTime(notification.createdAt) }}</time>
                 </span>
                 <strong class="notification-title">{{ notification.title }}</strong>
                 <span class="notification-message">{{ notification.message }}</span>
@@ -166,7 +183,7 @@ onMounted(() => {
   width: 100%;
   flex-direction: column;
   gap: 6px;
-  padding: 14px 16px;
+  padding: 14px 16px 46px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -177,6 +194,7 @@ onMounted(() => {
 .notification-item {
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .notification-item-unread .notification-link {
@@ -216,18 +234,20 @@ onMounted(() => {
 }
 
 .notification-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 16px 14px;
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
 }
 
 .notification-read-button {
-  padding: 6px 10px;
-  border: 1px solid var(--color-border-muted);
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border-muted));
   border-radius: 4px;
-  background: var(--color-white);
-  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-white) 88%, transparent);
+  color: color-mix(in srgb, var(--color-text-secondary) 88%, var(--color-text-primary));
   font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.2;
   cursor: pointer;
 }
 

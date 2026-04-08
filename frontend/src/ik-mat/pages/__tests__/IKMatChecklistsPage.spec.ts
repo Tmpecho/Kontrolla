@@ -49,7 +49,7 @@ async function mountPage(query: Record<string, string> = {}) {
     routes: [{ path: '/app/ik-mat/checklists', name: 'ik-mat-checklists', component: IKMatChecklistsPage }],
   })
 
-  router.push({ name: 'ik-mat-checklists', query })
+  await router.push({name: 'ik-mat-checklists', query})
   await router.isReady()
 
   return mount(IKMatChecklistsPage, {
@@ -57,8 +57,9 @@ async function mountPage(query: Record<string, string> = {}) {
       plugins: [router],
       stubs: {
         ChecklistRunCard: {
-          props: ['run'],
-          template: '<div class="run-card-stub">{{ run.title }}</div>',
+          props: ['run', 'selected', 'forceExpanded'],
+          template:
+            '<div class="run-card-stub" :data-selected="selected" :data-force-expanded="forceExpanded">{{ run.title }}</div>',
         },
       },
     },
@@ -210,6 +211,68 @@ describe('IKMatChecklistsPage', () => {
     expect(wrapper.text()).toContain('Forbidden')
   })
 
+  it('keeps the queried checklist run visible and selected outside the active triage filter', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-overdue',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Overdue checklist',
+          description: 'Needs attention now',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'OVERDUE',
+          startedAt: null,
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T07:00:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+        {
+          id: 'run-completed',
+          checklistDefinitionId: 'definition-2',
+          definitionGroupId: 'group-2',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Completed checklist',
+          description: 'Already done',
+          dueAt: '2026-03-26T10:00:00Z',
+          status: 'COMPLETED',
+          startedAt: '2026-03-26T09:45:00Z',
+          completedAt: '2026-03-26T10:30:00Z',
+          completedByUserId: 'user-1',
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T09:00:00Z',
+          updatedAt: '2026-03-26T10:30:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 2,
+      totalPages: 1,
+    })
+
+    const wrapper = await mountPage({ checklistRunId: 'run-completed' })
+    await flushPromises()
+
+    const runCards = wrapper.findAll('.run-card-stub')
+    const selectedRunCard = runCards.find((card) => card.attributes('data-selected') === 'true')
+
+    expect(runCards).toHaveLength(2)
+    expect(selectedRunCard?.text()).toContain('Completed checklist')
+    expect(selectedRunCard?.attributes('data-selected')).toBe('true')
+    expect(selectedRunCard?.attributes('data-force-expanded')).toBe('true')
+  })
+
   it('removes a run from the current triage tab when its status changes', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
@@ -244,7 +307,7 @@ describe('IKMatChecklistsPage', () => {
       history: createMemoryHistory(),
       routes: [{ path: '/app/ik-mat/checklists', name: 'ik-mat-checklists', component: IKMatChecklistsPage }],
     })
-    router.push({ name: 'ik-mat-checklists' })
+    await router.push({name: 'ik-mat-checklists'})
     await router.isReady()
 
     const wrapper = mount(IKMatChecklistsPage, {

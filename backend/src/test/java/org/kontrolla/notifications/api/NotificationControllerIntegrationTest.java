@@ -181,7 +181,8 @@ class NotificationControllerIntegrationTest {
 		mockMvc.perform(post("/api/v1/notifications/read-all")
 						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk());
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.unreadCount").value(0));
 
 		mockMvc.perform(get("/api/v1/notifications/unread-count")
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
