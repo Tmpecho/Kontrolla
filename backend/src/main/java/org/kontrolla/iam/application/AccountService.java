@@ -57,6 +57,6 @@ public class AccountService {
 
 	private void revokeActiveRefreshTokens(User user) {
 		Instant now = Instant.now(clock);
-		refreshTokenRepository.findAllByUserId(user.getId()).stream().filter(refreshToken -> refreshToken.isActiveAt(now)).forEach(refreshToken -> refreshToken.revoke(now));
+		refreshTokenRepository.findAllByUser_Id(user.getId()).stream().filter(refreshToken -> refreshToken.isActiveAt(now)).forEach(refreshToken -> refreshToken.revoke(now));
 	}
 }
