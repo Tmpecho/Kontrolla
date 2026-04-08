@@ -73,7 +73,7 @@ async function readProblemMessage(response: Response): Promise<string> {
   }
 }
 
-export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
+async function sendRequest(path: string, options: RequestJsonOptions = {}): Promise<Response> {
   const method = options.method ?? 'GET'
   const accessToken = getAccessToken()
   const headers = new Headers(options.headers)
@@ -105,6 +105,10 @@ export async function requestJson<T>(path: string, options: RequestJsonOptions =
 
 export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
   const response = await sendRequest(path, options)
+
+  if (response.status === 204) {
+    return undefined as T
+  }
 
   return (await response.json()) as T
 }
