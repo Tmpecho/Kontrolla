@@ -32,14 +32,22 @@ public class EstablishmentService {
 	@Transactional(readOnly = true)
 	public Page<Establishment> listEstablishments(UUID organizationId, CurrentUser currentUser, Pageable pageable) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
-		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
-		return establishmentRepository.findByOrganizationId(organizationId, pageable);
+		if (currentUser.isPlatformAdmin()) {
+			return establishmentRepository.findByOrganizationId(organizationId, pageable);
+		}
+
+		var membership = organizationAccessService.getActiveMembershipOrThrow(currentUser, organizationId);
+		if (membership.isAccessAllEstablishments() || membership.getRole() == org.kontrolla.organizations.domain.OrganizationRole.ORG_OWNER || membership.getRole() == org.kontrolla.organizations.domain.OrganizationRole.ORG_ADMIN) {
+			return establishmentRepository.findByOrganizationId(organizationId, pageable);
+		}
+
+		return establishmentRepository.findAccessibleByOrganizationIdAndUserId(organizationId, currentUser.userId(), pageable);
 	}
 
 	@Transactional(readOnly = true)
 	public Establishment getEstablishment(UUID organizationId, UUID establishmentId, CurrentUser currentUser) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
-		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
+		organizationAccessService.requireEstablishmentAccess(currentUser, organizationId, establishmentId);
 		return establishmentRepository.findByIdAndOrganizationId(establishmentId, organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("establishment_not_found", "Establishment not found"));
 	}

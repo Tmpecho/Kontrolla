@@ -69,8 +69,7 @@ public class DeviationService {
 			CurrentUser currentUser,
 			Pageable pageable
 	) {
-		organizationAccessService.getOrganizationOrThrow(organizationId);
-		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
+		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 		return deviationRepository.findByEstablishmentIdAndOrganizationId(establishmentId, organizationId, pageable);
 	}
 
@@ -81,7 +80,7 @@ public class DeviationService {
 			Pageable pageable
 	) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
-		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
+		organizationAccessService.requireOrganizationWideOperationalAccess(currentUser, organizationId);
 		return deviationRepository.findByOrganizationId(organizationId, pageable);
 	}
 
@@ -145,7 +144,7 @@ public class DeviationService {
 
 		User actor = userAccessService.getCurrentUserOrThrow(currentUser);
 		Deviation deviation = findDeviationOrThrow(organizationId, establishmentId, deviationId);
-		User assignedUser = getAssignableUserOrThrow(organizationId, assignedUserId);
+		User assignedUser = getAssignableUserOrThrow(organizationId, establishmentId, assignedUserId);
 
 		if (deviation.getAssignedToUser() != null && deviation.getAssignedToUser().getId().equals(assignedUser.getId())) {
 			return deviation;
@@ -329,16 +328,17 @@ public class DeviationService {
 		return Objects.requireNonNull(value, "value").strip();
 	}
 
-	private User getAssignableUserOrThrow(UUID organizationId, UUID assignedUserId) {
+	private User getAssignableUserOrThrow(UUID organizationId, UUID establishmentId, UUID assignedUserId) {
 		User user = userAccessService.getUserOrThrow(assignedUserId);
 		boolean hasActiveMembership = organizationMembershipRepository.findByOrganizationIdAndUserId(organizationId, assignedUserId)
-				.map(OrganizationMembership::isActive)
-				.orElse(false);
+				.filter(OrganizationMembership::isActive)
+				.filter(membership -> membership.hasEstablishmentAccess(establishmentId))
+				.isPresent();
 
 		if (!user.isActive() || !hasActiveMembership) {
 			throw new ForbiddenException(
 					"deviation_assignment_user_forbidden",
-					"Deviations can only be assigned to active members of the organization"
+					"Deviations can only be assigned to active members with access to the establishment"
 			);
 		}
 

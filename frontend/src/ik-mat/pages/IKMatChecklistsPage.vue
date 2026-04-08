@@ -12,13 +12,13 @@ import { appEnv } from '@/shared/config/env'
 
 type TriageFilter = 'OVERDUE' | 'DUE_TODAY' | 'IN_PROGRESS' | 'COMPLETED'
 
+const authStore = useAuthStore()
+const route = useRoute()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const activeFilter = ref<TriageFilter>('OVERDUE')
 const searchQuery = ref('')
-const route = useRoute()
-const authStore = useAuthStore()
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
@@ -28,10 +28,18 @@ const resolvedChecklistContext = computed(() => {
   }
 
   const organizationId = authStore.appContext?.organizationId ?? null
-  const establishmentId = authStore.appContext?.establishmentId ?? null
 
-  if (organizationId && establishmentId) {
-    return { organizationId, establishmentId }
+  if (organizationId) {
+    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
+
+    if (selectedEstablishmentId) {
+      return { organizationId, establishmentIds: [selectedEstablishmentId] }
+    }
+
+    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
+    if (establishmentIds.length > 0) {
+      return { organizationId, establishmentIds }
+    }
   }
 
   if (!authStore.isAuthenticated) {
@@ -41,7 +49,7 @@ const resolvedChecklistContext = computed(() => {
     if (defaultOrganizationId && defaultEstablishmentId) {
       return {
         organizationId: defaultOrganizationId,
-        establishmentId: defaultEstablishmentId,
+        establishmentIds: [defaultEstablishmentId],
       }
     }
   }
@@ -49,9 +57,7 @@ const resolvedChecklistContext = computed(() => {
   return null
 })
 
-const hasChecklistContext = computed(
-  () => resolvedChecklistContext.value !== null,
-)
+const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
 
 const missingContextMessage = computed(() => {
   if (!authStore.isSessionReady) {
@@ -60,6 +66,10 @@ const missingContextMessage = computed(() => {
 
   if (hasChecklistContext.value) {
     return null
+  }
+
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Choose an establishment to load checklist runs.'
   }
 
   if (!appEnv.isDevelopment) {
@@ -73,6 +83,8 @@ async function loadChecklistRuns(): Promise<void> {
   const context = resolvedChecklistContext.value
 
   if (!context) {
+    checklistRuns.value = []
+    errorMessage.value = null
     return
   }
 
@@ -80,14 +92,18 @@ async function loadChecklistRuns(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const page = await listChecklistRuns({
-      organizationId: context.organizationId,
-      establishmentId: context.establishmentId,
-      serviceArea: 'IK_MAT',
-      size: 10,
-    })
+    const pages = await Promise.all(
+      context.establishmentIds.map((establishmentId) =>
+        listChecklistRuns({
+          organizationId: context.organizationId,
+          establishmentId,
+          serviceArea: 'IK_MAT',
+          size: 20,
+        }),
+      ),
+    )
 
-    checklistRuns.value = selectLatestChecklistRuns(page.items)
+    checklistRuns.value = selectLatestChecklistRuns(pages.flatMap((page) => page.items))
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -255,7 +271,7 @@ watch(
           :key="run.id"
           :run="run"
           :organization-id="resolvedChecklistContext!.organizationId"
-          :establishment-id="resolvedChecklistContext!.establishmentId"
+          :establishment-id="resolvedChecklistContext!.establishmentIds[0] ?? ''"
           :selected="selectedChecklistRunId === run.id"
           :force-expanded="selectedChecklistRunId === run.id"
           @update:run="handleRunUpdate"
@@ -348,31 +364,31 @@ watch(
   align-items: center;
   justify-content: center;
   min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.35rem;
+  padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-border-muted) 70%, white);
-  color: inherit;
-  font-size: 0.8125rem;
-  font-weight: 700;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .search-field {
-  min-width: min(100%, 320px);
+  min-width: min(100%, 280px);
 }
 
 .search-field input {
   width: 100%;
-  padding: 12px 14px;
+  min-height: 2.75rem;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 999px;
-  background: var(--color-container);
+  border-radius: 4px;
+  background: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
 }
 
-.search-field input::placeholder {
-  color: var(--color-text-secondary);
+.search-field input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .runs-grid {
@@ -381,15 +397,14 @@ watch(
 }
 
 .state-card {
-  padding: 24px;
-  border: 1px solid var(--color-border-muted);
+  padding: 20px;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background-color: var(--color-container);
-  color: var(--color-text-secondary);
+  background: var(--color-container);
 }
 
 .state-card-error {
-  color: var(--color-critical);
+  border-color: color-mix(in srgb, var(--color-critical) 35%, var(--color-border));
 }
 
 .sr-only {

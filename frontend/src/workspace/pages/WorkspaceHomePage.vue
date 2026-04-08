@@ -3,11 +3,18 @@ import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
-import { createDeviationDataset } from '@/deviations/model/deviation.mock'
+import { listEstablishmentDeviations } from '@/deviations/api/deviations.api'
+import type { DeviationListItem, DeviationServiceArea } from '@/deviations/model/deviation.types'
+import {
+  getDeviationServiceAreaForCategory,
+  toDeviationCategoryLabel,
+} from '@/deviations/model/deviation.types'
 import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
 import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
 import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
 import {
   buildIKAlkoholServiceSummary,
   buildIKMatServiceSummary,
@@ -18,23 +25,55 @@ const authStore = useAuthStore()
 const checklistRuns = ref<ChecklistRun[] | null>(null)
 const isLoadingChecklistRuns = ref(false)
 const checklistErrorMessage = ref<string | null>(null)
+const deviationsByService = ref<Record<DeviationServiceArea, DeviationListItem[]>>({
+  IK_MAT: [],
+  IK_ALKOHOL: [],
+})
+const isLoadingDeviations = ref(false)
+const deviationErrorMessage = ref<string | null>(null)
 
-const deviationsByService = createDeviationDataset()
 const importantDocuments = createImportantDocuments()
 const temperatureUnits = createTemperatureUnits()
 
-const checklistContext = computed(() => {
-  const organizationId = authStore.appContext?.organizationId
-  const establishmentId = authStore.appContext?.establishmentId
-
-  if (!authStore.isSessionReady || !organizationId || !establishmentId) {
+const workspaceContext = computed(() => {
+  if (!authStore.isSessionReady) {
     return null
   }
 
-  return {
-    organizationId,
-    establishmentId,
+  const organizationId = authStore.appContext?.organizationId ?? null
+
+  if (organizationId) {
+    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
+
+    if (selectedEstablishmentId) {
+      return {
+        organizationId,
+        establishmentIds: [selectedEstablishmentId],
+      }
+    }
+
+    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
+    if (establishmentIds.length > 0) {
+      return {
+        organizationId,
+        establishmentIds,
+      }
+    }
   }
+
+  if (!authStore.isAuthenticated) {
+    const defaultOrganizationId = appEnv.defaultOrganizationId
+    const defaultEstablishmentId = appEnv.defaultEstablishmentId
+
+    if (defaultOrganizationId && defaultEstablishmentId) {
+      return {
+        organizationId: defaultOrganizationId,
+        establishmentIds: [defaultEstablishmentId],
+      }
+    }
+  }
+
+  return null
 })
 
 const checklistNote = computed(() => {
@@ -42,16 +81,48 @@ const checklistNote = computed(() => {
     return 'Loading workspace context...'
   }
 
+  if (!workspaceContext.value) {
+    return 'Workspace overview becomes available when organization context is ready.'
+  }
+
+  if (checklistErrorMessage.value && deviationErrorMessage.value) {
+    return `${checklistErrorMessage.value} ${deviationErrorMessage.value}`
+  }
+
   if (checklistErrorMessage.value) {
     return checklistErrorMessage.value
   }
 
-  if (!checklistContext.value) {
-    return 'Checklist overview becomes available when organization and establishment context is ready.'
+  if (deviationErrorMessage.value) {
+    return deviationErrorMessage.value
   }
 
   if (isLoadingChecklistRuns.value && checklistRuns.value === null) {
     return 'Loading checklist overview...'
+  }
+
+  return null
+})
+
+const deviationNote = computed(() => {
+  if (!authStore.isSessionReady) {
+    return 'Loading workspace context...'
+  }
+
+  if (!workspaceContext.value) {
+    return 'Workspace overview becomes available when organization context is ready.'
+  }
+
+  if (deviationErrorMessage.value) {
+    return deviationErrorMessage.value
+  }
+
+  if (
+    isLoadingDeviations.value &&
+    deviationsByService.value.IK_MAT.length === 0 &&
+    deviationsByService.value.IK_ALKOHOL.length === 0
+  ) {
+    return 'Loading deviation overview...'
   }
 
   return null
@@ -62,11 +133,12 @@ const serviceSummaries = computed(() => [
     checklistRuns: checklistRuns.value,
     checklistNote: checklistNote.value,
     temperatureUnits,
-    deviations: deviationsByService.IK_MAT,
+    deviations: deviationsByService.value.IK_MAT,
   }),
   buildIKAlkoholServiceSummary({
     documents: importantDocuments,
-    deviations: deviationsByService.IK_ALKOHOL,
+    deviations: deviationsByService.value.IK_ALKOHOL,
+    note: deviationNote.value,
   }),
 ])
 
@@ -74,7 +146,7 @@ const attentionItems = computed(() => {
   return buildWorkspaceAttentionItems({
     checklistRuns: checklistRuns.value ?? [],
     temperatureUnits,
-    deviationsByService,
+    deviationsByService: deviationsByService.value,
     documents: importantDocuments,
   }).slice(0, 5)
 })
@@ -110,19 +182,95 @@ const quickActions = [
   },
 ] as const
 
-async function loadChecklistRuns(organizationId: string, establishmentId: string): Promise<void> {
+function mapDeviationSummary(deviation: {
+  id: string
+  establishmentId: string
+  title: string
+  description: string
+  status: DeviationListItem['status']
+  severity: DeviationListItem['severity']
+  category: Parameters<typeof toDeviationCategoryLabel>[0]
+  createdAt: string
+}): DeviationListItem {
+  const category = toDeviationCategoryLabel(deviation.category)
+
+  return {
+    id: deviation.id,
+    establishmentId: deviation.establishmentId,
+    serviceArea: getDeviationServiceAreaForCategory(category),
+    title: deviation.title,
+    reportedAt: deviation.createdAt,
+    category,
+    severity: deviation.severity,
+    status: deviation.status,
+    assignedToUserId: null,
+    assignedTo: [],
+    description: deviation.description,
+    timeline: [],
+  }
+}
+
+async function listAllChecklistRunsForEstablishment(
+  organizationId: string,
+  establishmentId: string,
+): Promise<ChecklistRun[]> {
+  const allRuns: ChecklistRun[] = []
+  let page = 0
+  let totalPages = 1
+
+  do {
+    const response = await listChecklistRuns({
+      organizationId,
+      establishmentId,
+      serviceArea: 'IK_MAT',
+      page,
+      size: 100,
+    })
+
+    allRuns.push(...response.items)
+    totalPages = response.totalPages
+    page += 1
+  } while (page < totalPages)
+
+  return allRuns
+}
+
+async function listAllDeviationsForEstablishment(
+  organizationId: string,
+  establishmentId: string,
+): Promise<DeviationListItem[]> {
+  const allDeviations: DeviationListItem[] = []
+  let page = 0
+  let totalPages = 1
+
+  do {
+    const response = await listEstablishmentDeviations({
+      organizationId,
+      establishmentId,
+      page,
+      size: 100,
+    })
+
+    allDeviations.push(...response.items.map(mapDeviationSummary))
+    totalPages = response.totalPages
+    page += 1
+  } while (page < totalPages)
+
+  return allDeviations
+}
+
+async function loadChecklistRuns(organizationId: string, establishmentIds: string[]): Promise<void> {
   isLoadingChecklistRuns.value = true
   checklistErrorMessage.value = null
 
   try {
-    const page = await listChecklistRuns({
-      organizationId,
-      establishmentId,
-      serviceArea: 'IK_MAT',
-      size: 25,
-    })
+    const pages = await Promise.all(
+      establishmentIds.map((establishmentId) =>
+        listAllChecklistRunsForEstablishment(organizationId, establishmentId),
+      ),
+    )
 
-    checklistRuns.value = page.items
+    checklistRuns.value = selectLatestChecklistRuns(pages.flat())
   } catch (error) {
     checklistRuns.value = null
     checklistErrorMessage.value =
@@ -132,18 +280,55 @@ async function loadChecklistRuns(organizationId: string, establishmentId: string
   }
 }
 
+async function loadDeviations(organizationId: string, establishmentIds: string[]): Promise<void> {
+  isLoadingDeviations.value = true
+  deviationErrorMessage.value = null
+
+  try {
+    const pages = await Promise.all(
+      establishmentIds.map((establishmentId) =>
+        listAllDeviationsForEstablishment(organizationId, establishmentId),
+      ),
+    )
+
+    const allDeviations = pages.flat()
+    deviationsByService.value = {
+      IK_MAT: allDeviations.filter((deviation) => deviation.serviceArea === 'IK_MAT'),
+      IK_ALKOHOL: allDeviations.filter((deviation) => deviation.serviceArea === 'IK_ALKOHOL'),
+    }
+  } catch (error) {
+    deviationsByService.value = {
+      IK_MAT: [],
+      IK_ALKOHOL: [],
+    }
+    deviationErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Deviation overview is temporarily unavailable.'
+  } finally {
+    isLoadingDeviations.value = false
+  }
+}
+
 watch(
-  () => [checklistContext.value?.organizationId ?? null, checklistContext.value?.establishmentId ?? null],
-  async ([organizationId, establishmentId]) => {
-    if (!organizationId || !establishmentId) {
+  () => workspaceContext.value,
+  async (context) => {
+    if (!context) {
       checklistRuns.value = null
       checklistErrorMessage.value = null
       isLoadingChecklistRuns.value = false
+      deviationsByService.value = {
+        IK_MAT: [],
+        IK_ALKOHOL: [],
+      }
+      deviationErrorMessage.value = null
+      isLoadingDeviations.value = false
 
       return
     }
 
-    await loadChecklistRuns(organizationId, establishmentId)
+    await Promise.all([
+      loadChecklistRuns(context.organizationId, context.establishmentIds),
+      loadDeviations(context.organizationId, context.establishmentIds),
+    ])
   },
   { immediate: true },
 )

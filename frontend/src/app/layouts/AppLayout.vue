@@ -8,11 +8,11 @@ import { useAuthStore } from '@/auth/model/auth.store'
 import { useNotificationsStore } from '@/notifications/model/notifications.store'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const topBar = ref<InstanceType<typeof TopBar> | null>(null)
 const mobileNavigationDrawer = ref<HTMLElement | null>(null)
 const isMobileNavigationOpen = ref(false)
 const previousBodyOverflow = ref<string | null>(null)
-const authStore = useAuthStore()
 const notificationsStore = useNotificationsStore()
 
 function handleMobileNavigationToggle() {

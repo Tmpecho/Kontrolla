@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import { ApiError } from '@/shared/api/http'
 
-const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
+const { listChecklistRunsMock, appEnvMock, authStoreMock } = vi.hoisted(() => ({
   listChecklistRunsMock: vi.fn(),
   appEnvMock: {
     mode: 'test',
@@ -17,17 +17,26 @@ const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
     defaultEstablishmentId: 'est-1' as string | undefined,
     showDevLoginHint: false,
   },
-}))
-
-const authStoreMock = vi.hoisted(() => ({
-  isSessionReady: true,
-  isAuthenticated: false,
-  appContext: null as
-    | {
-        organizationId: string | null
-        establishmentId: string | null
-      }
-    | null,
+  authStoreMock: {
+    isSessionReady: true,
+    isAuthenticated: false,
+    appContext: null as
+      | {
+          organizationId: string | null
+          establishmentId: string | null
+        }
+      | null,
+    establishments: [] as Array<{
+      id: string
+      organizationId: string
+      name: string
+      type: 'RESTAURANT' | 'BAR' | 'CAFE' | 'OTHER'
+      status: 'ACTIVE' | 'INACTIVE'
+      createdAt: string
+      updatedAt: string
+    }>,
+    requiresEstablishmentSelection: false,
+  },
 }))
 
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
@@ -91,6 +100,8 @@ describe('IKMatChecklistsPage', () => {
     authStoreMock.isSessionReady = true
     authStoreMock.isAuthenticated = false
     authStoreMock.appContext = null
+    authStoreMock.establishments = []
+    authStoreMock.requiresEstablishmentSelection = false
   })
 
   it('renders a loading state while checklist runs are being fetched', async () => {
@@ -203,6 +214,99 @@ describe('IKMatChecklistsPage', () => {
     expect(wrapper.text()).toContain('Morning shift (edited)')
     expect(wrapper.text()).not.toContain('Morning shiftOpening routine')
     expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+  })
+
+  it('keeps runs from different establishments when they share a checklist definition group', async () => {
+    authStoreMock.isAuthenticated = true
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: null,
+    }
+    authStoreMock.establishments = [
+      {
+        id: 'est-1',
+        name: 'Restaurant',
+        type: 'RESTAURANT',
+        status: 'ACTIVE',
+        organizationId: 'org-1',
+        createdAt: '2026-03-26T07:00:00Z',
+        updatedAt: '2026-03-26T07:00:00Z',
+      },
+      {
+        id: 'est-2',
+        name: 'Bar',
+        type: 'BAR',
+        status: 'ACTIVE',
+        organizationId: 'org-1',
+        createdAt: '2026-03-26T07:00:00Z',
+        updatedAt: '2026-03-26T07:00:00Z',
+      },
+    ]
+
+    listChecklistRunsMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'run-est-1',
+            checklistDefinitionId: 'definition-1',
+            definitionGroupId: 'group-1',
+            establishmentId: 'est-1',
+            serviceArea: 'IK_MAT',
+            title: 'Restaurant morning shift',
+            description: 'Opening routine',
+            dueAt: '2026-03-26T08:00:00Z',
+            status: 'PENDING',
+            startedAt: null,
+            completedAt: null,
+            completedByUserId: null,
+            createdByUserId: 'user-1',
+            createdAt: '2026-03-26T07:00:00Z',
+            updatedAt: '2026-03-26T07:00:00Z',
+            assignments: [],
+            tasks: [],
+            events: [],
+          },
+        ],
+        page: 0,
+        size: 10,
+        totalElements: 1,
+        totalPages: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'run-est-2',
+            checklistDefinitionId: 'definition-2',
+            definitionGroupId: 'group-1',
+            establishmentId: 'est-2',
+            serviceArea: 'IK_MAT',
+            title: 'Bar morning shift',
+            description: 'Opening routine',
+            dueAt: '2026-03-26T09:00:00Z',
+            status: 'PENDING',
+            startedAt: null,
+            completedAt: null,
+            completedByUserId: null,
+            createdByUserId: 'user-1',
+            createdAt: '2026-03-26T08:00:00Z',
+            updatedAt: '2026-03-26T08:00:00Z',
+            assignments: [],
+            tasks: [],
+            events: [],
+          },
+        ],
+        page: 0,
+        size: 10,
+        totalElements: 1,
+        totalPages: 1,
+      })
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Restaurant morning shift')
+    expect(wrapper.text()).toContain('Bar morning shift')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(2)
   })
 
   it('renders an empty state when no checklist runs are returned', async () => {
