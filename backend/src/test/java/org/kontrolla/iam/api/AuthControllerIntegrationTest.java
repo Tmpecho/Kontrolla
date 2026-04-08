@@ -54,6 +54,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -168,6 +169,118 @@ class AuthControllerIntegrationTest {
 								"""))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value("access_denied"));
+	}
+
+	@Test
+	void updateMyProfilePersistsTrimmedNamesAndMeReturnsUpdatedUser() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		String accessToken = accessTokenFromLogin("alice@example.com", "password123");
+
+		mockMvc.perform(put("/api/v1/auth/me")
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "firstName": "  Alicia  ",
+								  "lastName": "  Example-Smith  "
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.firstName").value("Alicia"))
+				.andExpect(jsonPath("$.lastName").value("Example-Smith"));
+
+		mockMvc.perform(get("/api/v1/auth/me")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value("alice@example.com"))
+				.andExpect(jsonPath("$.firstName").value("Alicia"))
+				.andExpect(jsonPath("$.lastName").value("Example-Smith"));
+	}
+
+	@Test
+	void changeMyPasswordRevokesRefreshTokensAndRequiresNewPasswordForLogin() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String accessToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+				.get("accessToken")
+				.asText();
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		mockMvc.perform(put("/api/v1/auth/me/password")
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "currentPassword": "password123",
+								  "newPassword": "new-password123"
+								}
+								"""))
+				.andExpect(status().isNoContent());
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_credentials"))
+				.andExpect(jsonPath("$.message").value("Invalid email or password"));
+
+		performLogin("alice@example.com", "new-password123")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andExpect(jsonPath("$.user.email").value("alice@example.com"));
+
+		performRefresh(refreshCookie)
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("invalid_refresh_token"))
+				.andExpect(jsonPath("$.message").value("Refresh token is invalid"));
+	}
+
+	@Test
+	void changeMyPasswordRejectsIncorrectCurrentPassword() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		String accessToken = accessTokenFromLogin("alice@example.com", "password123");
+
+		mockMvc.perform(put("/api/v1/auth/me/password")
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "currentPassword": "wrong-password",
+								  "newPassword": "new-password123"
+								}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("invalid_current_password"))
+				.andExpect(jsonPath("$.message").value("Current password is incorrect"));
+	}
+
+	@Test
+	void changeMyPasswordRejectsUnchangedPassword() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		String accessToken = accessTokenFromLogin("alice@example.com", "password123");
+
+		mockMvc.perform(put("/api/v1/auth/me/password")
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "currentPassword": "password123",
+								  "newPassword": "password123"
+								}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("password_unchanged"))
+				.andExpect(jsonPath("$.message").value("New password must be different from the current password"));
 	}
 
 	@Test
@@ -642,6 +755,17 @@ class AuthControllerIntegrationTest {
 
 	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password) throws Exception {
 		return performLogin(email, password, "127.0.0.1");
+	}
+
+	private String accessTokenFromLogin(String email, String password) throws Exception {
+		MvcResult loginResult = performLogin(email, password)
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		return objectMapper.readTree(loginResult.getResponse().getContentAsString())
+				.get("accessToken")
+				.asText();
 	}
 
 	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password, String remoteAddr) throws Exception {
