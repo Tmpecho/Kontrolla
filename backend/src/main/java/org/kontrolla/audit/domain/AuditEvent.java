@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -74,8 +73,8 @@ public class AuditEvent {
 	@Column(name = "result_code", nullable = false, length = 64)
 	private String resultCode;
 
-	@Lob
-	@Column(name = "metadata_json", nullable = false)
+	@JdbcTypeCode(SqlTypes.LONG32VARCHAR)
+	@Column(name = "metadata_json", nullable = false, columnDefinition = "LONGTEXT")
 	private String metadataJson;
 
 	protected AuditEvent() {
