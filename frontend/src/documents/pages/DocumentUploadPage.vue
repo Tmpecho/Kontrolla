@@ -116,6 +116,10 @@ function validateForm() {
 }
 
 async function submitForm() {
+  if (isSubmitting.value) {
+    return
+  }
+
   if (!validateForm()) {
     return
   }
@@ -227,7 +231,7 @@ async function submitForm() {
           {{ backLinkLabel }}
         </RouterLink>
 
-        <BaseButton class="submit-button" type="submit">
+        <BaseButton class="submit-button" type="submit" :disabled="isSubmitting">
           {{ isSubmitting ? 'Uploading...' : 'Upload document' }}
         </BaseButton>
       </div>

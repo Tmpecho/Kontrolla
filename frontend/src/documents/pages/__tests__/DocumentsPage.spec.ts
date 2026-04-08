@@ -25,7 +25,7 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 const {
-  listEstablishmentDocumentsMock,
+  listAllEstablishmentDocumentsMock,
   downloadDocumentFileMock,
   deleteDocumentMock,
   authStoreMock,
@@ -33,7 +33,7 @@ const {
   routeState,
   routerPushMock,
 } = vi.hoisted(() => ({
-  listEstablishmentDocumentsMock: vi.fn(),
+  listAllEstablishmentDocumentsMock: vi.fn(),
   downloadDocumentFileMock: vi.fn(),
   deleteDocumentMock: vi.fn(),
   authStoreMock: {
@@ -64,7 +64,7 @@ const {
 vi.mock('@/documents/api/documents.api', () => ({
   deleteDocument: deleteDocumentMock,
   downloadDocumentFile: downloadDocumentFileMock,
-  listEstablishmentDocuments: listEstablishmentDocumentsMock,
+  listAllEstablishmentDocuments: listAllEstablishmentDocumentsMock,
 }))
 
 vi.mock('@/auth/model/auth.store', () => ({
@@ -96,7 +96,7 @@ function mountPage() {
 
 describe('DocumentsPage', () => {
   afterEach(() => {
-    listEstablishmentDocumentsMock.mockReset()
+    listAllEstablishmentDocumentsMock.mockReset()
     downloadDocumentFileMock.mockReset()
     deleteDocumentMock.mockReset()
     routerPushMock.mockReset()
@@ -116,18 +116,12 @@ describe('DocumentsPage', () => {
   })
 
   it('loads alcohol documents and shows the upload action', async () => {
-    listEstablishmentDocumentsMock.mockResolvedValue({
-      items: [createDocument()],
-      page: 0,
-      size: 100,
-      totalElements: 1,
-      totalPages: 1,
-    })
+    listAllEstablishmentDocumentsMock.mockResolvedValue([createDocument()])
 
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(listEstablishmentDocumentsMock).toHaveBeenCalledWith({
+    expect(listAllEstablishmentDocumentsMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
       establishmentId: 'est-1',
       serviceArea: 'IK_ALKOHOL',
@@ -142,26 +136,20 @@ describe('DocumentsPage', () => {
 
   it('loads ik-mat documents from the shared page with an upload action', async () => {
     routeState.name = 'ik-mat-documents'
-    listEstablishmentDocumentsMock.mockResolvedValue({
-      items: [
-        createDocument({
-          serviceArea: 'IK_MAT',
-          title: 'Food safety plan',
-          holderName: 'Kitchen team',
-          fileName: 'food-safety-plan.pdf',
-          status: 'EXPIRED',
-        }),
-      ],
-      page: 0,
-      size: 100,
-      totalElements: 1,
-      totalPages: 1,
-    })
+    listAllEstablishmentDocumentsMock.mockResolvedValue([
+      createDocument({
+        serviceArea: 'IK_MAT',
+        title: 'Food safety plan',
+        holderName: 'Kitchen team',
+        fileName: 'food-safety-plan.pdf',
+        status: 'EXPIRED',
+      }),
+    ])
 
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(listEstablishmentDocumentsMock).toHaveBeenCalledWith({
+    expect(listAllEstablishmentDocumentsMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
       establishmentId: 'est-1',
       serviceArea: 'IK_MAT',
@@ -178,13 +166,7 @@ describe('DocumentsPage', () => {
       establishmentId: 'est-1',
       organizationRole: 'ORG_EMPLOYEE',
     }
-    listEstablishmentDocumentsMock.mockResolvedValue({
-      items: [createDocument()],
-      page: 0,
-      size: 100,
-      totalElements: 1,
-      totalPages: 1,
-    })
+    listAllEstablishmentDocumentsMock.mockResolvedValue([createDocument()])
 
     const wrapper = mountPage()
     await flushPromises()
@@ -196,13 +178,7 @@ describe('DocumentsPage', () => {
 
   it('deletes a document after confirmation', async () => {
     const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    listEstablishmentDocumentsMock.mockResolvedValue({
-      items: [createDocument()],
-      page: 0,
-      size: 100,
-      totalElements: 1,
-      totalPages: 1,
-    })
+    listAllEstablishmentDocumentsMock.mockResolvedValue([createDocument()])
     deleteDocumentMock.mockResolvedValue(undefined)
 
     const wrapper = mountPage()

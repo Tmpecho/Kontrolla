@@ -6,7 +6,7 @@ import { useAuthStore } from '@/auth/model/auth.store'
 import {
   deleteDocument,
   downloadDocumentFile,
-  listEstablishmentDocuments,
+  listAllEstablishmentDocuments,
 } from '@/documents/api/documents.api'
 import type {
   DocumentServiceArea,
@@ -310,7 +310,7 @@ async function loadDocuments(): Promise<void> {
   actionErrorMessage.value = null
 
   try {
-    const page = await listEstablishmentDocuments({
+    const allDocuments = await listAllEstablishmentDocuments({
       organizationId: resolvedOrganizationId,
       establishmentId: resolvedEstablishmentId,
       serviceArea,
@@ -321,7 +321,7 @@ async function loadDocuments(): Promise<void> {
       return
     }
 
-    documents.value = sortDocumentsByRenewalDate(page.items)
+    documents.value = sortDocumentsByRenewalDate(allDocuments)
   } catch (error) {
     if (requestId !== requestSequence) {
       return

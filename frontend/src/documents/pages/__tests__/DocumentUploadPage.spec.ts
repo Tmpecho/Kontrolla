@@ -140,4 +140,52 @@ describe('DocumentUploadPage', () => {
     expect(wrapper.text()).toContain('Choose a PDF file to upload.')
     expect(createDocumentMock).not.toHaveBeenCalled()
   })
+
+  it('prevents duplicate submissions while an upload is already in flight', async () => {
+    let resolveUpload: ((value: { id: string }) => void) | null = null
+    createDocumentMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve
+        }),
+    )
+
+    const wrapper = mount(DocumentUploadPage, {
+      global: {
+        stubs: {
+          BaseButton: {
+            props: ['type', 'disabled'],
+            template: '<button :type="type" :disabled="disabled"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    const textInputs = wrapper.findAll('input[type="text"]')
+    await textInputs[0]?.setValue('Alcohol service licence')
+    await textInputs[1]?.setValue('Oslo Municipality')
+
+    const dateInputs = wrapper.findAll('input[type="date"]')
+    await dateInputs[0]?.setValue('2026-01-01')
+    await dateInputs[1]?.setValue('2026-10-01')
+
+    const fileInput = wrapper.get('input[type="file"]')
+    const file = new File(['%PDF-1.7'], 'alcohol-service-licence.pdf', {
+      type: 'application/pdf',
+    })
+    Object.defineProperty(fileInput.element, 'files', {
+      configurable: true,
+      value: [file],
+    })
+    await fileInput.trigger('change')
+
+    await wrapper.get('form').trigger('submit.prevent')
+    await wrapper.get('form').trigger('submit.prevent')
+
+    expect(createDocumentMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+
+    resolveUpload?.({ id: 'doc-1' })
+    await flushPromises()
+  })
 })

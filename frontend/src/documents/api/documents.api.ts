@@ -43,6 +43,8 @@ export type DownloadedDocumentFile = {
   fileName: string
 }
 
+const defaultDocumentPageSize = 100
+
 export async function listEstablishmentDocuments(
   params: EstablishmentDocumentsQuery,
 ): Promise<PageResponse<EstablishmentDocument>> {
@@ -56,6 +58,30 @@ export async function listEstablishmentDocuments(
       },
     },
   )
+}
+
+export async function listAllEstablishmentDocuments(
+  params: Omit<EstablishmentDocumentsQuery, 'page'>,
+): Promise<EstablishmentDocument[]> {
+  const size = params.size ?? defaultDocumentPageSize
+  const firstPage = await listEstablishmentDocuments({
+    ...params,
+    page: 0,
+    size,
+  })
+  const items = [...firstPage.items]
+
+  for (let page = 1; page < firstPage.totalPages; page += 1) {
+    const nextPage = await listEstablishmentDocuments({
+      ...params,
+      page,
+      size,
+    })
+
+    items.push(...nextPage.items)
+  }
+
+  return items
 }
 
 export async function createDocument(params: DocumentCreateInput): Promise<EstablishmentDocument> {

@@ -25,11 +25,11 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 const {
-  listEstablishmentDocumentsMock,
+  listAllEstablishmentDocumentsMock,
   authStoreMock,
   appEnvMock,
 } = vi.hoisted(() => ({
-  listEstablishmentDocumentsMock: vi.fn(),
+  listAllEstablishmentDocumentsMock: vi.fn(),
   authStoreMock: {
     appContext: {
       organizationId: 'org-1',
@@ -48,7 +48,7 @@ const {
 }))
 
 vi.mock('@/documents/api/documents.api', () => ({
-  listEstablishmentDocuments: listEstablishmentDocumentsMock,
+  listAllEstablishmentDocuments: listAllEstablishmentDocumentsMock,
 }))
 
 vi.mock('@/auth/model/auth.store', () => ({
@@ -61,7 +61,7 @@ vi.mock('@/shared/config/env', () => ({
 
 describe('ImportantDocumentsTile', () => {
   afterEach(() => {
-    listEstablishmentDocumentsMock.mockReset()
+    listAllEstablishmentDocumentsMock.mockReset()
     authStoreMock.appContext = {
       organizationId: 'org-1',
       establishmentId: 'est-1',
@@ -69,8 +69,7 @@ describe('ImportantDocumentsTile', () => {
   })
 
   it('loads alcohol documents from the api and shows the next renewal summary', async () => {
-    listEstablishmentDocumentsMock.mockResolvedValue({
-      items: [
+    listAllEstablishmentDocumentsMock.mockResolvedValue([
         createDocument({
           id: 'doc-1',
           title: 'Responsible service certificate',
@@ -84,12 +83,7 @@ describe('ImportantDocumentsTile', () => {
           renewalDate: '2026-07-01',
           status: 'VALID',
         }),
-      ],
-      page: 0,
-      size: 100,
-      totalElements: 2,
-      totalPages: 1,
-    })
+      ])
 
     const wrapper = mount(ImportantDocumentsTile, {
       global: {
@@ -102,7 +96,7 @@ describe('ImportantDocumentsTile', () => {
     })
     await flushPromises()
 
-    expect(listEstablishmentDocumentsMock).toHaveBeenCalledWith({
+    expect(listAllEstablishmentDocumentsMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
       establishmentId: 'est-1',
       serviceArea: 'IK_ALKOHOL',

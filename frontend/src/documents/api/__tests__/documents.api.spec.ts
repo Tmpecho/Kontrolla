@@ -4,6 +4,7 @@ import {
   createDocument,
   deleteDocument,
   downloadDocumentFile,
+  listAllEstablishmentDocuments,
   listEstablishmentDocuments,
 } from '@/documents/api/documents.api'
 import { clearCsrfToken } from '@/shared/api/csrf'
@@ -67,6 +68,101 @@ describe('documents.api', () => {
         credentials: 'include',
       }),
     )
+  })
+
+  it('loads every document page when the response spans multiple pages', async () => {
+    const fetchMock = fetch as Mock
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          items: [
+            {
+              id: 'doc-1',
+              organizationId: 'org-1',
+              establishmentId: 'est-1',
+              createdByUserId: 'user-1',
+              serviceArea: 'IK_ALKOHOL',
+              title: 'Alcohol service licence',
+              holderName: 'Oslo Municipality',
+              issueDate: '2026-01-01',
+              renewalDate: '2026-10-01',
+              fileName: 'alcohol-service-licence.pdf',
+              contentType: 'application/pdf',
+              fileSizeBytes: 2048,
+              status: 'VALID',
+              createdAt: '2026-01-01T08:00:00Z',
+              updatedAt: '2026-01-01T08:00:00Z',
+            },
+          ],
+          page: 0,
+          size: 100,
+          totalElements: 2,
+          totalPages: 2,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          items: [
+            {
+              id: 'doc-2',
+              organizationId: 'org-1',
+              establishmentId: 'est-1',
+              createdByUserId: 'user-1',
+              serviceArea: 'IK_ALKOHOL',
+              title: 'Responsible service certificate',
+              holderName: 'Lina Dahl',
+              issueDate: '2026-01-01',
+              renewalDate: '2026-05-01',
+              fileName: 'responsible-service-certificate.pdf',
+              contentType: 'application/pdf',
+              fileSizeBytes: 1024,
+              status: 'EXPIRING',
+              createdAt: '2026-01-01T08:00:00Z',
+              updatedAt: '2026-01-01T08:00:00Z',
+            },
+          ],
+          page: 1,
+          size: 100,
+          totalElements: 2,
+          totalPages: 2,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
+      )
+
+    const documents = await listAllEstablishmentDocuments({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_ALKOHOL',
+      size: 100,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/documents?serviceArea=IK_ALKOHOL&page=0&size=100',
+      expect.objectContaining({
+        method: 'GET',
+        credentials: 'include',
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/documents?serviceArea=IK_ALKOHOL&page=1&size=100',
+      expect.objectContaining({
+        method: 'GET',
+        credentials: 'include',
+      }),
+    )
+    expect(documents).toHaveLength(2)
   })
 
   it('posts document uploads as multipart form data', async () => {

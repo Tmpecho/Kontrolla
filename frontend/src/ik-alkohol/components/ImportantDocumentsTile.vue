@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
-import { listEstablishmentDocuments } from '@/documents/api/documents.api'
+import { listAllEstablishmentDocuments } from '@/documents/api/documents.api'
 import type {
   DocumentServiceArea,
   EstablishmentDocument,
@@ -107,7 +107,7 @@ async function loadDocuments(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const page = await listEstablishmentDocuments({
+    const allDocuments = await listAllEstablishmentDocuments({
       organizationId: resolvedOrganizationId,
       establishmentId: resolvedEstablishmentId,
       serviceArea: props.serviceArea,
@@ -118,7 +118,7 @@ async function loadDocuments(): Promise<void> {
       return
     }
 
-    documents.value = sortDocumentsByRenewalDate(page.items)
+    documents.value = sortDocumentsByRenewalDate(allDocuments)
   } catch (error) {
     if (requestId !== requestSequence) {
       return
