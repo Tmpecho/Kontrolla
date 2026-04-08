@@ -69,7 +69,7 @@ public class AuthAttemptThrottleService {
 		}
 
 		if (state.lockedUntil() != null && now.isBefore(state.lockedUntil())) {
-			throw unauthorizedException(scope);
+			throw unauthorizedException(scope, dimension);
 		}
 
 		if (state.lockedUntil() != null && !now.isBefore(state.lockedUntil())) {
@@ -104,11 +104,11 @@ public class AuthAttemptThrottleService {
 		return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
 	}
 
-	private UnauthorizedException unauthorizedException(AuthScope scope) {
+	private AuthThrottleException unauthorizedException(AuthScope scope, ThrottleDimension dimension) {
 		// Keep throttle failures indistinguishable from normal auth failures so we do not disclose lockout state.
 		return scope == AuthScope.LOGIN
-				? new UnauthorizedException("invalid_credentials", INVALID_CREDENTIALS_MESSAGE)
-				: new UnauthorizedException("invalid_refresh_token", INVALID_REFRESH_TOKEN_MESSAGE);
+				? new AuthThrottleException("invalid_credentials", INVALID_CREDENTIALS_MESSAGE, dimension.name())
+				: new AuthThrottleException("invalid_refresh_token", INVALID_REFRESH_TOKEN_MESSAGE, dimension.name());
 	}
 
 	private enum AuthScope {
