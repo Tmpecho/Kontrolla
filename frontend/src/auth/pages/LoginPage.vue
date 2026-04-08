@@ -21,9 +21,25 @@ import { appEnv } from '@/shared/config/env'
       </header>
       <div class="form-wrapper">
         <div v-if="appEnv.showDevLoginHint" class="dev-hint">
-          <span>Dev login:</span>
-          <code>demo@example.com</code>
-          <code>password123</code>
+          <span>Dev logins:</span>
+          <div class="dev-login-list">
+            <div class="dev-login-item">
+              <code>demo@example.com</code>
+              <code>password123</code>
+            </div>
+            <div class="dev-login-item">
+              <code>admin@example.com</code>
+              <code>password123</code>
+            </div>
+            <div class="dev-login-item">
+              <code>emma.larsen@example.com</code>
+              <code>password123</code>
+            </div>
+            <div class="dev-login-item">
+              <code>noah.berg@example.com</code>
+              <code>password123</code>
+            </div>
+          </div>
         </div>
         <div class="form-box">
           <LoginForm />
@@ -123,5 +139,17 @@ body {
   color: var(--color-text-primary);
   box-sizing: border-box;
   z-index: 10;
+}
+
+.dev-login-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dev-login-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 </style>

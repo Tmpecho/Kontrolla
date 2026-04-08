@@ -3,6 +3,7 @@ export type GlobalRole = 'PLATFORM_ADMIN'
 export type AuthAppContext = {
   organizationId: string | null
   organizationName: string | null
+  organizationRole: 'ORG_OWNER' | 'ORG_ADMIN' | 'ORG_MANAGER' | 'ORG_EMPLOYEE' | null
   establishmentId: string | null
   establishmentName: string | null
 }
@@ -29,4 +30,12 @@ export type AuthSession = {
 export type LoginCredentials = {
   email: string
   password: string
+}
+
+export type InviteDetails = {
+  email: string
+  firstName: string
+  lastName: string
+  organizationName: string
+  expiresAt: string
 }

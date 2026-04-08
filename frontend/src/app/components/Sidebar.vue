@@ -20,9 +20,10 @@ type AppRouteName =
   | 'ik-alkohol-documents'
   | 'ik-alkohol-deviation'
   | 'my-profile'
+  | 'organization-members'
   | 'settings'
 
-type AppSection = 'workspace' | 'ik-mat' | 'ik-alkohol' | 'account'
+type AppSection = 'workspace' | 'ik-mat' | 'ik-alkohol' | 'admin' | 'account'
 
 type NavigationItem = {
   label: string
@@ -31,7 +32,10 @@ type NavigationItem = {
 
 type MainAreaItem = {
   label: string
-  routeName: Extract<AppRouteName, 'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard'>
+  routeName: Extract<
+    AppRouteName,
+    'workspace-home' | 'ik-mat-dashboard' | 'ik-alkohol-dashboard' | 'organization-members'
+  >
   section: Exclude<AppSection, 'account'>
 }
 
@@ -51,6 +55,16 @@ const emit = defineEmits<{
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 
 const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'workspace-home': ['workspace-home'],
@@ -64,11 +78,16 @@ const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'ik-alkohol-documents': ['ik-alkohol-documents', 'ik-alkohol-documents-upload'],
   'ik-alkohol-deviation': ['ik-alkohol-deviation', 'ik-alkohol-deviation-form'],
   'my-profile': ['my-profile'],
+  'organization-members': ['organization-members'],
   settings: ['settings'],
 }
 
 const currentAppSection = computed<AppSection>(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName === 'organization-members') {
+    return 'admin'
+  }
 
   if (routeName === 'my-profile' || routeName === 'settings') {
     return 'account'
@@ -85,7 +104,7 @@ const currentAppSection = computed<AppSection>(() => {
   return 'workspace'
 })
 
-const mainAreaItems: MainAreaItem[] = [
+const mainAreaItems = computed<MainAreaItem[]>(() => [
   {
     label: 'Workspace',
     routeName: 'workspace-home',
@@ -101,7 +120,16 @@ const mainAreaItems: MainAreaItem[] = [
     routeName: 'ik-alkohol-dashboard',
     section: 'ik-alkohol',
   },
-]
+  ...(canManageMembers.value
+    ? [
+        {
+          label: 'Admin',
+          routeName: 'organization-members' as const,
+          section: 'admin' as const,
+        },
+      ]
+    : []),
+])
 
 const currentSectionLabel = computed(() => {
   switch (visibleSection.value) {
@@ -109,6 +137,8 @@ const currentSectionLabel = computed(() => {
       return 'IK-mat'
     case 'ik-alkohol':
       return 'IK-alkohol'
+    case 'admin':
+      return 'Admin'
     case 'account':
       return 'Account'
     default:
@@ -168,6 +198,13 @@ const navigationItems = computed<NavigationItem[]>(() => {
         {
           label: 'Deviations',
           routeName: 'ik-alkohol-deviation',
+        },
+      ]
+    case 'admin':
+      return [
+        {
+          label: 'Organization members',
+          routeName: 'organization-members',
         },
       ]
     case 'account':

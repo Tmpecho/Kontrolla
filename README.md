@@ -36,9 +36,11 @@ Startup now fails fast if dev bootstrap credentials or the insecure dev JWT secr
 
 ### Development Login
 
-In `dev`, a bootstrap user is created automatically:
+In `dev`, bootstrap users are created automatically:
 
-- email: `demo@example.com`
-- password: `password123`
+- `demo@example.com` / `password123`
+- `admin@example.com` / `password123`
+- `emma.larsen@example.com` / `password123`
+- `noah.berg@example.com` / `password123`
 
-This bootstrap user does not exist in `prod`.
+These bootstrap users do not exist in `prod`.
