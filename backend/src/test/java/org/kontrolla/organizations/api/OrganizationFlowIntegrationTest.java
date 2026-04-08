@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Set;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -84,6 +85,7 @@ class OrganizationFlowIntegrationTest {
 		String adminToken = login("admin@example.com", "password123");
 
 		String organizationResponse = mockMvc.perform(post("/api/v1/admin/organizations")
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -100,6 +102,7 @@ class OrganizationFlowIntegrationTest {
 		String organizationId = objectMapper.readTree(organizationResponse).get("id").asText();
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -119,6 +122,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(jsonPath("$.id").value(organizationId));
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -146,6 +150,7 @@ class OrganizationFlowIntegrationTest {
 		addMembership(adminToken, orgBId, orgBManager.getId(), "ORG_MANAGER");
 
 		String establishmentResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(orgBId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -210,6 +215,7 @@ class OrganizationFlowIntegrationTest {
 		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
 		addMembership(adminToken, organizationId, activeEmployee.getId(), "ORG_EMPLOYEE");
 		String inactiveMembershipResponse = mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -251,6 +257,7 @@ class OrganizationFlowIntegrationTest {
 		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
 
 		String restaurantResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -264,6 +271,7 @@ class OrganizationFlowIntegrationTest {
 				.getResponse()
 				.getContentAsString();
 		String barResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -281,6 +289,7 @@ class OrganizationFlowIntegrationTest {
 		String barId = objectMapper.readTree(barResponse).get("id").asText();
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -296,6 +305,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(jsonPath("$.establishments[0].id").value(restaurantId));
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -346,6 +356,7 @@ class OrganizationFlowIntegrationTest {
 		String orgAToken = login("orga@example.com", "password123");
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(orgBId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -357,6 +368,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(orgBId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -368,6 +380,7 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(status().isForbidden());
 
 		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(orgBId, orgBMembershipId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -410,6 +423,7 @@ class OrganizationFlowIntegrationTest {
 		String orgAdminToken = login("orgadmin@example.com", "password123");
 
 		mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -431,6 +445,133 @@ class OrganizationFlowIntegrationTest {
 				.andExpect(jsonPath("$.inviteExpiresAt").isNotEmpty());
 	}
 
+	@Test
+	void nonPlatformAdminCannotAccessAdminOrganizationsOrUsersEndpoints() throws Exception {
+		createUser("admin-access@example.com", "Admin", "Access", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-access@example.com", "Manager", "Access", Set.of());
+
+		String adminToken = login("admin-access@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Manager Access Org");
+		addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+
+		String managerToken = login("manager-access@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/admin/organizations")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/api/v1/admin/organizations")
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Should Not Be Created"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(get("/api/v1/admin/users")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/api/v1/admin/users")
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "blocked-user@example.com",
+								  "firstName": "Blocked",
+								  "lastName": "User",
+								  "password": "password123"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void organizationEmployeeCannotCreateEstablishmentInOwnOrganization() throws Exception {
+		createUser("admin-establishments@example.com", "Admin", "Establishments", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User employee = createUser("employee-establishments@example.com", "Employee", "Establishments", Set.of());
+
+		String adminToken = login("admin-establishments@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Establishment Guard Org");
+		addMembership(adminToken, organizationId, employee.getId(), "ORG_EMPLOYEE");
+
+		String employeeToken = login("employee-establishments@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Should Not Exist",
+								  "type": "RESTAURANT"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void organizationManagerCannotManageMembersInOwnOrganization() throws Exception {
+		createUser("admin-members@example.com", "Admin", "Members", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-members@example.com", "Manager", "Members", Set.of());
+		User employee = createUser("employee-members@example.com", "Employee", "Members", Set.of());
+
+		String adminToken = login("admin-members@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Member Guard Org");
+		String membershipResponse = addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+		String managerMembershipId = objectMapper.readTree(membershipResponse).get("id").asText();
+
+		String managerToken = login("manager-members@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE"
+								}
+								""".formatted(employee.getId())))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organizationId, managerMembershipId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "role": "ORG_ADMIN",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void membershipListCapsRequestedPageSize() throws Exception {
+		User admin = createUser("admin-cap@example.com", "Admin", "Cap", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User manager = createUser("manager-cap@example.com", "Manager", "Cap", Set.of());
+		User employee = createUser("employee-cap@example.com", "Employee", "Cap", Set.of());
+
+		String adminToken = login("admin-cap@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Capped Org");
+
+		addMembership(adminToken, organizationId, manager.getId(), "ORG_MANAGER");
+		addMembership(adminToken, organizationId, employee.getId(), "ORG_EMPLOYEE");
+
+		String managerToken = login("manager-cap@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?size=500".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.size").value(100));
+	}
+
 	private User createUser(String email, String firstName, String lastName, Set<GlobalRole> roles) {
 		User user = new User(
 				email,
@@ -445,6 +586,7 @@ class OrganizationFlowIntegrationTest {
 
 	private String createOrganization(String adminToken, String name) throws Exception {
 		String response = mockMvc.perform(post("/api/v1/admin/organizations")
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -462,6 +604,7 @@ class OrganizationFlowIntegrationTest {
 
 	private String addMembership(String adminToken, String organizationId, Object userId, String role) throws Exception {
 		return mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -478,6 +621,7 @@ class OrganizationFlowIntegrationTest {
 
 	private String login(String email, String password) throws Exception {
 		String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{

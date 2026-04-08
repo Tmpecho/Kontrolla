@@ -58,8 +58,41 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Run backend tests
-        run: ./gradlew test --no-daemon
+      - name: Run backend tests with coverage
+        run: ./gradlew test jacocoTestReport --no-daemon
+
+      - name: Publish backend coverage summary
+        run: |
+          ruby -e '
+            xml = File.read("build/reports/jacoco/test/jacocoTestReport.xml")
+            total = xml.match(%r{<counter type="INSTRUCTION" missed="(\d+)" covered="(\d+)"/><counter type="BRANCH" missed="(\d+)" covered="(\d+)"/><counter type="LINE" missed="(\d+)" covered="(\d+)"/><counter type="COMPLEXITY" missed="(\d+)" covered="(\d+)"/><counter type="METHOD" missed="(\d+)" covered="(\d+)"/><counter type="CLASS" missed="(\d+)" covered="(\d+)"/></report>})
+            rows = [
+              ["Instruction", total[1].to_i, total[2].to_i],
+              ["Branch", total[3].to_i, total[4].to_i],
+              ["Line", total[5].to_i, total[6].to_i],
+              ["Method", total[9].to_i, total[10].to_i],
+              ["Class", total[11].to_i, total[12].to_i]
+            ]
+
+            File.open(ENV["GITHUB_STEP_SUMMARY"], "a") do |file|
+              file.puts("## Backend coverage")
+              file.puts("| Metric | Coverage |")
+              file.puts("| --- | --- |")
+              rows.each do |name, missed, covered|
+                pct = covered * 100.0 / (missed + covered)
+                file.puts("| #{name} | #{format("%.1f", pct)}% |")
+              end
+            end
+          '
+
+      - name: Upload backend coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-jacoco-report
+          path: backend/build/reports/jacoco/test
+          if-no-files-found: ignore
+          retention-days: 14
 
   frontend:
     name: Frontend

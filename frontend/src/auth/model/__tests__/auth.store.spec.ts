@@ -3,17 +3,46 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 
+const loginMock = vi.fn()
+const refreshSessionMock = vi.fn()
+const logoutRequestMock = vi.fn()
+const clearCsrfTokenMock = vi.fn()
 const { listEstablishmentsMock } = vi.hoisted(() => ({
   listEstablishmentsMock: vi.fn(),
+}))
+
+vi.mock('@/auth/api/auth.api', () => ({
+  AuthApiError: class AuthApiError extends Error {
+    constructor(
+      message: string,
+      readonly status: number,
+    ) {
+      super(message)
+      this.name = 'AuthApiError'
+    }
+  },
+  login: loginMock,
+  refreshSession: refreshSessionMock,
+  logout: logoutRequestMock,
 }))
 
 vi.mock('@/establishments/api/establishments.api', () => ({
   listEstablishments: listEstablishmentsMock,
 }))
 
+vi.mock('@/shared/api/csrf', () => ({
+  clearCsrfToken: clearCsrfTokenMock,
+}))
+
 describe('auth.store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    loginMock.mockReset()
+    refreshSessionMock.mockReset()
+    logoutRequestMock.mockReset()
+    clearCsrfTokenMock.mockReset()
+    listEstablishmentsMock.mockReset()
+
     const storage = new Map<string, string>()
 
     Object.defineProperty(window, 'localStorage', {
@@ -155,5 +184,59 @@ describe('auth.store', () => {
     expect(window.localStorage.getItem('kontrolla.establishmentSelectionByOrganization')).toBe(
       JSON.stringify({ 'org-1': 'est-2' }),
     )
+  })
+
+  it('clears the local session after a successful logout', async () => {
+    logoutRequestMock.mockResolvedValue(undefined)
+
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'user-1',
+        email: 'alice@example.com',
+        firstName: 'Alice',
+        lastName: 'Example',
+        active: true,
+        globalRoles: [],
+        createdAt: '2026-04-07T08:00:00Z',
+        updatedAt: '2026-04-07T08:00:00Z',
+      },
+      accessToken: 'access-token',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      appContext: null,
+    })
+
+    await authStore.logout()
+
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(clearCsrfTokenMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('still clears the local session when the logout request fails', async () => {
+    logoutRequestMock.mockRejectedValue(new Error('Access denied'))
+
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'user-1',
+        email: 'alice@example.com',
+        firstName: 'Alice',
+        lastName: 'Example',
+        active: true,
+        globalRoles: [],
+        createdAt: '2026-04-07T08:00:00Z',
+        updatedAt: '2026-04-07T08:00:00Z',
+      },
+      accessToken: 'access-token',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      appContext: null,
+    })
+
+    await authStore.logout()
+
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(clearCsrfTokenMock).toHaveBeenCalledTimes(1)
   })
 })

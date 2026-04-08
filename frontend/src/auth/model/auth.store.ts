@@ -10,6 +10,7 @@ import {
 import type { AuthAppContext, AuthSession, AuthUser, LoginCredentials } from '@/auth/model/auth.types'
 import { listEstablishments } from '@/establishments/api/establishments.api'
 import type { Establishment } from '@/establishments/model/establishment.types'
+import { clearCsrfToken } from '@/shared/api/csrf'
 
 let currentAccessToken: string | null = null
 const ESTABLISHMENT_SELECTION_STORAGE_KEY = 'kontrolla.establishmentSelectionByOrganization'
@@ -187,8 +188,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    await logoutRequest()
-    clearSession()
+    try {
+      await logoutRequest()
+    } catch {
+      // Best-effort server logout. Local sign-out should still complete.
+    } finally {
+      clearCsrfToken()
+      clearSession()
+    }
   }
 
   async function initializeSession() {
