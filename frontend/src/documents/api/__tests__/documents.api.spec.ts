@@ -6,6 +6,7 @@ import {
   downloadDocumentFile,
   listEstablishmentDocuments,
 } from '@/documents/api/documents.api'
+import { clearCsrfToken } from '@/shared/api/csrf'
 
 vi.mock('@/auth/model/auth.store', () => ({
   getAccessToken: () => 'test-access-token',
@@ -25,10 +26,12 @@ vi.mock('@/shared/config/env', () => ({
 
 describe('documents.api', () => {
   beforeEach(() => {
+    clearCsrfToken()
     vi.stubGlobal('fetch', vi.fn())
   })
 
   afterEach(() => {
+    clearCsrfToken()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -68,7 +71,19 @@ describe('documents.api', () => {
 
   it('posts document uploads as multipart form data', async () => {
     const fetchMock = fetch as Mock
-    fetchMock.mockResolvedValue(
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        token: 'csrf-token',
+        headerName: 'X-XSRF-TOKEN',
+        parameterName: '_csrf',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({
         id: 'doc-1',
         organizationId: 'org-1',
@@ -104,7 +119,9 @@ describe('documents.api', () => {
       file: new File(['%PDF-1.7'], 'alcohol-service-licence.pdf', { type: 'application/pdf' }),
     })
 
-    const [requestUrl, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    const [requestUrl, requestInit] = fetchMock.mock.calls[1] as [string, RequestInit]
     expect(requestUrl).toBe(
       'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/documents',
     )
@@ -143,7 +160,19 @@ describe('documents.api', () => {
 
   it('deletes a document with the delete endpoint', async () => {
     const fetchMock = fetch as Mock
-    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        token: 'csrf-token',
+        headerName: 'X-XSRF-TOKEN',
+        parameterName: '_csrf',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
 
     await deleteDocument({
       organizationId: 'org-1',
@@ -151,6 +180,7 @@ describe('documents.api', () => {
       documentId: 'doc-1',
     })
 
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/documents/doc-1',
       expect.objectContaining({
