@@ -251,6 +251,22 @@ const displayOrganizationName = computed(() => {
   return 'Organization unavailable'
 })
 
+const displayEstablishmentName = computed(() => {
+  if (!authStore.isSessionReady || authStore.isLoadingEstablishments) {
+    return 'Loading establishment...'
+  }
+
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Select establishment'
+  }
+
+  if (authStore.appContext?.establishmentName) {
+    return authStore.appContext.establishmentName
+  }
+
+  return 'Establishment unavailable'
+})
+
 function isNavigationItemActive(routeName?: AppRouteName) {
   if (!routeName) {
     return false
@@ -287,7 +303,7 @@ async function onLogout() {
     <div class="sidebar-scroll">
       <div class="establishment-info">
         <h2>{{ displayOrganizationName }}</h2>
-        <p>{{ authStore.appContext?.establishmentName ?? 'Establishment unavailable' }}</p>
+        <p>{{ displayEstablishmentName }}</p>
       </div>
 
       <nav v-if="variant === 'mobile'" aria-label="Services" class="navigation-group">

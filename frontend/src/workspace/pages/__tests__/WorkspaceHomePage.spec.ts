@@ -179,4 +179,52 @@ describe('WorkspaceHomePage', () => {
     expect(wrapper.text()).toContain('2 runs')
     expect(wrapper.text()).toContain('1 item')
   })
+
+  it('shows deviation load failures on the service tiles without presenting them as checklist-only issues', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-est-1',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Restaurant opening',
+          description: null,
+          dueAt: '2026-04-08T08:00:00Z',
+          status: 'IN_PROGRESS',
+          startedAt: '2026-04-08T07:50:00Z',
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-04-08T07:00:00Z',
+          updatedAt: '2026-04-08T07:50:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    listEstablishmentDeviationsMock.mockRejectedValue(new Error('boom'))
+
+    const wrapper = mount(WorkspaceHomePage, {
+      global: {
+        stubs: {
+          RouterLink: {
+            template: '<a><slot /></a>',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const serviceNotes = wrapper.findAll('.service-note').map((node) => node.text())
+    expect(serviceNotes).toContain('Deviation overview is temporarily unavailable.')
+    expect(wrapper.text()).toContain('1 run')
+  })
 })

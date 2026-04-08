@@ -19,6 +19,9 @@ const isVisible = computed(() => {
 })
 
 const selectedEstablishmentId = computed(() => authStore.appContext?.establishmentId ?? '')
+const selectId = computed(() =>
+  props.variant === 'panel' ? 'establishment-switcher-panel' : 'establishment-switcher-compact',
+)
 
 function onSelectionChange(event: Event) {
   const select = event.target as HTMLSelectElement
@@ -36,8 +39,9 @@ function onSelectionChange(event: Event) {
       'switcher-panel': props.variant === 'panel',
     }"
   >
-    <label class="switcher-label">Establishment</label>
+    <label class="switcher-label" :for="selectId">Establishment</label>
     <select
+      :id="selectId"
       class="switcher-select"
       aria-label="Establishment"
       :value="selectedEstablishmentId"

@@ -81,6 +81,14 @@ const checklistNote = computed(() => {
     return 'Loading workspace context...'
   }
 
+  if (!workspaceContext.value) {
+    return 'Workspace overview becomes available when organization context is ready.'
+  }
+
+  if (checklistErrorMessage.value && deviationErrorMessage.value) {
+    return `${checklistErrorMessage.value} ${deviationErrorMessage.value}`
+  }
+
   if (checklistErrorMessage.value) {
     return checklistErrorMessage.value
   }
@@ -89,12 +97,32 @@ const checklistNote = computed(() => {
     return deviationErrorMessage.value
   }
 
+  if (isLoadingChecklistRuns.value && checklistRuns.value === null) {
+    return 'Loading checklist overview...'
+  }
+
+  return null
+})
+
+const deviationNote = computed(() => {
+  if (!authStore.isSessionReady) {
+    return 'Loading workspace context...'
+  }
+
   if (!workspaceContext.value) {
     return 'Workspace overview becomes available when organization context is ready.'
   }
 
-  if (isLoadingChecklistRuns.value && checklistRuns.value === null) {
-    return 'Loading checklist overview...'
+  if (deviationErrorMessage.value) {
+    return deviationErrorMessage.value
+  }
+
+  if (
+    isLoadingDeviations.value &&
+    deviationsByService.value.IK_MAT.length === 0 &&
+    deviationsByService.value.IK_ALKOHOL.length === 0
+  ) {
+    return 'Loading deviation overview...'
   }
 
   return null
@@ -110,6 +138,7 @@ const serviceSummaries = computed(() => [
   buildIKAlkoholServiceSummary({
     documents: importantDocuments,
     deviations: deviationsByService.value.IK_ALKOHOL,
+    note: deviationNote.value,
   }),
 ])
 
