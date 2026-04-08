@@ -159,8 +159,7 @@ public class AuthService {
 				activeMembership.getOrganization().getName(),
 				activeMembership.getRole(),
 				establishment.map(Establishment::getId).orElse(null),
-				establishment.map(Establishment::getName).orElse(null),
-				activeMembership.getRole()
+				establishment.map(Establishment::getName).orElse(null)
 		);
 	}
 
