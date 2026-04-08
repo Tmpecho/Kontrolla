@@ -11,6 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AuthAttemptThrottleService {
 
+	private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
+	private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Refresh token is invalid";
+
 	private final ConcurrentHashMap<ThrottleKey, FailedAttemptState> failedAttempts = new ConcurrentHashMap<>();
 	private final AppSecurityProperties securityProperties;
 
@@ -102,9 +105,10 @@ public class AuthAttemptThrottleService {
 	}
 
 	private UnauthorizedException unauthorizedException(AuthScope scope) {
+		// Keep throttle failures indistinguishable from normal auth failures so we do not disclose lockout state.
 		return scope == AuthScope.LOGIN
-				? new UnauthorizedException("invalid_credentials", "Invalid email or password")
-				: new UnauthorizedException("invalid_refresh_token", "Refresh token is invalid");
+				? new UnauthorizedException("invalid_credentials", INVALID_CREDENTIALS_MESSAGE)
+				: new UnauthorizedException("invalid_refresh_token", INVALID_REFRESH_TOKEN_MESSAGE);
 	}
 
 	private enum AuthScope {
