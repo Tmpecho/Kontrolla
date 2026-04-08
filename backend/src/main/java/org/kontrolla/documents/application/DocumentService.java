@@ -192,6 +192,21 @@ public class DocumentService {
     return documentRepository.save(document);
   }
 
+  @Transactional
+  public void deleteDocument(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID documentId,
+      CurrentUser currentUser
+  ) {
+    organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
+    establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+
+    Document document = findDocumentOrThrow(organizationId, establishmentId, documentId);
+    documentFileRepository.findById(documentId).ifPresent(documentFileRepository::delete);
+    documentRepository.delete(document);
+  }
+
   private Document findDocumentOrThrow(UUID organizationId, UUID establishmentId, UUID documentId) {
     return documentRepository.findByIdAndEstablishmentIdAndOrganizationId(documentId, establishmentId, organizationId)
         .orElseThrow(() -> new ResourceNotFoundException("document_not_found", "Document not found"));

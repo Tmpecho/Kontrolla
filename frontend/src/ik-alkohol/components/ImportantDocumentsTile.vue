@@ -3,7 +3,10 @@ import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listEstablishmentDocuments } from '@/documents/api/documents.api'
-import type { EstablishmentDocument } from '@/documents/model/document.types'
+import type {
+  DocumentServiceArea,
+  EstablishmentDocument,
+} from '@/documents/model/document.types'
 import {
   expiryWarningDays,
   parseLocalDate,
@@ -11,6 +14,14 @@ import {
 } from '@/documents/model/document.utils'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
+
+const props = withDefaults(defineProps<{
+  serviceArea?: DocumentServiceArea
+  documentsRouteName?: string
+}>(), {
+  serviceArea: 'IK_ALKOHOL',
+  documentsRouteName: 'ik-alkohol-documents',
+})
 
 const authStore = useAuthStore()
 const documents = ref<EstablishmentDocument[]>([])
@@ -60,6 +71,14 @@ const readinessPercentage = computed(() => {
 
 const nextRenewalDocument = computed(() => documentsWithStatus.value[0] ?? null)
 
+const tileSubtitle = computed(() => {
+  if (props.serviceArea === 'IK_ALKOHOL') {
+    return 'Licences, training records, and key alcohol-control documents.'
+  }
+
+  return 'Certificates, routines, and key food-safety documents.'
+})
+
 let requestSequence = 0
 
 watch([organizationId, establishmentId], () => {
@@ -91,7 +110,7 @@ async function loadDocuments(): Promise<void> {
     const page = await listEstablishmentDocuments({
       organizationId: resolvedOrganizationId,
       establishmentId: resolvedEstablishmentId,
-      serviceArea: 'IK_ALKOHOL',
+      serviceArea: props.serviceArea,
       size: 100,
     })
 
@@ -121,9 +140,9 @@ async function loadDocuments(): Promise<void> {
     <div class="tile-header">
       <div>
         <h2>Important documents</h2>
-        <p class="tile-subtitle">Licences, training records, and key alcohol-control documents.</p>
+        <p class="tile-subtitle">{{ tileSubtitle }}</p>
       </div>
-      <RouterLink :to="{ name: 'ik-alkohol-documents' }" class="tile-link">Open</RouterLink>
+      <RouterLink :to="{ name: documentsRouteName }" class="tile-link">Open</RouterLink>
     </div>
 
     <p v-if="missingContextMessage" class="tile-message">{{ missingContextMessage }}</p>

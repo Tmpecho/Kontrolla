@@ -75,7 +75,7 @@ class DocumentServiceIntegrationTest {
   }
 
   @Test
-  void managerCanCreateUpdateReplaceAndFilterDocumentsByServiceArea() {
+  void managerCanCreateUpdateReplaceDeleteAndFilterDocumentsByServiceArea() {
     User manager = createUser("documents-manager@example.com", "Manager", "Documents", true);
     Organization organization = createOrganization("Kontrolla Documents");
     Establishment establishment = createEstablishment(organization, "Main Bar");
@@ -146,6 +146,13 @@ class DocumentServiceIntegrationTest {
         PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "renewalDate"))
     );
 
+    documentService.deleteDocument(
+        organization.getId(),
+        establishment.getId(),
+        createdDocument.getId(),
+        currentUser(manager)
+    );
+
     assertThat(updatedDocument.getTitle()).isEqualTo("Alcohol service licence 2026");
     assertThat(updatedDocument.getHolderName()).isEqualTo("Oslo Municipality Licensing");
     assertThat(updatedDocument.getStatus(today)).isEqualTo(DocumentStatus.VALID);
@@ -157,8 +164,10 @@ class DocumentServiceIntegrationTest {
     assertThat(alkoholDocuments.getContent()).hasSize(1);
     assertThat(alkoholDocuments.getContent().getFirst().getId()).isEqualTo(createdDocument.getId());
     assertThat(alkoholDocuments.getContent().getFirst().getCreatedByUser().getId()).isEqualTo(manager.getId());
-    assertThat(documentRepository.findAll()).hasSize(2);
-    assertThat(documentFileRepository.count()).isEqualTo(2);
+    assertThat(documentRepository.findAll()).hasSize(1);
+    assertThat(documentRepository.findById(createdDocument.getId())).isEmpty();
+    assertThat(documentFileRepository.findById(createdDocument.getId())).isEmpty();
+    assertThat(documentFileRepository.count()).isEqualTo(1);
   }
 
   @Test
@@ -215,7 +224,7 @@ class DocumentServiceIntegrationTest {
   }
 
   @Test
-  void employeeCannotCreateUpdateOrReplaceDocuments() {
+  void employeeCannotCreateUpdateReplaceOrDeleteDocuments() {
     User manager = createUser("documents-manager-access@example.com", "Manager", "Access", true);
     User employee = createUser("documents-employee@example.com", "Employee", "Access", true);
     Organization organization = createOrganization("Kontrolla Documents Access");
@@ -271,6 +280,13 @@ class DocumentServiceIntegrationTest {
         "replacement.pdf",
         "application/pdf",
         pdfBytes("replacement"),
+        currentUser(employee)
+    )).isInstanceOf(ForbiddenException.class);
+
+    assertThatThrownBy(() -> documentService.deleteDocument(
+        organization.getId(),
+        establishment.getId(),
+        createdDocument.getId(),
         currentUser(employee)
     )).isInstanceOf(ForbiddenException.class);
   }

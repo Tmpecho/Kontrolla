@@ -2,7 +2,7 @@ import type {
   DocumentServiceArea,
   EstablishmentDocument,
 } from '@/documents/model/document.types'
-import { requestJson } from '@/shared/api/http'
+import { requestBlob, requestJson, requestVoid } from '@/shared/api/http'
 
 export type PageResponse<T> = {
   items: T[]
@@ -20,6 +20,29 @@ type EstablishmentDocumentsQuery = {
   size?: number
 }
 
+type DocumentCreateInput = {
+  organizationId: string
+  establishmentId: string
+  serviceArea: DocumentServiceArea
+  title: string
+  holderName: string
+  issueDate: string
+  renewalDate: string
+  file: File
+}
+
+type DocumentActionParams = {
+  organizationId: string
+  establishmentId: string
+  documentId: string
+}
+
+export type DownloadedDocumentFile = {
+  blob: Blob
+  contentType: string | null
+  fileName: string
+}
+
 export async function listEstablishmentDocuments(
   params: EstablishmentDocumentsQuery,
 ): Promise<PageResponse<EstablishmentDocument>> {
@@ -33,4 +56,69 @@ export async function listEstablishmentDocuments(
       },
     },
   )
+}
+
+export async function createDocument(params: DocumentCreateInput): Promise<EstablishmentDocument> {
+  const formData = new FormData()
+
+  formData.append(
+    'metadata',
+    new Blob([
+      JSON.stringify({
+        serviceArea: params.serviceArea,
+        title: params.title,
+        holderName: params.holderName,
+        issueDate: params.issueDate,
+        renewalDate: params.renewalDate,
+      }),
+    ], {
+      type: 'application/json',
+    }),
+  )
+  formData.append('file', params.file)
+
+  return requestJson<EstablishmentDocument>(
+    `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/documents`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
+}
+
+export async function downloadDocumentFile(
+  params: DocumentActionParams,
+): Promise<DownloadedDocumentFile> {
+  const response = await requestBlob(
+    `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/documents/${params.documentId}/file`,
+  )
+
+  return {
+    blob: response.blob,
+    contentType: response.contentType,
+    fileName: parseFileName(response.headers.get('Content-Disposition')) ?? 'document.pdf',
+  }
+}
+
+export async function deleteDocument(params: DocumentActionParams): Promise<void> {
+  await requestVoid(
+    `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/documents/${params.documentId}`,
+    {
+      method: 'DELETE',
+    },
+  )
+}
+
+function parseFileName(contentDisposition: string | null): string | null {
+  if (!contentDisposition) {
+    return null
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1])
+  }
+
+  const fileNameMatch = contentDisposition.match(/filename="?([^\";]+)"?/i)
+  return fileNameMatch?.[1] ?? null
 }

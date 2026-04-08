@@ -26,16 +26,24 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
 
 const {
   listEstablishmentDocumentsMock,
+  downloadDocumentFileMock,
+  deleteDocumentMock,
   authStoreMock,
   appEnvMock,
   routeState,
   routerPushMock,
 } = vi.hoisted(() => ({
   listEstablishmentDocumentsMock: vi.fn(),
+  downloadDocumentFileMock: vi.fn(),
+  deleteDocumentMock: vi.fn(),
   authStoreMock: {
     appContext: {
       organizationId: 'org-1',
       establishmentId: 'est-1',
+      organizationRole: 'ORG_MANAGER',
+    },
+    user: {
+      globalRoles: [],
     },
   },
   appEnvMock: {
@@ -54,6 +62,8 @@ const {
 }))
 
 vi.mock('@/documents/api/documents.api', () => ({
+  deleteDocument: deleteDocumentMock,
+  downloadDocumentFile: downloadDocumentFileMock,
   listEstablishmentDocuments: listEstablishmentDocumentsMock,
 }))
 
@@ -87,10 +97,16 @@ function mountPage() {
 describe('DocumentsPage', () => {
   afterEach(() => {
     listEstablishmentDocumentsMock.mockReset()
+    downloadDocumentFileMock.mockReset()
+    deleteDocumentMock.mockReset()
     routerPushMock.mockReset()
     authStoreMock.appContext = {
       organizationId: 'org-1',
       establishmentId: 'est-1',
+      organizationRole: 'ORG_MANAGER',
+    }
+    authStoreMock.user = {
+      globalRoles: [],
     }
     appEnvMock.isDevelopment = true
     appEnvMock.isProduction = false
@@ -120,9 +136,11 @@ describe('DocumentsPage', () => {
     expect(wrapper.text()).toContain('Important documents')
     expect(wrapper.text()).toContain('Alcohol service licence')
     expect(wrapper.text()).toContain('Upload new document')
+    expect(wrapper.text()).toContain('Download')
+    expect(wrapper.text()).toContain('Delete')
   })
 
-  it('loads ik-mat documents from the shared page without an upload action', async () => {
+  it('loads ik-mat documents from the shared page with an upload action', async () => {
     routeState.name = 'ik-mat-documents'
     listEstablishmentDocumentsMock.mockResolvedValue({
       items: [
@@ -151,6 +169,55 @@ describe('DocumentsPage', () => {
     })
     expect(wrapper.text()).toContain('Documents')
     expect(wrapper.text()).toContain('Food safety plan')
+    expect(wrapper.text()).toContain('Upload new document')
+  })
+
+  it('shows download but hides delete and upload for employees', async () => {
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      organizationRole: 'ORG_EMPLOYEE',
+    }
+    listEstablishmentDocumentsMock.mockResolvedValue({
+      items: [createDocument()],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Download')
+    expect(wrapper.text()).not.toContain('Delete')
     expect(wrapper.text()).not.toContain('Upload new document')
+  })
+
+  it('deletes a document after confirmation', async () => {
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    listEstablishmentDocumentsMock.mockResolvedValue({
+      items: [createDocument()],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    deleteDocumentMock.mockResolvedValue(undefined)
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.get('.document-action-button-delete').trigger('click')
+    await flushPromises()
+
+    expect(deleteDocumentMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      documentId: 'doc-1',
+    })
+    expect(confirmMock).toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('Alcohol service licence')
+    confirmMock.mockRestore()
   })
 })

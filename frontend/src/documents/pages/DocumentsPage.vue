@@ -3,7 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
-import { listEstablishmentDocuments } from '@/documents/api/documents.api'
+import {
+  deleteDocument,
+  downloadDocumentFile,
+  listEstablishmentDocuments,
+} from '@/documents/api/documents.api'
 import type {
   DocumentServiceArea,
   DocumentStatus,
@@ -27,6 +31,9 @@ const activeFilter = ref<'ALL' | DocumentStatus>('ALL')
 const documents = ref<EstablishmentDocument[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const actionErrorMessage = ref<string | null>(null)
+const activeDownloadDocumentId = ref<string | null>(null)
+const activeDeleteDocumentId = ref<string | null>(null)
 
 const filterOptions = [
   { value: 'ALL', label: 'All' },
@@ -92,7 +99,26 @@ const panelLabel = computed(() => {
   return 'Documents overview'
 })
 
-const canUploadDocuments = computed(() => isAlcoholPage.value)
+const uploadRouteName = computed(() => {
+  if (isAlcoholPage.value) {
+    return 'ik-alkohol-documents-upload'
+  }
+
+  return 'ik-mat-documents-upload'
+})
+
+const canManageDocuments = computed(() => {
+  if (authStore.user?.globalRoles?.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  const organizationRole = authStore.appContext?.organizationRole
+  return (
+    organizationRole === 'ORG_OWNER' ||
+    organizationRole === 'ORG_ADMIN' ||
+    organizationRole === 'ORG_MANAGER'
+  )
+})
 
 const documentsWithStatus = computed(() => sortDocumentsByRenewalDate(documents.value))
 
@@ -181,11 +207,88 @@ function formatDate(value: string) {
 }
 
 function goToUploadPage() {
-  if (!canUploadDocuments.value) {
+  void router.push({ name: uploadRouteName.value })
+}
+
+function isDownloadingDocument(documentId: string) {
+  return activeDownloadDocumentId.value === documentId
+}
+
+function isDeletingDocument(documentId: string) {
+  return activeDeleteDocumentId.value === documentId
+}
+
+async function handleDownloadDocument(documentRecord: EstablishmentDocument): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
     return
   }
 
-  void router.push({ name: 'ik-alkohol-documents-upload' })
+  actionErrorMessage.value = null
+  activeDownloadDocumentId.value = documentRecord.id
+
+  try {
+    const file = await downloadDocumentFile({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      documentId: documentRecord.id,
+    })
+
+    triggerBrowserDownload(file.blob, file.fileName)
+  } catch (error) {
+    actionErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to download document.'
+  } finally {
+    if (activeDownloadDocumentId.value === documentRecord.id) {
+      activeDownloadDocumentId.value = null
+    }
+  }
+}
+
+async function handleDeleteDocument(documentRecord: EstablishmentDocument): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !canManageDocuments.value) {
+    return
+  }
+
+  if (!window.confirm(`Delete "${documentRecord.title}"? This cannot be undone.`)) {
+    return
+  }
+
+  actionErrorMessage.value = null
+  activeDeleteDocumentId.value = documentRecord.id
+
+  try {
+    await deleteDocument({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      documentId: documentRecord.id,
+    })
+
+    documents.value = documents.value.filter(
+      (existingDocument) => existingDocument.id !== documentRecord.id,
+    )
+  } catch (error) {
+    actionErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to delete document.'
+  } finally {
+    if (activeDeleteDocumentId.value === documentRecord.id) {
+      activeDeleteDocumentId.value = null
+    }
+  }
+}
+
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(objectUrl)
 }
 
 async function loadDocuments(): Promise<void> {
@@ -197,12 +300,14 @@ async function loadDocuments(): Promise<void> {
   if (!resolvedOrganizationId || !resolvedEstablishmentId) {
     documents.value = []
     errorMessage.value = null
+    actionErrorMessage.value = null
     isLoading.value = false
     return
   }
 
   isLoading.value = true
   errorMessage.value = null
+  actionErrorMessage.value = null
 
   try {
     const page = await listEstablishmentDocuments({
@@ -242,7 +347,7 @@ async function loadDocuments(): Promise<void> {
       </div>
 
       <BaseButton
-        v-if="canUploadDocuments"
+        v-if="canManageDocuments"
         class="upload-button"
         type="button"
         @click="goToUploadPage"
@@ -313,7 +418,14 @@ async function loadDocuments(): Promise<void> {
         <p>{{ errorMessage }}</p>
       </div>
 
-      <table v-else-if="filteredDocuments.length > 0" class="documents-table">
+      <div v-if="!missingContextMessage && !isLoading && !errorMessage && actionErrorMessage" class="action-feedback" role="alert">
+        <p>{{ actionErrorMessage }}</p>
+      </div>
+
+      <table
+        v-if="!missingContextMessage && !isLoading && !errorMessage && filteredDocuments.length > 0"
+        class="documents-table"
+      >
         <thead class="documents-table-header">
           <tr>
             <th scope="col">Document title</th>
@@ -356,23 +468,32 @@ async function loadDocuments(): Promise<void> {
 
             <td class="document-cell document-cell-actions">
               <span class="document-cell-label">Actions</span>
-              <button
-                type="button"
-                class="action-button"
-                :aria-label="`Document actions for ${documentRecord.title}`"
-              >
-                <svg aria-hidden="true" class="action-icon" viewBox="0 0 20 20">
-                  <circle cx="10" cy="4.5" r="1.5" fill="currentColor" />
-                  <circle cx="10" cy="10" r="1.5" fill="currentColor" />
-                  <circle cx="10" cy="15.5" r="1.5" fill="currentColor" />
-                </svg>
-              </button>
+              <div class="document-actions">
+                <button
+                  type="button"
+                  class="document-action-button document-action-button-download"
+                  :disabled="isDownloadingDocument(documentRecord.id) || isDeletingDocument(documentRecord.id)"
+                  @click="handleDownloadDocument(documentRecord)"
+                >
+                  {{ isDownloadingDocument(documentRecord.id) ? 'Downloading...' : 'Download' }}
+                </button>
+
+                <button
+                  v-if="canManageDocuments"
+                  type="button"
+                  class="document-action-button document-action-button-delete"
+                  :disabled="isDeletingDocument(documentRecord.id) || isDownloadingDocument(documentRecord.id)"
+                  @click="handleDeleteDocument(documentRecord)"
+                >
+                  {{ isDeletingDocument(documentRecord.id) ? 'Deleting...' : 'Delete' }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div v-else class="empty-state">
+      <div v-if="!missingContextMessage && !isLoading && !errorMessage && filteredDocuments.length === 0" class="empty-state">
         <p>{{ emptyStateMessage }}</p>
       </div>
     </section>
@@ -576,7 +697,13 @@ async function loadDocuments(): Promise<void> {
 .documents-table-header tr,
 .documents-list-item {
   display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr) 48px;
+  grid-template-columns:
+    minmax(0, 2.1fr)
+    minmax(0, 1.3fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 0.9fr)
+    minmax(176px, 1.2fr);
   column-gap: 16px;
 }
 
@@ -596,6 +723,8 @@ async function loadDocuments(): Promise<void> {
 }
 
 .actions-column {
+  padding-left: 12px;
+  padding-right: 12px;
   text-align: center;
 }
 
@@ -665,30 +794,50 @@ async function loadDocuments(): Promise<void> {
 .document-cell-actions {
   align-items: center;
   justify-content: center;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
-.action-button {
-  display: inline-flex;
-  align-items: center;
+.document-actions {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
+  gap: 8px;
+}
+
+.document-action-button {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border-muted);
   border-radius: 4px;
-  background-color: transparent;
-  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.action-button:hover {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
+.document-action-button:hover:not(:disabled) {
+  border-color: var(--color-text-primary);
 }
 
-.action-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
+.document-action-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.document-action-button-delete {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.document-action-button-delete:hover:not(:disabled) {
+  border-color: #ef4444;
+}
+
+.action-feedback {
+  padding: 16px 20px 0;
+  color: #b91c1c;
 }
 
 .empty-state {

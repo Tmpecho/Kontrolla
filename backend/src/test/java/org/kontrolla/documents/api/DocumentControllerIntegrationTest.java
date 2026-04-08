@@ -33,6 +33,7 @@ import java.time.LocalDate;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -80,7 +81,7 @@ class DocumentControllerIntegrationTest {
   }
 
   @Test
-  void managerCanCreateUpdateReplaceDownloadAndListDocuments() throws Exception {
+  void managerCanCreateUpdateReplaceDownloadDeleteAndListDocuments() throws Exception {
     User manager = createUser("documents-api-manager@example.com", "Manager", "API");
     Organization organization = createOrganization("Kontrolla Documents API");
     Establishment establishment = createEstablishment(organization, "Downtown Bar");
@@ -174,6 +175,28 @@ class DocumentControllerIntegrationTest {
         .andExpect(jsonPath("$.items[0].title").value("Responsible service certificate"))
         .andExpect(jsonPath("$.items[0].status").value("EXPIRING"))
         .andExpect(jsonPath("$.items[1].title").value("Alcohol service licence 2026"));
+
+    mockMvc.perform(delete("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isNotFound());
+
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s/file".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isNotFound());
+
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents?serviceArea=IK_ALKOHOL".formatted(
+            organization.getId(), establishment.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(1))
+        .andExpect(jsonPath("$.items[0].title").value("Responsible service certificate"));
   }
 
   @Test

@@ -15,6 +15,12 @@ type RequestJsonOptions = {
   headers?: HeadersInit
 }
 
+export type BlobResponse = {
+  blob: Blob
+  headers: Headers
+  contentType: string | null
+}
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -66,7 +72,7 @@ async function readProblemMessage(response: Response): Promise<string> {
   }
 }
 
-export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
+async function sendRequest(path: string, options: RequestJsonOptions = {}): Promise<Response> {
   const accessToken = getAccessToken()
   const headers = new Headers(options.headers)
 
@@ -85,5 +91,28 @@ export async function requestJson<T>(path: string, options: RequestJsonOptions =
     throw new ApiError(await readProblemMessage(response), response.status)
   }
 
+  return response
+}
+
+export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
+  const response = await sendRequest(path, options)
+
   return (await response.json()) as T
+}
+
+export async function requestBlob(
+  path: string,
+  options: RequestJsonOptions = {},
+): Promise<BlobResponse> {
+  const response = await sendRequest(path, options)
+
+  return {
+    blob: await response.blob(),
+    headers: response.headers,
+    contentType: response.headers.get('Content-Type'),
+  }
+}
+
+export async function requestVoid(path: string, options: RequestJsonOptions = {}): Promise<void> {
+  await sendRequest(path, options)
 }
