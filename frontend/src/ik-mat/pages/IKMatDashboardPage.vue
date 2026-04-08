@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
+import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
@@ -14,11 +15,44 @@ const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
+const authStore = useAuthStore()
+
+const resolvedChecklistContext = computed(() => {
+  if (!authStore.isSessionReady) {
+    return null
+  }
+
+  const organizationId = authStore.appContext?.organizationId ?? null
+  const establishmentId = authStore.appContext?.establishmentId ?? null
+
+  if (organizationId && establishmentId) {
+    return { organizationId, establishmentId }
+  }
+
+  if (!authStore.isAuthenticated) {
+    const defaultOrganizationId = appEnv.defaultOrganizationId
+    const defaultEstablishmentId = appEnv.defaultEstablishmentId
+
+    if (defaultOrganizationId && defaultEstablishmentId) {
+      return {
+        organizationId: defaultOrganizationId,
+        establishmentId: defaultEstablishmentId,
+      }
+    }
+  }
+
+  return null
+})
+
 const hasChecklistContext = computed(() =>
-  Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
+  resolvedChecklistContext.value !== null,
 )
 
 const missingContextMessage = computed(() => {
+  if (!authStore.isSessionReady) {
+    return 'Loading checklist context...'
+  }
+
   if (hasChecklistContext.value) {
     return null
   }
@@ -52,10 +86,9 @@ function formatUnitSummary(count: number, label: string): string {
 }
 
 async function loadChecklistRuns(): Promise<void> {
-  const organizationId = appEnv.defaultOrganizationId
-  const establishmentId = appEnv.defaultEstablishmentId
+  const context = resolvedChecklistContext.value
 
-  if (!organizationId || !establishmentId) {
+  if (!context) {
     return
   }
 
@@ -64,8 +97,8 @@ async function loadChecklistRuns(): Promise<void> {
 
   try {
     const page = await listChecklistRuns({
-      organizationId,
-      establishmentId,
+      organizationId: context.organizationId,
+      establishmentId: context.establishmentId,
       serviceArea: 'IK_MAT',
       size: 10,
     })
@@ -79,9 +112,20 @@ async function loadChecklistRuns(): Promise<void> {
   }
 }
 
-onMounted(async () => {
-  await loadChecklistRuns()
-})
+watch(
+  resolvedChecklistContext,
+  async (context) => {
+    if (!context) {
+      checklistRuns.value = []
+      errorMessage.value = null
+      isLoading.value = false
+      return
+    }
+
+    await loadChecklistRuns()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

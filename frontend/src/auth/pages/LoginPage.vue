@@ -28,9 +28,25 @@ const showPasswordChangedMessage = computed(() => route.query.passwordChanged ==
       </header>
       <div class="form-wrapper">
         <div v-if="appEnv.showDevLoginHint" class="dev-hint">
-          <span>Dev login:</span>
-          <code>demo@example.com</code>
-          <code>password123</code>
+          <span>Dev logins:</span>
+          <div class="dev-login-list">
+            <div class="dev-login-item">
+              <code>demo@example.com</code>
+              <code>password123</code>
+            </div>
+            <div class="dev-login-item">
+              <code>admin@example.com</code>
+              <code>password123</code>
+            </div>
+            <div class="dev-login-item">
+              <code>emma.larsen@example.com</code>
+              <code>password123</code>
+            </div>
+            <div class="dev-login-item">
+              <code>noah.berg@example.com</code>
+              <code>password123</code>
+            </div>
+          </div>
         </div>
         <div class="form-box">
           <div v-if="showPasswordChangedMessage" class="success-notification">
@@ -142,5 +158,17 @@ body {
   border-radius: 4px;
   color: var(--color-success);
   font-size: 0.875rem;
+}
+
+.dev-login-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dev-login-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 </style>

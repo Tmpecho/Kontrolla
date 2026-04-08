@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
+import { useAuthStore } from '@/auth/model/auth.store'
 import { useNotificationsStore } from '@/notifications/model/notifications.store'
 
 const props = withDefaults(
@@ -26,7 +27,19 @@ const notificationsButton = ref<HTMLButtonElement | null>(null)
 const profileButton = ref<HTMLButtonElement | null>(null)
 const notificationsPopup = ref<InstanceType<typeof NotificationsPopup> | null>(null)
 const profilePopup = ref<InstanceType<typeof ProfilePopup> | null>(null)
+const authStore = useAuthStore()
 const route = useRoute()
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
+
 const notificationsStore = useNotificationsStore()
 const unreadBadgeLabel = computed(() =>
   notificationsStore.unreadCount > 9 ? '9+' : String(notificationsStore.unreadCount),
@@ -34,6 +47,10 @@ const unreadBadgeLabel = computed(() =>
 
 const currentSectionLabel = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName === 'organization-members') {
+    return 'Admin'
+  }
 
   if (routeName === 'my-profile' || routeName === 'settings') {
     return 'Account'
@@ -50,8 +67,12 @@ const currentSectionLabel = computed(() => {
   return 'Workspace'
 })
 
-function isServiceActive(section: 'ik-mat' | 'ik-alkohol') {
+function isServiceActive(section: 'admin' | 'ik-mat' | 'ik-alkohol') {
   const routeName = typeof route.name === 'string' ? route.name : ''
+  if (section === 'admin') {
+    return routeName === 'organization-members'
+  }
+
   return routeName.startsWith(`${section}-`)
 }
 
@@ -204,6 +225,14 @@ defineExpose({
         >
           IK-Alkohol
         </RouterLink>
+        <RouterLink
+          v-if="canManageMembers"
+          class="nav-link"
+          :data-active="isServiceActive('admin')"
+          :to="{ name: 'organization-members' }"
+        >
+          Admin
+        </RouterLink>
       </div>
     </div>
 
@@ -246,11 +275,7 @@ defineExpose({
         >
           <img alt="" class="top-bar-img" src="@/assets/icons/profile.png" />
         </button>
-        <ProfilePopup
-          v-if="activePopup === 'profile'"
-          ref="profilePopup"
-          @close="closePopup"
-        />
+        <ProfilePopup v-if="activePopup === 'profile'" ref="profilePopup" @close="closePopup" />
       </div>
     </div>
   </div>

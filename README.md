@@ -27,17 +27,20 @@ Recommended branch protection is to require the `Status` job from the `CI` workf
 
 The backend is split into explicit Spring profiles:
 
-- `dev`: local development with MySQL defaults and bootstrap users
+- `dev`: local development only, with MySQL defaults and bootstrap users
 - `prod`: production configuration with environment-provided database and security settings
 - `test`: H2-backed test configuration
 
 The Docker Compose backend runs with the `dev` profile by default.
+Startup now fails fast if dev bootstrap credentials or the insecure dev JWT secret are present outside `dev`, and `dev` cannot be combined with `prod`.
 
 ### Development Login
 
-In `dev`, a bootstrap user is created automatically:
+In `dev`, bootstrap users are created automatically:
 
-- email: `demo@example.com`
-- password: `password123`
+- `demo@example.com` / `password123`
+- `admin@example.com` / `password123`
+- `emma.larsen@example.com` / `password123`
+- `noah.berg@example.com` / `password123`
 
-This bootstrap user does not exist in `prod`.
+These bootstrap users do not exist in `prod`.

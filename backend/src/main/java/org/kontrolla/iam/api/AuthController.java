@@ -77,6 +77,17 @@ public class AuthController {
 				.build();
 	}
 
+	@GetMapping("/invitations/{token}")
+	public InviteDetailsResponse getInvite(@PathVariable String token) {
+		return InviteDetailsResponse.from(authService.getInviteDetails(token));
+	}
+
+	@PostMapping("/invitations/{token}/accept")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void acceptInvite(@PathVariable String token, @Valid @RequestBody AcceptInviteRequest request) {
+		authService.acceptInvite(token, request.password());
+	}
+
 	@GetMapping("/csrf")
 	public CsrfTokenResponse csrf(HttpServletRequest request, HttpServletResponse response) {
 		CsrfToken csrfToken = csrfTokenRepository.loadToken(request);

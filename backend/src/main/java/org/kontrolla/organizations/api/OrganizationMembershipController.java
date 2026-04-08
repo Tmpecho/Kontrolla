@@ -27,10 +27,11 @@ public class OrganizationMembershipController {
 	public PageResponse<MembershipResponse> listMembers(
 			@PathVariable UUID organizationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
+			@RequestParam(defaultValue = "false") boolean includeInactive,
 			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
 	) {
 		return PageResponse.from(
-				organizationService.listMemberships(organizationId, currentUser, pageable),
+				organizationService.listMemberships(organizationId, currentUser, pageable, includeInactive),
 				MembershipResponse::from
 		);
 	}
@@ -50,6 +51,26 @@ public class OrganizationMembershipController {
 				currentUser
 		);
 		return MembershipResponse.from(membership);
+	}
+
+	@PostMapping("/managed-users")
+	@ResponseStatus(HttpStatus.CREATED)
+	public ManagedMemberProvisionResponse createManagedMember(
+			@PathVariable UUID organizationId,
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody CreateManagedMemberRequest request
+	) {
+		return ManagedMemberProvisionResponse.from(
+				organizationService.createManagedMembership(
+						organizationId,
+						request.email(),
+						request.firstName(),
+						request.lastName(),
+						request.role(),
+						request.active() == null || request.active(),
+						currentUser
+				)
+		);
 	}
 
 	@PatchMapping("/{membershipId}")

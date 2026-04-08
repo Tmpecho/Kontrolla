@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { updateMyProfile } from '@/account/api/account.api'
 import { useAuthStore } from '@/auth/model/auth.store'
@@ -8,6 +9,7 @@ import BaseButton from '@/shared/components/BaseButton.vue'
 import BaseInput from '@/shared/components/BaseInput.vue'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const isSaving = ref(false)
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
@@ -25,6 +27,17 @@ watch(
   },
   { immediate: true },
 )
+
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 
 const fullName = computed(() => {
   const parts = [authStore.user?.firstName ?? '', authStore.user?.lastName ?? '']
@@ -80,6 +93,10 @@ function clearFeedback() {
   successMessage.value = null
 }
 
+function goToOrganizationMembers() {
+  void router.push({ name: 'organization-members' })
+}
+
 async function onSubmit() {
   if (!canSave.value) {
     return
@@ -114,8 +131,16 @@ async function onSubmit() {
 
     <section class="details-panel">
       <div class="panel-header">
-        <h2>Account summary</h2>
-        <p>These details come from your authenticated account and current organization context.</p>
+        <div class="panel-header-copy">
+          <h2>Account summary</h2>
+          <p>These details come from your authenticated account and current organization context.</p>
+        </div>
+
+        <div v-if="canManageMembers" class="profile-actions">
+          <button type="button" class="manage-members-button" @click="goToOrganizationMembers">
+            Manage organization members
+          </button>
+        </div>
       </div>
 
       <div class="details-grid">
@@ -157,8 +182,10 @@ async function onSubmit() {
 
     <section class="details-panel">
       <div class="panel-header">
-        <h2>Personal details</h2>
-        <p>Update the name that appears in the app for your account.</p>
+        <div class="panel-header-copy">
+          <h2>Personal details</h2>
+          <p>Update the name that appears in the app for your account.</p>
+        </div>
       </div>
 
       <form class="profile-form" @submit.prevent="onSubmit">
@@ -233,6 +260,14 @@ async function onSubmit() {
 
 .panel-header {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.panel-header-copy {
+  display: flex;
   flex-direction: column;
   gap: 6px;
 }
@@ -243,6 +278,23 @@ async function onSubmit() {
 
 .panel-header p {
   color: var(--color-text-secondary);
+}
+
+.profile-actions {
+  display: flex;
+  align-items: flex-start;
+}
+
+.manage-members-button {
+  min-height: 42px;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: 4px;
+  background-color: #1557b0;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .details-grid,

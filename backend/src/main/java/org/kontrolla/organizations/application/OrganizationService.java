@@ -2,6 +2,8 @@ package org.kontrolla.organizations.application;
 
 import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
+import org.kontrolla.iam.application.UserAdministrationService;
+import org.kontrolla.iam.application.UserInviteService;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.domain.Organization;
@@ -23,17 +25,23 @@ public class OrganizationService {
 	private final OrganizationRepository organizationRepository;
 	private final OrganizationMembershipRepository membershipRepository;
 	private final UserRepository userRepository;
+	private final UserAdministrationService userAdministrationService;
+	private final UserInviteService userInviteService;
 	private final OrganizationAccessService organizationAccessService;
 
 	public OrganizationService(
 			OrganizationRepository organizationRepository,
 			OrganizationMembershipRepository membershipRepository,
 			UserRepository userRepository,
+			UserAdministrationService userAdministrationService,
+			UserInviteService userInviteService,
 			OrganizationAccessService organizationAccessService
 	) {
 		this.organizationRepository = organizationRepository;
 		this.membershipRepository = membershipRepository;
 		this.userRepository = userRepository;
+		this.userAdministrationService = userAdministrationService;
+		this.userInviteService = userInviteService;
 		this.organizationAccessService = organizationAccessService;
 	}
 
@@ -56,10 +64,18 @@ public class OrganizationService {
 	}
 
 	@Transactional(readOnly = true)
-	public Page<OrganizationMembership> listMemberships(UUID organizationId, CurrentUser currentUser, Pageable pageable) {
+	public Page<OrganizationMembership> listMemberships(
+			UUID organizationId,
+			CurrentUser currentUser,
+			Pageable pageable,
+			boolean includeInactive
+	) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
 		organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
-		return membershipRepository.findByOrganizationId(organizationId, pageable);
+		if (includeInactive) {
+			return membershipRepository.findByOrganizationId(organizationId, pageable);
+		}
+		return membershipRepository.findByOrganizationIdAndActiveTrue(organizationId, pageable);
 	}
 
 	@Transactional
@@ -85,6 +101,25 @@ public class OrganizationService {
 	}
 
 	@Transactional
+	public ManagedMembershipProvision createManagedMembership(
+			UUID organizationId,
+			String email,
+			String firstName,
+			String lastName,
+			OrganizationRole role,
+			boolean active,
+			CurrentUser currentUser
+	) {
+		Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
+		organizationAccessService.requireMembershipManagement(currentUser, organizationId);
+
+		org.kontrolla.iam.domain.User user = userAdministrationService.createInvitedUser(email, firstName, lastName);
+		OrganizationMembership membership = membershipRepository.save(new OrganizationMembership(organization, user, role, active));
+		UserInviteService.IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
+		return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
+	}
+
+	@Transactional
 	public OrganizationMembership updateMembership(
 			UUID organizationId,
 			UUID membershipId,
@@ -100,6 +135,16 @@ public class OrganizationService {
 
 		membership.setRole(role);
 		membership.setActive(active);
+		if (active) {
+			membership.getUser().setActive(true);
+		}
 		return membership;
+	}
+
+	public record ManagedMembershipProvision(
+			OrganizationMembership membership,
+			java.time.Instant inviteExpiresAt,
+			String inviteUrl
+	) {
 	}
 }

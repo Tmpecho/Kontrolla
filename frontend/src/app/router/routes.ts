@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import AppLayout from '@/app/layouts/AppLayout.vue'
 import AuthLayout from '@/app/layouts/AuthLayout.vue'
 import PublicLayout from '@/app/layouts/PublicLayout.vue'
+import AcceptInvitePage from '@/auth/pages/AcceptInvitePage.vue'
 import LoginPage from '@/auth/pages/LoginPage.vue'
 import LandingPage from '@/marketing/pages/LandingPage.vue'
 import PriceOfferPage from '@/marketing/pages/PriceOfferPage.vue'
@@ -19,6 +20,7 @@ import DeviationPage from '@/deviations/pages/DeviationPage.vue'
 import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 import MyProfilePage from '@/account/pages/MyProfilePage.vue'
 import SettingsPage from '@/account/pages/SettingsPage.vue'
+import OrganizationMembersPage from '@/account/pages/OrganizationMembersPage.vue'
 import NotificationsPage from '@/notifications/pages/NotificationsPage.vue'
 
 export const routes: RouteRecordRaw[] = [
@@ -54,6 +56,11 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           requiresGuest: true,
         },
+      },
+      {
+        path: 'invite/:token',
+        name: 'accept-invite',
+        component: AcceptInvitePage,
       },
     ],
   },
@@ -133,6 +140,14 @@ export const routes: RouteRecordRaw[] = [
         path: 'settings',
         name: 'settings',
         component: SettingsPage,
+      },
+      {
+        path: 'organization/members',
+        name: 'organization-members',
+        component: OrganizationMembersPage,
+        meta: {
+          requiresMemberManagement: true,
+        },
       },
       {
         path: 'notifications',

@@ -14,6 +14,9 @@ public interface OrganizationMembershipRepository extends JpaRepository<Organiza
 	@EntityGraph(attributePaths = {"user"})
 	Page<OrganizationMembership> findByOrganizationId(UUID organizationId, Pageable pageable);
 
+	@EntityGraph(attributePaths = {"user"})
+	Page<OrganizationMembership> findByOrganizationIdAndActiveTrue(UUID organizationId, Pageable pageable);
+
 	@EntityGraph(attributePaths = {"organization", "user"})
 	Optional<OrganizationMembership> findByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 
