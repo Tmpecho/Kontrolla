@@ -38,14 +38,14 @@ public class AppSecurityStartupGuard {
 			throw new IllegalStateException("Non-dev startup cannot use the insecure development JWT secret");
 		}
 
-		if (hasConfiguredCredentials(
+		if (hasAnyConfiguredCredential(
 				properties.getBootstrapAdmin().getEmail(),
 				properties.getBootstrapAdmin().getPassword()
 		)) {
 			throw new IllegalStateException("Non-dev startup cannot enable bootstrap admin credentials");
 		}
 
-		if (hasConfiguredCredentials(
+		if (hasAnyConfiguredCredential(
 				properties.getBootstrapUser().getEmail(),
 				properties.getBootstrapUser().getPassword()
 		)) {
@@ -57,7 +57,7 @@ public class AppSecurityStartupGuard {
 		return Arrays.stream(environment.getActiveProfiles()).anyMatch(profile::equalsIgnoreCase);
 	}
 
-	private boolean hasConfiguredCredentials(String email, String password) {
+	private boolean hasAnyConfiguredCredential(String email, String password) {
 		return !normalize(email).isBlank() || !normalize(password).isBlank();
 	}
 
