@@ -19,8 +19,23 @@ const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
   },
 }))
 
+const authStoreMock = vi.hoisted(() => ({
+  isSessionReady: true,
+  isAuthenticated: false,
+  appContext: null as
+    | {
+        organizationId: string | null
+        establishmentId: string | null
+      }
+    | null,
+}))
+
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
   listChecklistRuns: listChecklistRunsMock,
+}))
+
+vi.mock('@/auth/model/auth.store', () => ({
+  useAuthStore: () => authStoreMock,
 }))
 
 vi.mock('@/shared/config/env', () => ({
@@ -73,6 +88,9 @@ describe('IKMatChecklistsPage', () => {
     appEnvMock.isProduction = false
     appEnvMock.defaultOrganizationId = 'org-1'
     appEnvMock.defaultEstablishmentId = 'est-1'
+    authStoreMock.isSessionReady = true
+    authStoreMock.isAuthenticated = false
+    authStoreMock.appContext = null
   })
 
   it('renders a loading state while checklist runs are being fetched', async () => {
