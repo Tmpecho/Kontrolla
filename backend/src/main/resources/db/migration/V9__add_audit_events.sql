@@ -3,7 +3,7 @@ CREATE TABLE audit_events
     id             CHAR(36)     NOT NULL,
     action         VARCHAR(64)  NOT NULL,
     outcome        VARCHAR(32)  NOT NULL,
-    occurred_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    occurred_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     actor_type     VARCHAR(32)  NOT NULL,
     actor_user_id  CHAR(36)     NULL,
     actor_email    VARCHAR(320) NULL,

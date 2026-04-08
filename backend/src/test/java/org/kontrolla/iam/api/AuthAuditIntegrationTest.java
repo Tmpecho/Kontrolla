@@ -119,7 +119,7 @@ class AuthAuditIntegrationTest {
 		performLogin("alice@example.com", "password123", "203.0.113.20")
 				.andExpect(status().isUnauthorized());
 
-		AuditEvent auditEvent = latestAuditEvent();
+		AuditEvent auditEvent = auditEvent(AuditAction.AUTH_LOGIN, "throttled");
 		assertThat(auditEvent.getAction()).isEqualTo(AuditAction.AUTH_LOGIN);
 		assertThat(auditEvent.getOutcome()).isEqualTo(AuditOutcome.FAILURE);
 		assertThat(auditEvent.getResultCode()).isEqualTo("throttled");
@@ -144,7 +144,7 @@ class AuthAuditIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists(REFRESH_COOKIE_NAME));
 
-		AuditEvent auditEvent = latestAuditEvent();
+		AuditEvent auditEvent = auditEvent(AuditAction.AUTH_REFRESH, "success");
 		assertThat(auditEvent.getAction()).isEqualTo(AuditAction.AUTH_REFRESH);
 		assertThat(auditEvent.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
 		assertThat(auditEvent.getResultCode()).isEqualTo("success");
@@ -185,7 +185,7 @@ class AuthAuditIntegrationTest {
 		performRefresh("forged-refresh-token", "203.0.113.50")
 				.andExpect(status().isUnauthorized());
 
-		AuditEvent auditEvent = latestAuditEvent();
+		AuditEvent auditEvent = auditEvent(AuditAction.AUTH_REFRESH, "throttled");
 		assertThat(auditEvent.getAction()).isEqualTo(AuditAction.AUTH_REFRESH);
 		assertThat(auditEvent.getOutcome()).isEqualTo(AuditOutcome.FAILURE);
 		assertThat(auditEvent.getResultCode()).isEqualTo("throttled");
@@ -211,7 +211,7 @@ class AuthAuditIntegrationTest {
 						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isNoContent());
 
-		AuditEvent auditEvent = latestAuditEvent();
+		AuditEvent auditEvent = auditEvent(AuditAction.AUTH_LOGOUT, "revoked");
 		assertThat(auditEvent.getAction()).isEqualTo(AuditAction.AUTH_LOGOUT);
 		assertThat(auditEvent.getOutcome()).isEqualTo(AuditOutcome.SUCCESS);
 		assertThat(auditEvent.getResultCode()).isEqualTo("revoked");
@@ -261,7 +261,7 @@ class AuthAuditIntegrationTest {
 						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
 				.andExpect(status().isNoContent());
 
-		AuditEvent auditEvent = latestAuditEvent();
+		AuditEvent auditEvent = auditEvent(AuditAction.AUTH_LOGOUT, "token_not_active");
 		assertThat(auditEvent.getAction()).isEqualTo(AuditAction.AUTH_LOGOUT);
 		assertThat(auditEvent.getOutcome()).isEqualTo(AuditOutcome.IGNORED);
 		assertThat(auditEvent.getResultCode()).isEqualTo("token_not_active");
@@ -277,10 +277,13 @@ class AuthAuditIntegrationTest {
 		return auditEvents.getFirst();
 	}
 
-	private AuditEvent latestAuditEvent() {
-		return auditEventRepository.findAll().stream()
-				.max(java.util.Comparator.comparing(AuditEvent::getOccurredAt))
-				.orElseThrow();
+	private AuditEvent auditEvent(AuditAction action, String resultCode) {
+		List<AuditEvent> auditEvents = auditEventRepository.findAll().stream()
+				.filter(auditEvent -> auditEvent.getAction() == action)
+				.filter(auditEvent -> resultCode.equals(auditEvent.getResultCode()))
+				.toList();
+		assertThat(auditEvents).hasSize(1);
+		return auditEvents.getFirst();
 	}
 
 	private org.springframework.test.web.servlet.ResultActions performLogin(String email, String password, String remoteAddr) throws Exception {
