@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
+import OrganizationSwitcher from '@/app/components/OrganizationSwitcher.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useNotificationsStore } from '@/notifications/model/notifications.store'
@@ -237,9 +238,11 @@ defineExpose({
       </div>
     </div>
 
+    <OrganizationSwitcher class="mobile-organization-switcher" variant="panel" />
     <EstablishmentSwitcher class="mobile-establishment-switcher" variant="panel" />
 
     <div ref="popupArea" class="right-container icons-container">
+      <OrganizationSwitcher class="desktop-organization-switcher" />
       <EstablishmentSwitcher class="desktop-establishment-switcher" />
 
       <div class="icon-wrapper icon-wrapper-notifications">
@@ -300,6 +303,10 @@ defineExpose({
   display: none;
 }
 
+.mobile-organization-switcher {
+  display: none;
+}
+
 .left-container {
   display: flex;
   flex-direction: row;
@@ -329,6 +336,11 @@ defineExpose({
 }
 
 .desktop-establishment-switcher {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.desktop-organization-switcher {
   width: 240px;
   flex-shrink: 0;
 }
@@ -453,11 +465,13 @@ defineExpose({
   }
 
   .desktop-service-links,
+  .desktop-organization-switcher,
   .desktop-establishment-switcher,
   .icon-wrapper-notifications {
     display: none;
   }
 
+  .mobile-organization-switcher,
   .mobile-establishment-switcher {
     display: flex;
     width: 100%;

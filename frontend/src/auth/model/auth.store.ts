@@ -15,10 +15,13 @@ import type {
 } from '@/auth/model/auth.types'
 import { listEstablishments } from '@/establishments/api/establishments.api'
 import type { Establishment } from '@/establishments/model/establishment.types'
+import { listAdminOrganizations } from '@/organizations/api/organizations.api'
+import type { OrganizationSummary } from '@/organizations/model/organization.types'
 import { clearCsrfToken } from '@/shared/api/csrf'
 
 let currentAccessToken: string | null = null
 const ESTABLISHMENT_SELECTION_STORAGE_KEY = 'kontrolla.establishmentSelectionByOrganization'
+const ORGANIZATION_SELECTION_STORAGE_KEY = 'kontrolla.organizationSelection'
 
 export function getAccessToken(): string | null {
   return currentAccessToken
@@ -60,17 +63,44 @@ function writeStoredSelectionByOrganization(selectionByOrganization: Record<stri
   )
 }
 
+function readStoredOrganizationSelection(): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const storedValue = window.localStorage.getItem(ORGANIZATION_SELECTION_STORAGE_KEY)?.trim()
+  return storedValue ? storedValue : null
+}
+
+function writeStoredOrganizationSelection(organizationId: string | null) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (organizationId) {
+    window.localStorage.setItem(ORGANIZATION_SELECTION_STORAGE_KEY, organizationId)
+    return
+  }
+
+  window.localStorage.removeItem(ORGANIZATION_SELECTION_STORAGE_KEY)
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const accessToken = ref<string | null>(null)
   const tokenType = ref<string | null>(null)
   const expiresIn = ref<number | null>(null)
   const appContext = ref<AuthAppContext | null>(null)
+  const sessionAppContext = ref<AuthAppContext | null>(null)
   const isSessionReady = ref(false)
+  const organizations = ref<OrganizationSummary[]>([])
+  const isLoadingOrganizations = ref(false)
   const establishments = ref<Establishment[]>([])
   const isLoadingEstablishments = ref(false)
+  let establishmentHydrationRequestId = 0
 
   const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
+  const isPlatformAdmin = computed(() => user.value?.globalRoles.includes('PLATFORM_ADMIN') ?? false)
   const requiresEstablishmentSelection = computed(() => {
     return (
       Boolean(appContext.value?.organizationId) &&
@@ -86,6 +116,7 @@ export const useAuthStore = defineStore('auth', () => {
     tokenType.value = session.tokenType
     expiresIn.value = session.expiresIn
     appContext.value = session.appContext
+    sessionAppContext.value = session.appContext
     currentAccessToken = session.accessToken
   }
 
@@ -99,6 +130,9 @@ export const useAuthStore = defineStore('auth', () => {
     tokenType.value = null
     expiresIn.value = null
     appContext.value = null
+    sessionAppContext.value = null
+    organizations.value = []
+    isLoadingOrganizations.value = false
     establishments.value = []
     isLoadingEstablishments.value = false
     currentAccessToken = null
@@ -133,6 +167,107 @@ export const useAuthStore = defineStore('auth', () => {
     writeStoredSelectionByOrganization(storedSelectionByOrganization)
   }
 
+  async function updateSelectedOrganization(organizationId: string | null) {
+    const nextOrganization =
+      organizationId === null
+        ? null
+        : (organizations.value.find((candidate) => candidate.id === organizationId) ?? null)
+
+    if (!nextOrganization) {
+      appContext.value = sessionAppContext.value
+      establishments.value = []
+      writeStoredOrganizationSelection(null)
+      await hydrateEstablishments()
+      return
+    }
+
+    const sessionContextForOrganization =
+      sessionAppContext.value?.organizationId === nextOrganization.id ? sessionAppContext.value : null
+
+    appContext.value = {
+      organizationId: nextOrganization.id,
+      organizationName: nextOrganization.name,
+      organizationRole: sessionContextForOrganization?.organizationRole ?? null,
+      establishmentId: null,
+      establishmentName: null,
+    }
+    establishments.value = []
+
+    writeStoredOrganizationSelection(nextOrganization.id)
+    await hydrateEstablishments()
+  }
+
+  async function synchronizeOrganizationSelection() {
+    if (!isPlatformAdmin.value) {
+      organizations.value = []
+      return
+    }
+
+    const activeOrganizations = organizations.value.filter((organization) => organization.status === 'ACTIVE')
+    organizations.value = activeOrganizations
+
+    if (activeOrganizations.length === 0) {
+      appContext.value = sessionAppContext.value
+      establishments.value = []
+      writeStoredOrganizationSelection(null)
+      return
+    }
+
+    const storedOrganizationId = readStoredOrganizationSelection()
+    const hasStoredSelection = activeOrganizations.some(
+      (organization) => organization.id === storedOrganizationId,
+    )
+    const sessionOrganizationId = sessionAppContext.value?.organizationId
+    const hasSessionOrganization = activeOrganizations.some(
+      (organization) => organization.id === sessionOrganizationId,
+    )
+
+    if (storedOrganizationId && hasStoredSelection) {
+      await updateSelectedOrganization(storedOrganizationId)
+      return
+    }
+
+    if (sessionOrganizationId && hasSessionOrganization) {
+      await updateSelectedOrganization(sessionOrganizationId)
+      return
+    }
+
+    await updateSelectedOrganization(activeOrganizations[0]!.id)
+  }
+
+  async function hydrateOrganizations() {
+    if (!isPlatformAdmin.value) {
+      organizations.value = []
+      return
+    }
+
+    isLoadingOrganizations.value = true
+
+    try {
+      const fetchedOrganizations: OrganizationSummary[] = []
+      let pageNumber = 0
+      let totalPages = 1
+
+      do {
+        const page = await listAdminOrganizations({
+          page: pageNumber,
+          size: 100,
+        })
+
+        fetchedOrganizations.push(...page.items)
+        totalPages = page.totalPages
+        pageNumber += 1
+      } while (pageNumber < totalPages)
+
+      organizations.value = fetchedOrganizations.sort((left, right) => left.name.localeCompare(right.name))
+      await synchronizeOrganizationSelection()
+    } catch {
+      organizations.value = []
+    } finally {
+      isLoadingOrganizations.value = false
+    }
+  }
+
   function synchronizeEstablishmentSelection() {
     const organizationId = appContext.value?.organizationId
 
@@ -165,6 +300,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function hydrateEstablishments() {
     const organizationId = appContext.value?.organizationId
+    const requestId = ++establishmentHydrationRequestId
 
     if (!organizationId) {
       establishments.value = []
@@ -185,26 +321,43 @@ export const useAuthStore = defineStore('auth', () => {
           size: 100,
         })
 
+        if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
+          return
+        }
+
         fetchedEstablishments.push(...page.items)
         totalPages = page.totalPages
         pageNumber += 1
       } while (pageNumber < totalPages)
+
+      if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
+        return
+      }
 
       establishments.value = fetchedEstablishments
         .filter((establishment) => establishment.status === 'ACTIVE')
         .sort((left, right) => left.name.localeCompare(right.name))
       synchronizeEstablishmentSelection()
     } catch {
+      if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
+        return
+      }
+
       establishments.value = []
     } finally {
-      isLoadingEstablishments.value = false
+      if (requestId === establishmentHydrationRequestId) {
+        isLoadingEstablishments.value = false
+      }
     }
   }
 
   async function login(credentials: LoginCredentials) {
     const session = await loginRequest(credentials)
     setSession(session)
-    await hydrateEstablishments()
+    await hydrateOrganizations()
+    if (!isPlatformAdmin.value) {
+      await hydrateEstablishments()
+    }
     return session
   }
 
@@ -223,7 +376,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const session = await refreshSession()
       setSession(session)
-      await hydrateEstablishments()
+      await hydrateOrganizations()
+      if (!isPlatformAdmin.value) {
+        await hydrateEstablishments()
+      }
     } catch (error) {
       clearSession()
 
@@ -241,13 +397,18 @@ export const useAuthStore = defineStore('auth', () => {
     tokenType,
     expiresIn,
     appContext,
+    organizations,
     establishments,
     isSessionReady,
+    isLoadingOrganizations,
     isLoadingEstablishments,
     isAuthenticated,
+    isPlatformAdmin,
     requiresEstablishmentSelection,
     setSession,
+    updateSelectedOrganization,
     updateSelectedEstablishment,
+    hydrateOrganizations,
     hydrateEstablishments,
     setCurrentUser,
     clearSession,

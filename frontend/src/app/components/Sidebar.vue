@@ -257,7 +257,7 @@ const displayEstablishmentName = computed(() => {
   }
 
   if (authStore.requiresEstablishmentSelection) {
-    return 'Select establishment'
+    return 'No establishment selected'
   }
 
   if (authStore.appContext?.establishmentName) {
