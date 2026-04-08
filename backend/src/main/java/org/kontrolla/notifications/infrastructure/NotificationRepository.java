@@ -34,5 +34,5 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 			where n.recipientUserId = :recipientUserId
 			  and n.readAt is null
 			""")
-	int markAllRead(@Param("recipientUserId") UUID recipientUserId, @Param("readAt") Instant readAt);
+	void markAllRead(@Param("recipientUserId") UUID recipientUserId, @Param("readAt") Instant readAt);
 }

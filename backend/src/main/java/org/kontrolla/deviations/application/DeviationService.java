@@ -347,11 +347,11 @@ public class DeviationService {
 
 	private String buildDetailsUpdatedNote(List<String> changedFields) {
 		if (changedFields.size() == 1) {
-			return "Updated " + changedFields.get(0) + ".";
+			return "Updated " + changedFields.getFirst() + ".";
 		}
 
 		if (changedFields.size() == 2) {
-			return "Updated " + changedFields.get(0) + " and " + changedFields.get(1) + ".";
+			return "Updated " + changedFields.getFirst() + " and " + changedFields.get(1) + ".";
 		}
 
 		StringBuilder note = new StringBuilder("Updated ");

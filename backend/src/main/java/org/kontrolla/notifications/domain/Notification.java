@@ -38,7 +38,7 @@ public class Notification extends AbstractAuditableUuidEntity {
 	@Column(nullable = false, updatable = false, length = 64)
 	private NotificationType type;
 
-	@Column(nullable = false, updatable = false, length = 255)
+	@Column(nullable = false, updatable = false)
 	private String title;
 
 	@Column(nullable = false, updatable = false, length = 2000)
