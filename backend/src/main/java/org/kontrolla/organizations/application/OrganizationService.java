@@ -26,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -145,7 +147,9 @@ public class OrganizationService {
 				membershipScope.accessAllEstablishments()
 		);
 		membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
-		return membershipRepository.save(membership);
+		membership = membershipRepository.save(membership);
+		auditRecorder.record(membershipCreateAudit(membership));
+		return membership;
 	}
 
 	@Transactional
@@ -181,6 +185,7 @@ public class OrganizationService {
 		membership = membershipRepository.save(membership);
 		UserInviteService.IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
 		auditRecorder.record(managedUserCreateAudit(organization.getId(), user));
+		auditRecorder.record(membershipCreateAudit(membership));
 		return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
 	}
 
@@ -199,6 +204,7 @@ public class OrganizationService {
 
 		OrganizationMembership membership = membershipRepository.findByIdAndOrganizationId(membershipId, organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("membership_not_found", "Membership not found"));
+		MembershipAuditState beforeUpdate = membershipAuditState(membership);
 
 		MembershipScope membershipScope = resolveUpdatedMembershipScope(
 				organizationId,
@@ -214,6 +220,7 @@ public class OrganizationService {
 		if (active) {
 			membership.getUser().setActive(true);
 		}
+		auditRecorder.record(membershipUpdateAudit(membership, beforeUpdate));
 		return membership;
 	}
 
@@ -321,6 +328,54 @@ public class OrganizationService {
 				.build();
 	}
 
+	private AuditRecord membershipCreateAudit(OrganizationMembership membership) {
+		return AuditRecord.builder(AuditAction.MEMBERSHIP_CREATE, AuditOutcome.SUCCESS, "membership_created")
+				.organizationId(membership.getOrganization().getId())
+				.target(AuditTargetType.MEMBERSHIP, membership.getId())
+				.metadata(membershipIdentityMetadata(membership))
+				.metadata(membershipStateMetadata(membershipAuditState(membership)))
+				.build();
+	}
+
+	private AuditRecord membershipUpdateAudit(OrganizationMembership membership, MembershipAuditState beforeUpdate) {
+		return AuditRecord.builder(AuditAction.MEMBERSHIP_UPDATE, AuditOutcome.SUCCESS, "membership_updated")
+				.organizationId(membership.getOrganization().getId())
+				.target(AuditTargetType.MEMBERSHIP, membership.getId())
+				.metadata(membershipIdentityMetadata(membership))
+				.metadata("before", membershipStateMetadata(beforeUpdate))
+				.metadata("after", membershipStateMetadata(membershipAuditState(membership)))
+				.build();
+	}
+
+	private Map<String, Object> membershipIdentityMetadata(OrganizationMembership membership) {
+		LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+		metadata.put("membershipId", membership.getId());
+		metadata.put("userId", membership.getUser().getId());
+		metadata.put("userEmail", membership.getUser().getEmail());
+		return metadata;
+	}
+
+	private Map<String, Object> membershipStateMetadata(MembershipAuditState state) {
+		LinkedHashMap<String, Object> metadata = new LinkedHashMap<>();
+		metadata.put("role", state.role());
+		metadata.put("active", state.active());
+		metadata.put("accessAllEstablishments", state.accessAllEstablishments());
+		metadata.put("establishmentIds", state.establishmentIds());
+		return metadata;
+	}
+
+	private MembershipAuditState membershipAuditState(OrganizationMembership membership) {
+		return new MembershipAuditState(
+				membership.getRole(),
+				membership.isActive(),
+				membership.isAccessAllEstablishments(),
+				membership.getAccessibleEstablishments().stream()
+						.map(Establishment::getId)
+						.sorted()
+						.toList()
+		);
+	}
+
 	public record ManagedMembershipProvision(
 			OrganizationMembership membership,
 			java.time.Instant inviteExpiresAt,
@@ -331,6 +386,14 @@ public class OrganizationService {
 	private record MembershipScope(
 			boolean accessAllEstablishments,
 			List<Establishment> accessibleEstablishments
+	) {
+	}
+
+	private record MembershipAuditState(
+			OrganizationRole role,
+			boolean active,
+			boolean accessAllEstablishments,
+			List<UUID> establishmentIds
 	) {
 	}
 }
