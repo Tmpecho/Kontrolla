@@ -47,6 +47,13 @@ vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
 
+vi.mock('@/checklists/components/ChecklistDefinitionManager.vue', () => ({
+  default: {
+    name: 'ChecklistDefinitionManager',
+    template: '<div class="checklist-definition-manager-stub"></div>',
+  },
+}))
+
 vi.mock('@/shared/config/env', () => ({
   appEnv: appEnvMock,
 }))

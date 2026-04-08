@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import ChecklistDefinitionManager from '@/checklists/components/ChecklistDefinitionManager.vue'
 import ChecklistRunCard from '@/checklists/components/ChecklistRunCard.vue'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun, ChecklistRunStatus } from '@/checklists/model/checklist.types'
@@ -20,8 +21,20 @@ const errorMessage = ref<string | null>(null)
 const activeFilter = ref<TriageFilter>('UPCOMING')
 const searchQuery = ref('')
 const pinnedChecklistRunId = ref<string | null>(null)
+const requestedDefinitionGroupId = ref<string | null>(null)
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
+const canManageChecklistDefinitions = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN' ||
+    authStore.appContext?.organizationRole === 'ORG_MANAGER'
+  )
+})
 
 const resolvedChecklistContext = computed(() => {
   if (!authStore.isSessionReady) {
@@ -59,6 +72,15 @@ const resolvedChecklistContext = computed(() => {
 })
 
 const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
+const selectedManagementEstablishmentId = computed(() => {
+  const context = resolvedChecklistContext.value
+
+  if (!context || context.establishmentIds.length !== 1) {
+    return null
+  }
+
+  return context.establishmentIds[0] ?? null
+})
 
 const missingContextMessage = computed(() => {
   if (!authStore.isSessionReady) {
@@ -111,6 +133,18 @@ async function loadChecklistRuns(): Promise<void> {
   } finally {
     isLoading.value = false
   }
+}
+
+async function handleDefinitionsSaved(): Promise<void> {
+  await loadChecklistRuns()
+}
+
+function handleDefinitionEditRequest(definitionGroupId: string): void {
+  requestedDefinitionGroupId.value = definitionGroupId
+}
+
+function clearDefinitionEditRequest(): void {
+  requestedDefinitionGroupId.value = null
 }
 
 function handleRunUpdate(updatedRun: ChecklistRun) {
@@ -399,8 +433,25 @@ watch(
       <p>{{ errorMessage }}</p>
     </div>
 
-    <template v-else-if="allChecklistRuns.length > 0">
-      <section class="triage-bar" aria-label="Checklist triage">
+    <template v-else>
+      <ChecklistDefinitionManager
+        v-if="canManageChecklistDefinitions && selectedManagementEstablishmentId"
+        :organization-id="resolvedChecklistContext!.organizationId"
+        :establishment-id="selectedManagementEstablishmentId"
+        service-area="IK_MAT"
+        :requested-definition-group-id="requestedDefinitionGroupId"
+        @saved="handleDefinitionsSaved"
+        @request-handled="clearDefinitionEditRequest"
+      />
+
+      <div
+        v-else-if="canManageChecklistDefinitions"
+        class="state-card"
+      >
+        <p>Choose a single establishment to create, edit, or delete scheduled checklist setups.</p>
+      </div>
+
+      <section v-if="allChecklistRuns.length > 0" class="triage-bar" aria-label="Checklist triage">
         <div class="triage-tabs" role="tablist" aria-label="Checklist status filters">
           <button
             v-for="option in triageOptions"
@@ -427,7 +478,7 @@ watch(
         </label>
       </section>
 
-      <div v-if="filteredChecklistRuns.length > 0" class="date-groups">
+      <div v-if="allChecklistRuns.length > 0 && filteredChecklistRuns.length > 0" class="date-groups">
         <section
           v-for="(group, index) in groupedChecklistRuns"
           :key="group.key"
@@ -448,20 +499,28 @@ watch(
               :establishment-id="resolvedChecklistContext!.establishmentIds[0] ?? ''"
               :selected="visibleChecklistRunId === run.id"
               :force-expanded="visibleChecklistRunId === run.id"
+              :show-setup-actions="canManageChecklistDefinitions && selectedManagementEstablishmentId === run.establishmentId"
               @update:run="handleRunUpdate"
+              @edit:definition-group="handleDefinitionEditRequest"
             />
           </div>
         </section>
       </div>
 
-      <div v-else class="state-card">
+      <div v-else-if="allChecklistRuns.length > 0" class="state-card">
         <p>{{ hasSearchQuery ? 'No checklist runs match your search.' : 'No checklist runs match the current filter.' }}</p>
       </div>
-    </template>
 
-    <div v-else class="state-card">
-      <p>No checklist runs found.</p>
-    </div>
+      <div v-else class="state-card">
+        <p>
+          {{
+            canManageChecklistDefinitions && selectedManagementEstablishmentId
+              ? 'No checklist runs yet. Create a one-off or recurring checklist setup above.'
+              : 'No checklist runs found.'
+          }}
+        </p>
+      </div>
+    </template>
   </div>
 </template>
 

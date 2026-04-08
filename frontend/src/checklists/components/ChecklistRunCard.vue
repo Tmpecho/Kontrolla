@@ -19,10 +19,12 @@ const props = defineProps<{
   establishmentId: string
   selected?: boolean
   forceExpanded?: boolean
+  showSetupActions?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:run', run: ChecklistRun): void
+  (e: 'edit:definitionGroup', definitionGroupId: string): void
 }>()
 
 const workingTasks = ref<ChecklistTaskExecution[]>([])
@@ -173,6 +175,9 @@ const handleReopen = withLoading(() => reopenChecklistRun(baseParams.value))
 const toggleExpanded = () => {
   isExpanded.value = !isExpanded.value
 }
+const handleEditSetup = () => {
+  emit('edit:definitionGroup', props.run.definitionGroupId)
+}
 
 const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInput => ({
   checklistTaskExecutionId: task.checklistTaskExecutionId,
@@ -234,6 +239,14 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
           <h3 class="run-title">{{ run.title }}</h3>
         </div>
         <div class="header-actions">
+          <button
+            v-if="showSetupActions"
+            type="button"
+            class="btn btn-secondary btn-compact"
+            @click.stop="handleEditSetup"
+          >
+            Edit setup
+          </button>
           <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
           <span class="header-divider" aria-hidden="true"></span>
           <svg
@@ -623,6 +636,9 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   border: 1px solid transparent;
   cursor: pointer;
   transition: 0.15s;
+}
+.btn-compact {
+  padding-inline: 0.6rem;
 }
 .btn:disabled {
   opacity: 0.6;
