@@ -62,6 +62,7 @@ const emit = defineEmits<{
 
 const DEFAULT_TIMEZONE = 'Europe/Oslo'
 const WEEKDAY_LABELS = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su']
+const WEEKDAY_SUMMARY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const TIMEZONE_OPTIONS = [
   'Europe/Oslo',
   'Europe/Stockholm',
@@ -512,10 +513,10 @@ function scheduleSummary(schedule: ScheduleDraft | ChecklistDefinitionSchedule):
           ? weekdayMaskFromSelection(schedule.weekdaySelection)
           : schedule.weekdayMask
 
-      const labels = WEEKDAY_LABELS.filter((_, index) =>
+      const labels = WEEKDAY_SUMMARY_LABELS.filter((_, index) =>
         Boolean(weekdayMask && (weekdayMask & (1 << index))),
       )
-      return labels.length > 0 ? `Weekly · ${labels.join(' ')}` : 'Weekly'
+      return labels.length > 0 ? `Weekly · ${labels.join(', ')}` : 'Weekly'
     }
     case 'MONTHLY':
       return `Monthly · day ${schedule.dayOfMonth ?? '?'}`
