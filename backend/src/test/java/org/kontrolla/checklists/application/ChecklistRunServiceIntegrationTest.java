@@ -16,6 +16,7 @@ import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ForbiddenException;
+import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
@@ -226,6 +227,82 @@ class ChecklistRunServiceIntegrationTest {
 	}
 
 	@Test
+	void updatingACompletedRunReturnsConflictException() {
+		User manager = createUser("manager-completed-update@example.com");
+		User employee = createUser("employee-completed-update@example.com");
+		Organization organization = createOrganization("Kontrolla Completed Update");
+		Establishment establishment = createEstablishment(organization, "Sushi Completed Update");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+		ChecklistRun completedRun = checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				run.getTaskExecutions().iterator().next().getId(),
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Completed before invalid update",
+						null,
+						null,
+						null
+				),
+				currentUser(employee)
+		);
+
+		assertThatThrownBy(() -> checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				completedRun.getId(),
+				completedRun.getTaskExecutions().iterator().next().getId(),
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Attempted update after completion",
+						null,
+						null,
+						null
+				),
+				currentUser(employee)
+		)).isInstanceOfSatisfying(ConflictException.class, exception -> {
+			assertThat(exception.getCode()).isEqualTo("checklist_run_update_invalid_state");
+			assertThat(exception.getMessage()).isEqualTo("Completed or cancelled checklist runs cannot be updated");
+		});
+	}
+
+	@Test
+	void updatingWithTaskThatDoesNotBelongToRunReturnsNotFoundException() {
+		User manager = createUser("manager-missing-task@example.com");
+		User employee = createUser("employee-missing-task@example.com");
+		Organization organization = createOrganization("Kontrolla Missing Task");
+		Establishment establishment = createEstablishment(organization, "Sushi Missing Task");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		assertThatThrownBy(() -> checklistRunService.updateChecklistTask(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				UUID.randomUUID(),
+				new UpdateChecklistTaskRequest(
+						ChecklistTaskExecutionStatus.COMPLETED,
+						"Attempted update with missing task",
+						null,
+						null,
+						null
+				),
+				currentUser(employee)
+		)).isInstanceOfSatisfying(ResourceNotFoundException.class, exception -> {
+			assertThat(exception.getCode()).isEqualTo("checklist_task_execution_not_found");
+			assertThat(exception.getMessage()).isEqualTo("Checklist task execution not found");
+		});
+	}
+
+	@Test
 	void resetClearsTaskExecutionState() {
 		User manager = createUser("manager-reset@example.com");
 		User employee = createUser("employee-reset@example.com");
@@ -288,6 +365,29 @@ class ChecklistRunServiceIntegrationTest {
 			assertThat(taskExecution.getEnteredText()).isNull();
 			assertThat(taskExecution.getResolvedAt()).isNull();
 			assertThat(taskExecution.getResolvedByUser()).isNull();
+		});
+	}
+
+	@Test
+	void resettingRunOutsideInProgressReturnsConflictException() {
+		User manager = createUser("manager-reset-invalid@example.com");
+		User employee = createUser("employee-reset-invalid@example.com");
+		Organization organization = createOrganization("Kontrolla Invalid Reset");
+		Establishment establishment = createEstablishment(organization, "Sushi Invalid Reset");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		assertThatThrownBy(() -> checklistRunService.resetChecklistRun(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				currentUser(employee)
+		)).isInstanceOfSatisfying(ConflictException.class, exception -> {
+			assertThat(exception.getCode()).isEqualTo("checklist_run_reset_invalid_state");
+			assertThat(exception.getMessage()).isEqualTo("Only in-progress checklist runs can be reset");
 		});
 	}
 

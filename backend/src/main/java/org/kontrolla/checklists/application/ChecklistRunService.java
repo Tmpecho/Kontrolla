@@ -279,7 +279,10 @@ public class ChecklistRunService {
 		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
 
 		if (run.getStatus() == ChecklistRunStatus.COMPLETED || run.getStatus() == ChecklistRunStatus.CANCELLED) {
-			throw new IllegalStateException("Cannot update tasks for a completed or cancelled run.");
+			throw new ConflictException(
+					"checklist_run_update_invalid_state",
+					"Completed or cancelled checklist runs cannot be updated"
+			);
 		}
 
 		User actor = getUserOrThrow(currentUser.userId());
@@ -295,7 +298,10 @@ public class ChecklistRunService {
 		ChecklistTaskExecution task = run.getTaskExecutions().stream()
 				.filter(t -> t.getId().equals(taskId))
 				.findFirst()
-				.orElseThrow(() -> new IllegalArgumentException("Task not found in this run"));
+				.orElseThrow(() -> new ResourceNotFoundException(
+						"checklist_task_execution_not_found",
+						"Checklist task execution not found"
+				));
 
 		ChecklistTaskExecutionInput taskExecutionInput = new ChecklistTaskExecutionInput(
 				task.getId(),
@@ -426,7 +432,10 @@ public class ChecklistRunService {
 		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
 
 		if (run.getStatus() != ChecklistRunStatus.IN_PROGRESS) {
-			throw new IllegalStateException("Can only reset a run that is currently in progress.");
+			throw new ConflictException(
+					"checklist_run_reset_invalid_state",
+					"Only in-progress checklist runs can be reset"
+			);
 		}
 
 		run.setStatus(ChecklistRunStatus.PENDING);
