@@ -19,6 +19,7 @@ const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const activeFilter = ref<TriageFilter>('OVERDUE')
 const searchQuery = ref('')
+const pinnedChecklistRunId = ref<string | null>(null)
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
@@ -116,10 +117,17 @@ function handleRunUpdate(updatedRun: ChecklistRun) {
   checklistRuns.value = checklistRuns.value.map((run) =>
     run.id === updatedRun.id ? updatedRun : run,
   )
+
+  if (selectedChecklistRunId.value || hasSearchQuery.value) {
+    return
+  }
+
+  pinnedChecklistRunId.value = matchesFilter(updatedRun, activeFilter.value) ? null : updatedRun.id
 }
 
 function handleFilterSelect(filter: TriageFilter) {
   activeFilter.value = filter
+  pinnedChecklistRunId.value = null
   if (hasSearchQuery.value) {
     searchQuery.value = ''
   }
@@ -181,6 +189,7 @@ const selectedChecklistRunId = computed(() => {
   const routeQueryValue = route.query.checklistRunId
   return typeof routeQueryValue === 'string' && routeQueryValue.length > 0 ? routeQueryValue : null
 })
+const visibleChecklistRunId = computed(() => selectedChecklistRunId.value ?? pinnedChecklistRunId.value)
 const isFilterVisuallyActive = (filter: TriageFilter) =>
   !hasSearchQuery.value && activeFilter.value === filter
 
@@ -196,8 +205,20 @@ const filteredChecklistRuns = computed(() => {
       return haystack.includes(normalizedQuery)
     }
 
-    return matchesFilter(run, activeFilter.value) || selectedChecklistRunId.value === run.id
+    return matchesFilter(run, activeFilter.value) || visibleChecklistRunId.value === run.id
   })
+})
+
+watch(hasSearchQuery, (isSearching) => {
+  if (isSearching) {
+    pinnedChecklistRunId.value = null
+  }
+})
+
+watch(checklistRuns, (runs) => {
+  if (pinnedChecklistRunId.value && !runs.some((run) => run.id === pinnedChecklistRunId.value)) {
+    pinnedChecklistRunId.value = null
+  }
 })
 
 watch(
@@ -272,8 +293,8 @@ watch(
           :run="run"
           :organization-id="resolvedChecklistContext!.organizationId"
           :establishment-id="resolvedChecklistContext!.establishmentIds[0] ?? ''"
-          :selected="selectedChecklistRunId === run.id"
-          :force-expanded="selectedChecklistRunId === run.id"
+          :selected="visibleChecklistRunId === run.id"
+          :force-expanded="visibleChecklistRunId === run.id"
           @update:run="handleRunUpdate"
         />
       </div>

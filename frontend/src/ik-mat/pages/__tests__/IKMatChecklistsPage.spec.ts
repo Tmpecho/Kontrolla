@@ -395,7 +395,7 @@ describe('IKMatChecklistsPage', () => {
     expect(selectedRunCard?.attributes('data-force-expanded')).toBe('true')
   })
 
-  it('removes a run from the current triage tab when its status changes', async () => {
+  it('keeps a run pinned until the triage tab changes after its status changes', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -437,10 +437,10 @@ describe('IKMatChecklistsPage', () => {
         plugins: [router],
         stubs: {
           ChecklistRunCard: {
-            props: ['run'],
+            props: ['run', 'selected', 'forceExpanded'],
             emits: ['update:run'],
             template:
-              '<button class="run-card-stub" @click="$emit(\'update:run\', { ...run, status: \'COMPLETED\' })">{{ run.title }}</button>',
+              '<button class="run-card-stub" :data-selected="selected" :data-force-expanded="forceExpanded" @click="$emit(\'update:run\', { ...run, status: \'COMPLETED\' })">{{ run.title }}</button>',
           },
         },
       },
@@ -453,8 +453,10 @@ describe('IKMatChecklistsPage', () => {
     await wrapper.get('.run-card-stub').trigger('click')
     await nextTick()
 
-    expect(wrapper.findAll('.run-card-stub')).toHaveLength(0)
-    expect(wrapper.text()).toContain('No checklist runs match the current filter.')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(1)
+    expect(wrapper.get('.run-card-stub').attributes('data-selected')).toBe('true')
+    expect(wrapper.get('.run-card-stub').attributes('data-force-expanded')).toBe('true')
+    expect(wrapper.text()).toContain('Morning shift')
 
     const triageTabs = wrapper.findAll('.triage-tab')
 
