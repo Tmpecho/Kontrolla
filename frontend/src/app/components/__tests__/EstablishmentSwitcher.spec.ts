@@ -45,4 +45,21 @@ describe('EstablishmentSwitcher', () => {
     expect(wrapper.find('.switcher').exists()).toBe(true)
     expect(wrapper.findAll('option')).toHaveLength(3)
   })
+
+  it('keeps the compact variant label visually hidden to avoid stretching the top bar', async () => {
+    authStoreMock.establishments = [
+      { id: 'est-1', name: 'First Establishment' },
+      { id: 'est-2', name: 'Second Establishment' },
+    ]
+
+    const { default: EstablishmentSwitcher } = await import('@/app/components/EstablishmentSwitcher.vue')
+    const wrapper = mount(EstablishmentSwitcher, {
+      props: {
+        variant: 'compact',
+      },
+    })
+
+    expect(wrapper.get('.switcher-label').classes()).toContain('switcher-label-sr-only')
+    expect(wrapper.get('.switcher').classes()).toContain('switcher-compact')
+  })
 })

@@ -39,7 +39,13 @@ function onSelectionChange(event: Event) {
       'switcher-panel': props.variant === 'panel',
     }"
   >
-    <label class="switcher-label" :for="selectId">Establishment</label>
+    <label
+      class="switcher-label"
+      :class="{ 'switcher-label-sr-only': props.variant === 'compact' }"
+      :for="selectId"
+    >
+      Establishment
+    </label>
     <select
       :id="selectId"
       class="switcher-select"
@@ -92,6 +98,18 @@ function onSelectionChange(event: Event) {
   text-transform: uppercase;
 }
 
+.switcher-label-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .switcher-select {
   min-height: 40px;
   padding: 0.65rem 0.85rem;
@@ -100,6 +118,13 @@ function onSelectionChange(event: Event) {
   background-color: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
+}
+
+.switcher-compact .switcher-select {
+  min-height: 36px;
+  padding: 0.45rem 2rem 0.45rem 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
 }
 
 .switcher-select:focus {
