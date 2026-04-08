@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface DeviationRepository extends JpaRepository<Deviation, UUID> {
+	boolean existsByEstablishmentIdAndTitleIgnoreCase(UUID establishmentId, String title);
+
 	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser", "assignedToUser"})
 	Page<Deviation> findByOrganizationId(UUID organizationId, Pageable pageable);
 

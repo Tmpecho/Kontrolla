@@ -5,6 +5,7 @@ import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
+import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
@@ -60,6 +61,9 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 
 	@Autowired
 	private ChecklistRunRepository checklistRunRepository;
+
+	@Autowired
+	private DeviationRepository deviationRepository;
 
 	@Test
 	void bootstrapDevelopmentTeamIsCreatedWithExpectedRoles() {
@@ -148,5 +152,16 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 				null,
 				org.springframework.data.domain.PageRequest.of(0, 20)
 		).getTotalElements()).isPositive();
+
+		assertThat(deviationRepository.findByEstablishmentIdAndOrganizationId(
+				restaurant.getId(),
+				organization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isGreaterThanOrEqualTo(3);
+		assertThat(deviationRepository.findByEstablishmentIdAndOrganizationId(
+				bar.getId(),
+				organization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isGreaterThanOrEqualTo(5);
 	}
 }

@@ -9,7 +9,15 @@ import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.checklists.domain.ChecklistTaskDefinition;
 import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
+import org.kontrolla.deviations.domain.Deviation;
+import org.kontrolla.deviations.domain.DeviationCategory;
+import org.kontrolla.deviations.domain.DeviationEvent;
+import org.kontrolla.deviations.domain.DeviationEventType;
+import org.kontrolla.deviations.domain.DeviationSeverity;
+import org.kontrolla.deviations.domain.DeviationStatus;
+import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.User;
@@ -48,7 +56,9 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private static final Logger log = LoggerFactory.getLogger(BootstrapOrganizationContextInitializer.class);
 	private static final ZoneId DEFAULT_BOOTSTRAP_ZONE = ZoneId.of("Europe/Oslo");
 	private static final String IK_MAT_TITLE_SUFFIX = " Daily IK-Mat";
+	private static final String IK_MAT_CLOSING_TITLE_SUFFIX = " Closing IK-Mat";
 	private static final String IK_ALKOHOL_TITLE_SUFFIX = " Daily IK-Alkohol";
+	private static final String IK_ALKOHOL_CLOSING_TITLE_SUFFIX = " Closing IK-Alkohol";
 
 	private final UserRepository userRepository;
 	private final OrganizationRepository organizationRepository;
@@ -56,6 +66,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private final EstablishmentRepository establishmentRepository;
 	private final ChecklistDefinitionRepository checklistDefinitionRepository;
 	private final ChecklistSchedulerService checklistSchedulerService;
+	private final DeviationRepository deviationRepository;
 	private final AppSecurityProperties properties;
 
 	public BootstrapOrganizationContextInitializer(
@@ -65,6 +76,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			EstablishmentRepository establishmentRepository,
 			ChecklistDefinitionRepository checklistDefinitionRepository,
 			ChecklistSchedulerService checklistSchedulerService,
+			DeviationRepository deviationRepository,
 			AppSecurityProperties properties
 	) {
 		this.userRepository = userRepository;
@@ -73,6 +85,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		this.establishmentRepository = establishmentRepository;
 		this.checklistDefinitionRepository = checklistDefinitionRepository;
 		this.checklistSchedulerService = checklistSchedulerService;
+		this.deviationRepository = deviationRepository;
 		this.properties = properties;
 	}
 
@@ -140,7 +153,10 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		}
 
 		resolveBootstrapChecklistActor()
-				.ifPresent(actor -> bootstrapChecklistRuns(organization, bootstrapEstablishments, actor));
+				.ifPresent(actor -> {
+					bootstrapChecklistRuns(organization, bootstrapEstablishments, actor);
+					bootstrapDeviations(organization, bootstrapEstablishments, actor);
+				});
 	}
 
 	private List<AppSecurityProperties.BootstrapEstablishment> resolveBootstrapEstablishments() {
@@ -248,7 +264,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		LocalDate today = LocalDate.now(DEFAULT_BOOTSTRAP_ZONE);
 
 		for (Establishment establishment : establishments) {
-			if (establishment.getStatus() != org.kontrolla.establishments.domain.EstablishmentStatus.ACTIVE) {
+			if (establishment.getStatus() != EstablishmentStatus.ACTIVE) {
 				continue;
 			}
 
@@ -261,6 +277,15 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 					buildIkMatTasks(),
 					List.of(buildDailySchedule(today, LocalTime.of(9, 0), actor))
 			);
+			upsertChecklistDefinition(
+					establishment,
+					actor,
+					ChecklistServiceArea.IK_MAT,
+					establishment.getName() + IK_MAT_CLOSING_TITLE_SUFFIX,
+					"Closing food safety routine for " + establishment.getName(),
+					buildIkMatClosingTasks(),
+					List.of(buildDailySchedule(today, LocalTime.of(21, 0), actor))
+			);
 
 			if (establishment.getType() == EstablishmentType.BAR) {
 				upsertChecklistDefinition(
@@ -272,10 +297,19 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 						buildIkAlkoholTasks(),
 						List.of(buildDailySchedule(today, LocalTime.of(17, 0), actor))
 				);
+				upsertChecklistDefinition(
+						establishment,
+						actor,
+						ChecklistServiceArea.IK_ALKOHOL,
+						establishment.getName() + IK_ALKOHOL_CLOSING_TITLE_SUFFIX,
+						"Closing alcohol compliance routine for " + establishment.getName(),
+						buildIkAlkoholClosingTasks(),
+						List.of(buildDailySchedule(today, LocalTime.of(23, 30), actor))
+				);
 			}
 
-			Instant windowStart = today.atStartOfDay(DEFAULT_BOOTSTRAP_ZONE).toInstant();
-			Instant windowEnd = today.plusDays(1).atTime(LocalTime.MAX).atZone(DEFAULT_BOOTSTRAP_ZONE).toInstant();
+			Instant windowStart = today.minusDays(6).atStartOfDay(DEFAULT_BOOTSTRAP_ZONE).toInstant();
+			Instant windowEnd = today.plusDays(4).atTime(LocalTime.MAX).atZone(DEFAULT_BOOTSTRAP_ZONE).toInstant();
 			int createdRuns = checklistSchedulerService.generateRunsForWindow(
 					organization.getId(),
 					establishment.getId(),
@@ -285,6 +319,73 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			);
 			if (createdRuns > 0) {
 				log.info("Created {} bootstrap checklist runs for {}", createdRuns, establishment.getName());
+			}
+		}
+	}
+
+	private void bootstrapDeviations(Organization organization, List<Establishment> establishments, User actor) {
+		for (Establishment establishment : establishments) {
+			if (establishment.getStatus() != EstablishmentStatus.ACTIVE) {
+				continue;
+			}
+
+			createBootstrapDeviation(
+					organization,
+					establishment,
+					actor,
+					"Cold storage temperature above safe range",
+					"Opening check found the cold line above the internal temperature threshold.",
+					DeviationCategory.TEMPERATURE,
+					DeviationSeverity.HIGH,
+					DeviationStatus.OPEN,
+					"Temperature logged and kitchen lead notified."
+			);
+			createBootstrapDeviation(
+					organization,
+					establishment,
+					actor,
+					"Cleaning verification missed on prep sink",
+					"Closing cleaning sign-off was not completed for the prep sink area.",
+					DeviationCategory.HYGIENE,
+					DeviationSeverity.MEDIUM,
+					DeviationStatus.IN_PROGRESS,
+					"Assigned for follow-up before the next opening shift."
+			);
+			createBootstrapDeviation(
+					organization,
+					establishment,
+					actor,
+					"Container label missing production date",
+					"One prepared ingredient container did not have an updated production date label.",
+					DeviationCategory.STORAGE,
+					DeviationSeverity.LOW,
+					DeviationStatus.RESOLVED,
+					"Container relabeled and stock routine reviewed."
+			);
+
+			if (establishment.getType() == EstablishmentType.BAR) {
+				createBootstrapDeviation(
+						organization,
+						establishment,
+						actor,
+						"ID verification missed during bar rush",
+						"A guest was served before ID verification was completed.",
+						DeviationCategory.AGE_CONTROL,
+						DeviationSeverity.CRITICAL,
+						DeviationStatus.OPEN,
+						"Manager asked for shift review and staff retraining."
+				);
+				createBootstrapDeviation(
+						organization,
+						establishment,
+						actor,
+						"Closing incident log not completed",
+						"A refusal-of-service note was not entered before shift handover.",
+						DeviationCategory.DOCUMENTATION_AND_TRAINING,
+						DeviationSeverity.MEDIUM,
+						DeviationStatus.IN_PROGRESS,
+						"Shift lead reminded to complete the incident log."
+				);
 			}
 		}
 	}
@@ -365,6 +466,31 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		);
 	}
 
+	private List<ChecklistTaskDefinition> buildIkMatClosingTasks() {
+		return List.of(
+				new ChecklistTaskDefinition(
+						"Confirm hot hold units are powered down and cleaned",
+						"Check that all hot hold units have been cleaned after service.",
+						ChecklistTaskKind.ACTION,
+						true,
+						0,
+						null,
+						null,
+						null
+				),
+				new ChecklistTaskDefinition(
+						"Record dishwasher final rinse temperature",
+						"Measure the final rinse result from the closing cycle.",
+						ChecklistTaskKind.MEASUREMENT,
+						true,
+						1,
+						"C",
+						new BigDecimal("80"),
+						new BigDecimal("95")
+				)
+		);
+	}
+
 	private List<ChecklistTaskDefinition> buildIkAlkoholTasks() {
 		return List.of(
 				new ChecklistTaskDefinition(
@@ -388,5 +514,72 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 						null
 				)
 		);
+	}
+
+	private List<ChecklistTaskDefinition> buildIkAlkoholClosingTasks() {
+		return List.of(
+				new ChecklistTaskDefinition(
+						"Confirm guest area is cleared before licensed close",
+						"Verify that no guests remain in service areas after closing time.",
+						ChecklistTaskKind.VERIFICATION,
+						true,
+						0,
+						null,
+						null,
+						null
+				),
+				new ChecklistTaskDefinition(
+						"Write handover note for incident follow-up",
+						"Document any alcohol-service incidents that need next-shift attention.",
+						ChecklistTaskKind.TEXT_ENTRY,
+						true,
+						1,
+						null,
+						null,
+						null
+				)
+		);
+	}
+
+	private void createBootstrapDeviation(
+			Organization organization,
+			Establishment establishment,
+			User actor,
+			String title,
+			String description,
+			DeviationCategory category,
+			DeviationSeverity severity,
+			DeviationStatus status,
+			String followUpNote
+	) {
+		if (deviationRepository.existsByEstablishmentIdAndTitleIgnoreCase(establishment.getId(), title)) {
+			return;
+		}
+
+		Deviation deviation = new Deviation(
+				organization,
+				establishment,
+				actor,
+				actor,
+				title,
+				description,
+				severity,
+				category
+		);
+		deviation.setStatus(status);
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.REPORTED,
+				actor,
+				Instant.now().minusSeconds(7200),
+				"Deviation reported."
+		));
+		deviation.addEvent(new DeviationEvent(
+				DeviationEventType.NOTE_ADDED,
+				actor,
+				Instant.now().minusSeconds(3600),
+				followUpNote
+		));
+		deviationRepository.save(deviation);
+		log.info("Created bootstrap deviation {} for {}", title, establishment.getName());
 	}
 }
