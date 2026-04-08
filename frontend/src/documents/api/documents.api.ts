@@ -119,6 +119,6 @@ function parseFileName(contentDisposition: string | null): string | null {
     return decodeURIComponent(encodedMatch[1])
   }
 
-  const fileNameMatch = contentDisposition.match(/filename="?([^\";]+)"?/i)
+  const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
   return fileNameMatch?.[1] ?? null
 }

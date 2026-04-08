@@ -1,6 +1,5 @@
 package org.kontrolla.documents.api;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +9,7 @@ import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
+import org.kontrolla.iam.security.JwtService;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.domain.OrganizationRole;
@@ -22,8 +22,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -36,7 +36,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -70,6 +69,9 @@ class DocumentControllerIntegrationTest {
   private PasswordEncoder passwordEncoder;
 
   @Autowired
+  private JwtService jwtService;
+
+  @Autowired
   private TestDataCleaner testDataCleaner;
 
   @Autowired
@@ -88,7 +90,7 @@ class DocumentControllerIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
     LocalDate today = LocalDate.now(clock);
 
-    String token = login("documents-api-manager@example.com", "password123");
+    String token = issueAccessToken(manager);
 
     String createResponse = mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
             organization.getId(), establishment.getId()))
@@ -207,7 +209,7 @@ class DocumentControllerIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
     LocalDate today = LocalDate.now(clock);
 
-    String token = login("documents-api-dates@example.com", "password123");
+    String token = issueAccessToken(manager);
 
     mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
             organization.getId(), establishment.getId()))
@@ -229,8 +231,8 @@ class DocumentControllerIntegrationTest {
     createMembership(organizationB, outsider, OrganizationRole.ORG_MANAGER, true);
     LocalDate today = LocalDate.now(clock);
 
-    String managerToken = login("documents-api-cross-manager@example.com", "password123");
-    String outsiderToken = login("documents-api-cross-outsider@example.com", "password123");
+    String managerToken = issueAccessToken(manager);
+    String outsiderToken = issueAccessToken(outsider);
 
     String createResponse = mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
             organizationA.getId(), establishment.getId()))
@@ -292,22 +294,8 @@ class DocumentControllerIntegrationTest {
     organizationMembershipRepository.saveAndFlush(membership);
   }
 
-  private String login(String email, String password) throws Exception {
-    String response = mockMvc.perform(post("/api/v1/auth/login")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
-                {
-                  "email": "%s",
-                  "password": "%s"
-                }
-                """.formatted(email, password)))
-        .andExpect(status().isOk())
-        .andReturn()
-        .getResponse()
-        .getContentAsString();
-
-    JsonNode json = objectMapper.readTree(response);
-    return json.get("accessToken").asText();
+  private String issueAccessToken(User user) {
+    return jwtService.issueAccessToken(user).token();
   }
 
   private MockMultipartFile metadataPart(

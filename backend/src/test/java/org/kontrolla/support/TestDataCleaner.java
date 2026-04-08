@@ -16,47 +16,55 @@ import org.springframework.stereotype.Component;
 @Component
 public class TestDataCleaner {
 
-	private final RefreshTokenRepository refreshTokenRepository;
-	private final NotificationRepository notificationRepository;
-	private final DeviationRepository deviationRepository;
-	private final ChecklistRunRepository checklistRunRepository;
-	private final ChecklistDefinitionRepository checklistDefinitionRepository;
-	private final OrganizationMembershipRepository organizationMembershipRepository;
-	private final EstablishmentRepository establishmentRepository;
-	private final OrganizationRepository organizationRepository;
-	private final UserRepository userRepository;
+  private final RefreshTokenRepository refreshTokenRepository;
+  private final NotificationRepository notificationRepository;
+  private final DeviationRepository deviationRepository;
+  private final DocumentFileRepository documentFileRepository;
+  private final DocumentRepository documentRepository;
+  private final ChecklistRunRepository checklistRunRepository;
+  private final ChecklistDefinitionRepository checklistDefinitionRepository;
+  private final OrganizationMembershipRepository organizationMembershipRepository;
+  private final EstablishmentRepository establishmentRepository;
+  private final OrganizationRepository organizationRepository;
+  private final UserRepository userRepository;
 
-	public TestDataCleaner(
-			RefreshTokenRepository refreshTokenRepository,
-			NotificationRepository notificationRepository,
-			DeviationRepository deviationRepository,
-			ChecklistRunRepository checklistRunRepository,
-			ChecklistDefinitionRepository checklistDefinitionRepository,
-			OrganizationMembershipRepository organizationMembershipRepository,
-			EstablishmentRepository establishmentRepository,
-			OrganizationRepository organizationRepository,
-			UserRepository userRepository
-	) {
-		this.refreshTokenRepository = refreshTokenRepository;
-		this.notificationRepository = notificationRepository;
-		this.deviationRepository = deviationRepository;
-		this.checklistRunRepository = checklistRunRepository;
-		this.checklistDefinitionRepository = checklistDefinitionRepository;
-		this.organizationMembershipRepository = organizationMembershipRepository;
-		this.establishmentRepository = establishmentRepository;
-		this.organizationRepository = organizationRepository;
-		this.userRepository = userRepository;
-	}
+  public TestDataCleaner(
+      RefreshTokenRepository refreshTokenRepository,
+      NotificationRepository notificationRepository,
+      DeviationRepository deviationRepository,
+      DocumentFileRepository documentFileRepository,
+      DocumentRepository documentRepository,
+      ChecklistRunRepository checklistRunRepository,
+      ChecklistDefinitionRepository checklistDefinitionRepository,
+      OrganizationMembershipRepository organizationMembershipRepository,
+      EstablishmentRepository establishmentRepository,
+      OrganizationRepository organizationRepository,
+      UserRepository userRepository
+  ) {
+    this.refreshTokenRepository = refreshTokenRepository;
+    this.notificationRepository = notificationRepository;
+    this.deviationRepository = deviationRepository;
+    this.documentFileRepository = documentFileRepository;
+    this.documentRepository = documentRepository;
+    this.checklistRunRepository = checklistRunRepository;
+    this.checklistDefinitionRepository = checklistDefinitionRepository;
+    this.organizationMembershipRepository = organizationMembershipRepository;
+    this.establishmentRepository = establishmentRepository;
+    this.organizationRepository = organizationRepository;
+    this.userRepository = userRepository;
+  }
 
-	public void clearAll() {
-		refreshTokenRepository.deleteAll();
-		notificationRepository.deleteAll();
-		deviationRepository.deleteAll();
-		checklistRunRepository.deleteAll();
-		checklistDefinitionRepository.deleteAll();
-		organizationMembershipRepository.deleteAll();
-		establishmentRepository.deleteAll();
-		organizationRepository.deleteAll();
-		userRepository.deleteAll();
-	}
+  public void clearAll() {
+    refreshTokenRepository.deleteAllInBatch();
+    notificationRepository.deleteAllInBatch();
+    deviationRepository.deleteAllInBatch();
+    documentFileRepository.deleteAllInBatch();
+    documentRepository.deleteAllInBatch();
+    checklistRunRepository.deleteAllInBatch();
+    checklistDefinitionRepository.deleteAllInBatch();
+    organizationMembershipRepository.deleteAllInBatch();
+    establishmentRepository.deleteAllInBatch();
+    organizationRepository.deleteAllInBatch();
+    userRepository.deleteAllInBatch();
+  }
 }
