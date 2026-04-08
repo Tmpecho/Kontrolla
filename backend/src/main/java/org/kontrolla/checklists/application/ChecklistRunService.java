@@ -29,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -262,6 +263,23 @@ public class ChecklistRunService {
 		));
 
 		return checklistRunRepository.save(checklistRun);
+	}
+
+	@Transactional
+	public ChecklistRun submitChecklistRun(
+			UUID organizationId,
+			UUID establishmentId,
+			UUID checklistRunId,
+			List<ChecklistTaskExecutionInput> taskExecutions,
+			CurrentUser currentUser
+	) {
+		return submitChecklistRun(
+				organizationId,
+				establishmentId,
+				checklistRunId,
+				new SubmitChecklistRunCommand(toChecklistRunTaskExecutionInputs(taskExecutions)),
+				currentUser
+		);
 	}
 
 @Transactional
@@ -516,6 +534,19 @@ public class ChecklistRunService {
 		return List.copyOf(taskExecutionsById.values());
 	}
 
+	private List<ChecklistRunTaskExecutionInput> toChecklistRunTaskExecutionInputs(List<ChecklistTaskExecutionInput> taskExecutions) {
+		return taskExecutions.stream()
+				.map(taskExecution -> new ChecklistRunTaskExecutionInput(
+						taskExecution.checklistTaskExecutionId(),
+						taskExecution.executionStatus(),
+						taskExecution.comment(),
+						taskExecution.verificationResult(),
+						taskExecution.measuredValue(),
+						taskExecution.enteredText()
+				))
+				.toList();
+	}
+
 	private ChecklistRunTaskExecutionInput normalizeTaskExecutionInput(ChecklistRunTaskExecutionInput taskExecutionInput) {
 		return new ChecklistRunTaskExecutionInput(
 				taskExecutionInput.checklistTaskExecutionId(),
@@ -632,5 +663,15 @@ public class ChecklistRunService {
 					"All required checklist tasks must be completed before submission"
 			);
 		});
+	}
+
+	public record ChecklistTaskExecutionInput(
+			UUID checklistTaskExecutionId,
+			ChecklistTaskExecutionStatus executionStatus,
+			String comment,
+			ChecklistVerificationResult verificationResult,
+			BigDecimal measuredValue,
+			String enteredText
+	) {
 	}
 }

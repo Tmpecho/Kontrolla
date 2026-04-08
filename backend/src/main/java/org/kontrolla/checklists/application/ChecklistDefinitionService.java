@@ -3,6 +3,8 @@ package org.kontrolla.checklists.application;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
 import org.kontrolla.checklists.domain.ChecklistSchedule;
+import org.kontrolla.checklists.domain.ChecklistScheduleType;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.domain.ChecklistTaskDefinition;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
@@ -19,7 +21,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -105,6 +110,31 @@ public class ChecklistDefinitionService {
 	}
 
 	@Transactional
+	public ChecklistDefinition createChecklistDefinition(
+			UUID organizationId,
+			UUID establishmentId,
+			ChecklistServiceArea serviceArea,
+			String title,
+			String description,
+			List<ChecklistTaskInput> tasks,
+			List<ChecklistScheduleInput> schedules,
+			CurrentUser currentUser
+	) {
+		return createChecklistDefinition(
+				organizationId,
+				establishmentId,
+				new CreateChecklistDefinitionCommand(
+						serviceArea,
+						title,
+						description,
+						toChecklistDefinitionTaskInputs(tasks),
+						toChecklistDefinitionScheduleInputs(schedules)
+				),
+				currentUser
+		);
+	}
+
+	@Transactional
 	public ChecklistDefinition updateChecklistDefinition(
 			UUID organizationId,
 			UUID establishmentId,
@@ -142,6 +172,35 @@ public class ChecklistDefinitionService {
 		return checklistDefinitionRepository.save(nextDefinition);
 	}
 
+	@Transactional
+	public ChecklistDefinition updateChecklistDefinition(
+			UUID organizationId,
+			UUID establishmentId,
+			UUID checklistDefinitionId,
+			ChecklistServiceArea serviceArea,
+			String title,
+			String description,
+			ChecklistDefinitionStatus status,
+			List<ChecklistTaskInput> tasks,
+			List<ChecklistScheduleInput> schedules,
+			CurrentUser currentUser
+	) {
+		return updateChecklistDefinition(
+				organizationId,
+				establishmentId,
+				checklistDefinitionId,
+				new UpdateChecklistDefinitionCommand(
+						serviceArea,
+						title,
+						description,
+						status,
+						toChecklistDefinitionTaskInputs(tasks),
+						toChecklistDefinitionScheduleInputs(schedules)
+				),
+				currentUser
+		);
+	}
+
 	@Transactional(readOnly = true)
 	public List<ChecklistDefinition> listChecklistDefinitionVersions(
 			UUID organizationId,
@@ -176,6 +235,21 @@ public class ChecklistDefinitionService {
 				.toList();
 	}
 
+	private List<ChecklistDefinitionTaskInput> toChecklistDefinitionTaskInputs(List<ChecklistTaskInput> tasks) {
+		return tasks.stream()
+				.map(task -> new ChecklistDefinitionTaskInput(
+						task.title(),
+						task.details(),
+						task.taskKind(),
+						task.required(),
+						task.sortOrder(),
+						task.measurementUnit(),
+						task.minimumAllowedValue(),
+						task.maximumAllowedValue()
+				))
+				.toList();
+	}
+
 	private List<ChecklistSchedule> toChecklistSchedules(List<ChecklistDefinitionScheduleInput> schedules, User actor) {
 		if (schedules == null) {
 			return List.of();
@@ -197,6 +271,25 @@ public class ChecklistDefinitionService {
 				.toList();
 	}
 
+	private List<ChecklistDefinitionScheduleInput> toChecklistDefinitionScheduleInputs(List<ChecklistScheduleInput> schedules) {
+		if (schedules == null) {
+			return List.of();
+		}
+
+		return schedules.stream()
+				.map(schedule -> new ChecklistDefinitionScheduleInput(
+						schedule.scheduleType(),
+						schedule.startDate(),
+						schedule.endDate(),
+						schedule.dueTime(),
+						schedule.weekdayMask(),
+						schedule.dayOfMonth(),
+						schedule.timezone(),
+						schedule.active()
+				))
+				.toList();
+	}
+
 	private User getUserOrThrow(UUID userId) {
 		return userRepository.findById(userId)
 				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
@@ -213,5 +306,29 @@ public class ChecklistDefinitionService {
 			);
 		}
 		return status;
+	}
+
+	public record ChecklistTaskInput(
+			String title,
+			String details,
+			ChecklistTaskKind taskKind,
+			boolean required,
+			int sortOrder,
+			String measurementUnit,
+			BigDecimal minimumAllowedValue,
+			BigDecimal maximumAllowedValue
+	) {
+	}
+
+	public record ChecklistScheduleInput(
+			ChecklistScheduleType scheduleType,
+			LocalDate startDate,
+			LocalDate endDate,
+			LocalTime dueTime,
+			Integer weekdayMask,
+			Integer dayOfMonth,
+			String timezone,
+			Boolean active
+	) {
 	}
 }
