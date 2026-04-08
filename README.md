@@ -1,5 +1,23 @@
 # Kontrolla
-System for managing food and alchohol compliance for resturants and bars in Norway.
+Kontrolla is a system for managing food and alcohol compliance for restaurants and bars in Norway.
+
+The platform is divided into two main areas:
+
+- `IK-Mat` for internal food-control routines
+- `IK-Alkohol` for alcohol-control and licensing follow-up
+
+Kontrolla is built around organizations and the establishments that belong to each organization. This makes it possible to manage compliance work centrally while still keeping daily operations tied to each individual restaurant, bar, or venue.
+
+The main services in the product include checklists and operational routines for things like daily opening and closing tasks, temperature logging, cleaning routines, deviation handling, and follow-up of required documentation and compliance work across establishments.
+
+It consists of:
+
+- a Spring Boot backend in [`backend/`](/Users/johan/Developer/studie/Kontrolla/backend)
+- a Vue 3 frontend in [`frontend/`](/Users/johan/Developer/studie/Kontrolla/frontend)
+
+## Getting Started
+
+If you want to work on the project locally, start with the setup guide in [`docs/setup.md`](/Users/johan/Developer/studie/Kontrolla/docs/setup.md).
 
 ## Docker Compose
 
@@ -11,6 +29,12 @@ docker compose up
 
 The frontend will be available on `http://localhost:5173`.
 The backend will be available on `http://localhost:8080`.
+
+## Project Structure
+
+- [`backend/`](/Users/johan/Developer/studie/Kontrolla/backend): Spring Boot API, database migrations, and backend tests
+- [`frontend/`](/Users/johan/Developer/studie/Kontrolla/frontend): Vue app, shared UI code, and frontend tests
+- [`docs/`](/Users/johan/Developer/studie/Kontrolla/docs): project documentation and setup notes
 
 ## GitHub Actions
 
