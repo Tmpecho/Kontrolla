@@ -24,6 +24,7 @@ public class AppSecurityProperties {
 	private final List<BootstrapUser> bootstrapEmployees = new ArrayList<>();
 	private final BootstrapOrganization bootstrapOrganization = new BootstrapOrganization();
 	private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
+	private final List<BootstrapEstablishment> bootstrapEstablishments = new ArrayList<>();
 
 	@Setter
 	@Getter
