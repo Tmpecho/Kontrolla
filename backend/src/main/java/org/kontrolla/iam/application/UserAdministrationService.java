@@ -1,5 +1,10 @@
 package org.kontrolla.iam.application;
 
+import org.kontrolla.audit.application.AuditRecord;
+import org.kontrolla.audit.application.AuditRecorder;
+import org.kontrolla.audit.domain.AuditAction;
+import org.kontrolla.audit.domain.AuditOutcome;
+import org.kontrolla.audit.domain.AuditTargetType;
 import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
@@ -16,10 +21,16 @@ import java.util.Set;
 public class UserAdministrationService {
 
 	private final UserRepository userRepository;
+	private final AuditRecorder auditRecorder;
 	private final PasswordEncoder passwordEncoder;
 
-	public UserAdministrationService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+	public UserAdministrationService(
+			UserRepository userRepository,
+			AuditRecorder auditRecorder,
+			PasswordEncoder passwordEncoder
+	) {
 		this.userRepository = userRepository;
+		this.auditRecorder = auditRecorder;
 		this.passwordEncoder = passwordEncoder;
 	}
 
@@ -37,7 +48,9 @@ public class UserAdministrationService {
 		}
 
 		User user = new User(email, firstName, lastName, passwordEncoder.encode(password), active, globalRoles);
-		return userRepository.save(user);
+		user = userRepository.save(user);
+		auditRecorder.record(userCreateAudit(user, "admin_user_created", "admin"));
+		return user;
 	}
 
 	@Transactional
@@ -58,5 +71,15 @@ public class UserAdministrationService {
 	@Transactional(readOnly = true)
 	public Page<User> listUsers(Pageable pageable) {
 		return userRepository.findAll(pageable);
+	}
+
+	private AuditRecord userCreateAudit(User user, String resultCode, String creationPath) {
+		return AuditRecord.builder(AuditAction.USER_CREATE, AuditOutcome.SUCCESS, resultCode)
+				.target(AuditTargetType.USER, user.getId())
+				.metadata("createdEmail", user.getEmail())
+				.metadata("active", user.isActive())
+				.metadata("globalRoles", user.getGlobalRoles().stream().map(GlobalRole::name).sorted().toList())
+				.metadata("creationPath", creationPath)
+				.build();
 	}
 }
