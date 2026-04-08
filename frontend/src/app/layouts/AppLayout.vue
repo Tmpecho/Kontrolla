@@ -4,12 +4,16 @@ import { useRoute } from 'vue-router'
 
 import TopBar from '@/app/components/TopBar.vue'
 import Sidebar from '@/app/components/Sidebar.vue'
+import { useAuthStore } from '@/auth/model/auth.store'
+import { useNotificationsStore } from '@/notifications/model/notifications.store'
 
 const route = useRoute()
 const topBar = ref<InstanceType<typeof TopBar> | null>(null)
 const mobileNavigationDrawer = ref<HTMLElement | null>(null)
 const isMobileNavigationOpen = ref(false)
 const previousBodyOverflow = ref<string | null>(null)
+const authStore = useAuthStore()
+const notificationsStore = useNotificationsStore()
 
 function handleMobileNavigationToggle() {
   if (isMobileNavigationOpen.value) {
@@ -123,12 +127,26 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleEscape)
   window.removeEventListener('resize', handleResize)
+  notificationsStore.stopPolling()
 
   if (previousBodyOverflow.value !== null) {
     document.body.style.overflow = previousBodyOverflow.value
     previousBodyOverflow.value = null
   }
 })
+
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthenticated) => {
+    if (isAuthenticated) {
+      notificationsStore.startPolling()
+      return
+    }
+
+    notificationsStore.reset()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

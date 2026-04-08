@@ -14,6 +14,11 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.application.UserAccessService;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.CurrentUser;
+import org.kontrolla.notifications.application.CreateNotificationCommand;
+import org.kontrolla.notifications.application.NotificationService;
+import org.kontrolla.notifications.domain.NotificationResourceType;
+import org.kontrolla.notifications.domain.NotificationServiceArea;
+import org.kontrolla.notifications.domain.NotificationType;
 import org.kontrolla.organizations.application.OrganizationAccessService;
 import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
@@ -39,19 +44,22 @@ public class DeviationService {
 	private final EstablishmentService establishmentService;
 	private final UserAccessService userAccessService;
 	private final OrganizationMembershipRepository organizationMembershipRepository;
+	private final NotificationService notificationService;
 
 	public DeviationService(
 			DeviationRepository deviationRepository,
 			OrganizationAccessService organizationAccessService,
 			EstablishmentService establishmentService,
 			UserAccessService userAccessService,
-			OrganizationMembershipRepository organizationMembershipRepository
+			OrganizationMembershipRepository organizationMembershipRepository,
+			NotificationService notificationService
 	) {
 		this.deviationRepository = deviationRepository;
 		this.organizationAccessService = organizationAccessService;
 		this.establishmentService = establishmentService;
 		this.userAccessService = userAccessService;
 		this.organizationMembershipRepository = organizationMembershipRepository;
+		this.notificationService = notificationService;
 	}
 
 	@Transactional(readOnly = true)
@@ -150,6 +158,18 @@ public class DeviationService {
 				Instant.now(),
 				"Deviation assigned to " + formatUserDisplayName(assignedUser) + "."
 		));
+		notificationService.createNotification(new CreateNotificationCommand(
+				assignedUser.getId(),
+				actor.getId(),
+				organizationId,
+				establishmentId,
+				toServiceArea(deviation.getCategory()),
+				NotificationType.DEVIATION_ASSIGNED,
+				deviation.getTitle(),
+				"You were assigned this deviation.",
+				NotificationResourceType.DEVIATION,
+				deviation.getId()
+		));
 
 		return deviationRepository.save(deviation);
 	}
@@ -180,6 +200,14 @@ public class DeviationService {
 				Instant.now(),
 				"Status changed from " + formatStatusLabel(previousStatus) + " to " + formatStatusLabel(status) + "."
 		));
+		createAssignedDeviationNotification(
+				deviation,
+				actor.getId(),
+				organizationId,
+				establishmentId,
+				NotificationType.DEVIATION_STATUS_CHANGED,
+				"Status changed from " + formatStatusLabel(previousStatus) + " to " + formatStatusLabel(status) + "."
+		);
 
 		return deviationRepository.save(deviation);
 	}
@@ -254,8 +282,42 @@ public class DeviationService {
 				Instant.now(),
 				note.strip()
 		));
+		createAssignedDeviationNotification(
+				deviation,
+				actor.getId(),
+				organizationId,
+				establishmentId,
+				NotificationType.DEVIATION_NOTE_ADDED,
+				note.strip()
+		);
 
 		return deviationRepository.save(deviation);
+	}
+
+	private void createAssignedDeviationNotification(
+			Deviation deviation,
+			UUID actorUserId,
+			UUID organizationId,
+			UUID establishmentId,
+			NotificationType notificationType,
+			String message
+	) {
+		if (deviation.getAssignedToUser() == null) {
+			return;
+		}
+
+		notificationService.createNotification(new CreateNotificationCommand(
+				deviation.getAssignedToUser().getId(),
+				actorUserId,
+				organizationId,
+				establishmentId,
+				toServiceArea(deviation.getCategory()),
+				notificationType,
+				deviation.getTitle(),
+				message,
+				NotificationResourceType.DEVIATION,
+				deviation.getId()
+		));
 	}
 
 	private Deviation findDeviationOrThrow(UUID organizationId, UUID establishmentId, UUID deviationId) {
@@ -285,11 +347,11 @@ public class DeviationService {
 
 	private String buildDetailsUpdatedNote(List<String> changedFields) {
 		if (changedFields.size() == 1) {
-			return "Updated " + changedFields.get(0) + ".";
+			return "Updated " + changedFields.getFirst() + ".";
 		}
 
 		if (changedFields.size() == 2) {
-			return "Updated " + changedFields.get(0) + " and " + changedFields.get(1) + ".";
+			return "Updated " + changedFields.getFirst() + " and " + changedFields.get(1) + ".";
 		}
 
 		StringBuilder note = new StringBuilder("Updated ");
@@ -311,5 +373,12 @@ public class DeviationService {
 	private String formatUserDisplayName(User user) {
 		String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
 		return fullName.isBlank() ? user.getEmail() : fullName;
+	}
+
+	private NotificationServiceArea toServiceArea(DeviationCategory category) {
+		return switch (category) {
+			case TEMPERATURE, HYGIENE, ALLERGEN, STORAGE -> NotificationServiceArea.IK_MAT;
+			case AGE_CONTROL, INAPPROPRIATE_BEHAVIOUR, SERVING_HOURS, DOCUMENTATION_AND_TRAINING -> NotificationServiceArea.IK_ALKOHOL;
+		};
 	}
 }

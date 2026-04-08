@@ -1,4 +1,5 @@
 import { getAccessToken } from '@/auth/model/auth.store'
+import { getCsrfHeaders } from '@/shared/api/csrf'
 import { buildApiUrl } from '@/shared/config/api'
 
 type ApiProblem = {
@@ -72,7 +73,8 @@ async function readProblemMessage(response: Response): Promise<string> {
   }
 }
 
-async function sendRequest(path: string, options: RequestJsonOptions = {}): Promise<Response> {
+export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
+  const method = options.method ?? 'GET'
   const accessToken = getAccessToken()
   const headers = new Headers(options.headers)
 
@@ -80,8 +82,15 @@ async function sendRequest(path: string, options: RequestJsonOptions = {}): Prom
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
+  const csrfHeaders = await getCsrfHeaders(method)
+  for (const [key, value] of Object.entries(csrfHeaders)) {
+    if (!headers.has(key)) {
+      headers.set(key, value)
+    }
+  }
+
   const response = await fetch(buildRequestUrl(path, options.query), {
-    method: options.method ?? 'GET',
+    method,
     credentials: 'include',
     headers,
     body: options.body,

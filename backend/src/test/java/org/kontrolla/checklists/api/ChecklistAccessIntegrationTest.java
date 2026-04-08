@@ -38,7 +38,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -98,6 +101,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/checklists/definitions"
 						.formatted(organization.getId(), establishment.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(validCreateDefinitionPayload()))
@@ -105,6 +109,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/definitions/%s"
 						.formatted(organization.getId(), establishment.getId(), definition.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(validUpdateDefinitionPayload()))
@@ -128,6 +133,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/assignments"
 						.formatted(organization.getId(), establishment.getId(), run.getId()))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -164,6 +170,7 @@ class ChecklistAccessIntegrationTest {
 
 		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/tasks/%s"
 						.formatted(organization.getId(), establishment.getId(), run.getId(), taskId))
+						.with(csrf())
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -173,6 +180,100 @@ class ChecklistAccessIntegrationTest {
 								}
 								"""))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void updatingCompletedChecklistRunTaskReturnsConflictProblemDetails() throws Exception {
+		User manager = createUser("completed-task-manager@example.com");
+		User employee = createUser("completed-task-employee@example.com");
+		Organization organization = createOrganization("Checklist Completed Task Org");
+		Establishment establishment = createEstablishment(organization, "Checklist Completed Task Restaurant");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+		String employeeToken = login("completed-task-employee@example.com", "password123");
+		String taskId = run.getTaskExecutions().iterator().next().getId().toString();
+
+		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/tasks/%s"
+						.formatted(organization.getId(), establishment.getId(), run.getId(), taskId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "executionStatus": "COMPLETED",
+								  "comment": "Complete run"
+								}
+								"""))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/tasks/%s"
+						.formatted(organization.getId(), establishment.getId(), run.getId(), taskId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "executionStatus": "COMPLETED",
+								  "comment": "Try to update completed run"
+								}
+								"""))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("checklist_run_update_invalid_state"))
+				.andExpect(jsonPath("$.message").value("Completed or cancelled checklist runs cannot be updated"));
+	}
+
+	@Test
+	void updatingChecklistRunTaskWithUnknownTaskIdReturnsNotFoundProblemDetails() throws Exception {
+		User manager = createUser("missing-task-manager@example.com");
+		User employee = createUser("missing-task-employee@example.com");
+		Organization organization = createOrganization("Checklist Missing Task Org");
+		Establishment establishment = createEstablishment(organization, "Checklist Missing Task Restaurant");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+		String employeeToken = login("missing-task-employee@example.com", "password123");
+
+		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/tasks/%s"
+						.formatted(organization.getId(), establishment.getId(), run.getId(), UUID.randomUUID()))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "executionStatus": "COMPLETED",
+								  "comment": "Try to update unknown task"
+								}
+								"""))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("checklist_task_execution_not_found"))
+				.andExpect(jsonPath("$.message").value("Checklist task execution not found"));
+	}
+
+	@Test
+	void resettingChecklistRunOutsideInProgressReturnsConflictProblemDetails() throws Exception {
+		User manager = createUser("reset-state-manager@example.com");
+		User employee = createUser("reset-state-employee@example.com");
+		Organization organization = createOrganization("Checklist Reset State Org");
+		Establishment establishment = createEstablishment(organization, "Checklist Reset State Restaurant");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+		String employeeToken = login("reset-state-employee@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/checklists/runs/%s/reset"
+						.formatted(organization.getId(), establishment.getId(), run.getId()))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("checklist_run_reset_invalid_state"))
+				.andExpect(jsonPath("$.message").value("Only in-progress checklist runs can be reset"));
 	}
 
 	@Test
@@ -274,6 +375,7 @@ class ChecklistAccessIntegrationTest {
 
 	private String login(String email, String password) throws Exception {
 		String response = mockMvc.perform(post("/api/v1/auth/login")
+						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{

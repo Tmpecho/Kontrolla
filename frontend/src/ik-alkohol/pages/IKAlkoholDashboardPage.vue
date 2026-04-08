@@ -15,13 +15,6 @@
     </section>
 
     <section class="dashboard-section">
-      <div class="dashboard-tile">
-        <h2>Upcoming Tasks</h2>
-        <p>Upcoming tasks ...</p>
-      </div>
-    </section>
-
-    <section class="dashboard-section">
       <DeviationsTile
         add-deviation-to="/app/ik-alkohol/deviation/form"
         class="dashboard-tile"

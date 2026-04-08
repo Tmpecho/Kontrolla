@@ -44,7 +44,7 @@ public class Deviation extends AbstractAuditableUuidEntity {
     private User assignedToUser;
 
     @Setter
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false)
     private String title;
 
     @Setter

@@ -1,4 +1,5 @@
 import type { AuthSession, LoginCredentials } from '@/auth/model/auth.types'
+import { clearCsrfToken, getCsrfHeaders } from '@/shared/api/csrf'
 import { buildApiUrl } from '@/shared/config/api'
 
 type ApiProblem = {
@@ -25,19 +26,46 @@ async function readProblemMessage(response: Response): Promise<string> {
   }
 }
 
+async function postWithCsrf(
+  path: string,
+  options?: {
+    body?: BodyInit | null
+    headers?: HeadersInit
+  },
+  retry = true,
+): Promise<Response> {
+  const headers = new Headers(options?.headers)
+  const csrfHeaders = await getCsrfHeaders('POST')
+  for (const [key, value] of Object.entries(csrfHeaders)) {
+    headers.set(key, value)
+  }
+
+  const response = await fetch(buildApiUrl(path), {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: options?.body,
+  })
+
+  if (retry && response.status === 403) {
+    clearCsrfToken()
+    return postWithCsrf(path, options, false)
+  }
+
+  return response
+}
+
 async function requestSession(
   path: string,
   options?: {
     body?: string
   },
 ): Promise<AuthSession> {
-  const response = await fetch(buildApiUrl(path), {
-    method: 'POST',
-    credentials: 'include',
+  const response = await postWithCsrf(path, {
+    body: options?.body,
     headers: {
       'Content-Type': 'application/json',
     },
-    body: options?.body,
   })
 
   if (!response.ok) {
@@ -54,10 +82,11 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
 }
 
 export async function logout(): Promise<void> {
-  await fetch(buildApiUrl('/api/v1/auth/logout'), {
-    method: 'POST',
-    credentials: 'include',
-  })
+  const response = await postWithCsrf('/api/v1/auth/logout')
+
+  if (!response.ok) {
+    throw new AuthApiError(await readProblemMessage(response), response.status)
+  }
 }
 
 export async function refreshSession(): Promise<AuthSession> {

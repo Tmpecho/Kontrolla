@@ -10,6 +10,7 @@ defineOptions({
 
 type AppRouteName =
   | 'workspace-home'
+  | 'notifications'
   | 'ik-mat-dashboard'
   | 'ik-mat-checklists'
   | 'ik-mat-temperature'
@@ -53,6 +54,7 @@ const router = useRouter()
 
 const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   'workspace-home': ['workspace-home'],
+  notifications: ['notifications'],
   'ik-mat-dashboard': ['ik-mat-dashboard'],
   'ik-mat-checklists': ['ik-mat-checklists'],
   'ik-mat-temperature': ['ik-mat-temperature'],
@@ -180,7 +182,18 @@ const navigationItems = computed<NavigationItem[]>(() => {
         },
       ]
     default:
-      return [
+      return props.variant === 'mobile'
+        ? [
+            {
+              label: 'Dashboard',
+              routeName: 'workspace-home',
+            },
+            {
+              label: 'Notifications',
+              routeName: 'notifications',
+            },
+          ]
+        : [
         {
           label: 'Dashboard',
           routeName: 'workspace-home',
