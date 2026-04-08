@@ -8,12 +8,14 @@ const {
   refreshSessionMock,
   logoutRequestMock,
   clearCsrfTokenMock,
+  listAdminOrganizationsMock,
   listEstablishmentsMock,
 } = vi.hoisted(() => ({
   loginMock: vi.fn(),
   refreshSessionMock: vi.fn(),
   logoutRequestMock: vi.fn(),
   clearCsrfTokenMock: vi.fn(),
+  listAdminOrganizationsMock: vi.fn(),
   listEstablishmentsMock: vi.fn(),
 }))
 
@@ -36,6 +38,10 @@ vi.mock('@/establishments/api/establishments.api', () => ({
   listEstablishments: listEstablishmentsMock,
 }))
 
+vi.mock('@/organizations/api/organizations.api', () => ({
+  listAdminOrganizations: listAdminOrganizationsMock,
+}))
+
 vi.mock('@/shared/api/csrf', () => ({
   clearCsrfToken: clearCsrfTokenMock,
 }))
@@ -47,6 +53,7 @@ describe('auth.store', () => {
     refreshSessionMock.mockReset()
     logoutRequestMock.mockReset()
     clearCsrfTokenMock.mockReset()
+    listAdminOrganizationsMock.mockReset()
     listEstablishmentsMock.mockReset()
 
     const storage = new Map<string, string>()
@@ -190,6 +197,142 @@ describe('auth.store', () => {
     expect(window.localStorage.getItem('kontrolla.establishmentSelectionByOrganization')).toBe(
       JSON.stringify({ 'org-1': 'est-2' }),
     )
+  })
+
+  it('hydrates admin organizations and selects the stored organization for platform admins', async () => {
+    listAdminOrganizationsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'org-1',
+          name: 'Alpha Group',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+        {
+          id: 'org-2',
+          name: 'Beta Group',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 2,
+      totalPages: 1,
+    })
+    listEstablishmentsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'est-2',
+          organizationId: 'org-2',
+          name: 'Beta Bar',
+          type: 'BAR',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    window.localStorage.setItem('kontrolla.organizationSelection', 'org-2')
+
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        active: true,
+        globalRoles: ['PLATFORM_ADMIN'],
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      appContext: null,
+    })
+
+    await authStore.hydrateOrganizations()
+
+    expect(authStore.organizations.map((organization) => organization.id)).toEqual(['org-1', 'org-2'])
+    expect(authStore.appContext?.organizationId).toBe('org-2')
+    expect(authStore.appContext?.organizationName).toBe('Beta Group')
+    expect(authStore.establishments.map((establishment) => establishment.id)).toEqual(['est-2'])
+  })
+
+  it('switches organization context and rehydrates establishments for platform admins', async () => {
+    listEstablishmentsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'est-2',
+          organizationId: 'org-2',
+          name: 'Beta Bar',
+          type: 'BAR',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        active: true,
+        globalRoles: ['PLATFORM_ADMIN'],
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      appContext: {
+        organizationId: 'org-1',
+        organizationName: 'Alpha Group',
+        organizationRole: 'ORG_ADMIN',
+        establishmentId: 'est-1',
+        establishmentName: 'Alpha Kitchen',
+      },
+    })
+    authStore.organizations = [
+      {
+        id: 'org-1',
+        name: 'Alpha Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      {
+        id: 'org-2',
+        name: 'Beta Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+    ]
+
+    await authStore.updateSelectedOrganization('org-2')
+
+    expect(authStore.appContext?.organizationId).toBe('org-2')
+    expect(authStore.appContext?.organizationName).toBe('Beta Group')
+    expect(authStore.appContext?.organizationRole).toBeNull()
+    expect(authStore.appContext?.establishmentId).toBe('est-2')
+    expect(window.localStorage.getItem('kontrolla.organizationSelection')).toBe('org-2')
   })
 
   it('loads every establishment page before synchronizing the selector state', async () => {
