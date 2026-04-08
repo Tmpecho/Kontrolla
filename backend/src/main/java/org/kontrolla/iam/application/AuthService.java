@@ -1,5 +1,11 @@
 package org.kontrolla.iam.application;
 
+import org.kontrolla.audit.application.AuditRecord;
+import org.kontrolla.audit.application.AuditRecorder;
+import org.kontrolla.audit.domain.AuditAction;
+import org.kontrolla.audit.domain.AuditActorType;
+import org.kontrolla.audit.domain.AuditOutcome;
+import org.kontrolla.audit.domain.AuditTargetType;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
@@ -14,6 +20,8 @@ import org.kontrolla.iam.security.JwtService;
 import org.kontrolla.iam.security.JwtService.IssuedAccessToken;
 import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,11 +39,14 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
+	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
 	private final UserRepository userRepository;
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final EstablishmentRepository establishmentRepository;
 	private final AuthAttemptThrottleService authAttemptThrottleService;
+	private final AuditRecorder auditRecorder;
 	private final PasswordEncoder passwordEncoder;
 	private final UserInviteService userInviteService;
 	private final JwtService jwtService;
@@ -48,6 +59,7 @@ public class AuthService {
 			OrganizationMembershipRepository organizationMembershipRepository,
 			EstablishmentRepository establishmentRepository,
 			AuthAttemptThrottleService authAttemptThrottleService,
+			AuditRecorder auditRecorder,
 			PasswordEncoder passwordEncoder,
 			UserInviteService userInviteService,
 			JwtService jwtService,
@@ -59,6 +71,7 @@ public class AuthService {
 		this.organizationMembershipRepository = organizationMembershipRepository;
 		this.establishmentRepository = establishmentRepository;
 		this.authAttemptThrottleService = authAttemptThrottleService;
+		this.auditRecorder = auditRecorder;
 		this.passwordEncoder = passwordEncoder;
 		this.userInviteService = userInviteService;
 		this.jwtService = jwtService;
@@ -69,17 +82,24 @@ public class AuthService {
 	@Transactional
 	public AuthSession login(String email, String password, String clientIp) {
 		Instant now = Instant.now(clock);
-		authAttemptThrottleService.assertLoginAllowed(email, clientIp, now);
+		try {
+			authAttemptThrottleService.assertLoginAllowed(email, clientIp, now);
+		} catch (AuthThrottleException exception) {
+			recordFailedAuthAudit(loginFailureAudit(email, "throttled", exception.getThrottleDimension()));
+			throw exception;
+		}
 
 		User user = userRepository.findByEmailIgnoreCase(email)
 				.filter(User::isActive)
 				.orElseThrow(() -> {
 					authAttemptThrottleService.recordLoginFailure(email, clientIp, now);
+					recordFailedAuthAudit(loginFailureAudit(email, "invalid_credentials", null));
 					return new UnauthorizedException("invalid_credentials", "Invalid email or password");
 				});
 
 		if (!passwordEncoder.matches(password, user.getPasswordHash())) {
 			authAttemptThrottleService.recordLoginFailure(email, clientIp, now);
+			recordFailedAuthAudit(loginFailureAudit(email, "invalid_credentials", null));
 			throw new UnauthorizedException("invalid_credentials", "Invalid email or password");
 		}
 
@@ -94,21 +114,43 @@ public class AuthService {
 				? null
 				: refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)).orElse(null);
 		String accountIdentifier = refreshToken == null ? null : refreshToken.getUser().getEmail();
-		authAttemptThrottleService.assertRefreshAllowed(accountIdentifier, clientIp, now);
-		RefreshToken activeRefreshToken = resolveActiveRefreshToken(rawRefreshToken, refreshToken, clientIp, now);
+		try {
+			authAttemptThrottleService.assertRefreshAllowed(accountIdentifier, clientIp, now);
+		} catch (AuthThrottleException exception) {
+			recordFailedAuthAudit(refreshFailureAudit(refreshToken, "throttled", exception.getThrottleDimension()));
+			throw exception;
+		}
+
+		RefreshToken activeRefreshToken;
+		try {
+			activeRefreshToken = resolveActiveRefreshToken(rawRefreshToken, refreshToken, clientIp, now);
+		} catch (UnauthorizedException exception) {
+			recordFailedAuthAudit(refreshFailureAudit(refreshToken, exception.getCode(), null));
+			throw exception;
+		}
+
 		activeRefreshToken.revoke(now);
 		authAttemptThrottleService.resetRefresh(activeRefreshToken.getUser().getEmail(), clientIp);
-		return issueSession(activeRefreshToken.getUser(), now);
+		AuthSession session = issueSession(activeRefreshToken.getUser(), now);
+		auditRecorder.record(refreshSuccessAudit(activeRefreshToken, session));
+		return session;
 	}
 
 	@Transactional
 	public void logout(String rawRefreshToken) {
 		if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+			recordFailedAuthAudit(logoutIgnoredAudit("missing_refresh_token", null));
 			return;
 		}
 
-		refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken))
-				.ifPresent(token -> token.revoke(Instant.now(clock)));
+		RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)).orElse(null);
+		if (refreshToken == null) {
+			recordFailedAuthAudit(logoutIgnoredAudit("token_not_found", null));
+			return;
+		}
+
+		refreshToken.revoke(Instant.now(clock));
+		auditRecorder.record(logoutSuccessAudit(refreshToken));
 	}
 
 	@Transactional(readOnly = true)
@@ -126,6 +168,61 @@ public class AuthService {
 	@Transactional
 	public void acceptInvite(String token, String password) {
 		userInviteService.acceptInvite(token, password);
+	}
+
+	private AuditRecord loginFailureAudit(String email, String resultCode, String throttleDimension) {
+		return AuditRecord.builder(AuditAction.AUTH_LOGIN, AuditOutcome.FAILURE, resultCode)
+				.metadata("attemptedEmail", email)
+				.metadata("throttleDimension", throttleDimension)
+				.build();
+	}
+
+	private AuditRecord refreshFailureAudit(RefreshToken refreshToken, String resultCode, String throttleDimension) {
+		AuditRecord.Builder builder = AuditRecord.builder(AuditAction.AUTH_REFRESH, AuditOutcome.FAILURE, resultCode)
+				.metadata("throttleDimension", throttleDimension);
+		return populateRefreshTokenContext(builder, refreshToken).build();
+	}
+
+	private AuditRecord refreshSuccessAudit(RefreshToken refreshToken, AuthSession session) {
+		AuditRecord.Builder builder = AuditRecord.builder(AuditAction.AUTH_REFRESH, AuditOutcome.SUCCESS, "success")
+				.organizationId(session.appContext().organizationId());
+		return populateRefreshTokenContext(builder, refreshToken).build();
+	}
+
+	private AuditRecord logoutIgnoredAudit(String resultCode, RefreshToken refreshToken) {
+		AuditRecord.Builder builder = AuditRecord.builder(AuditAction.AUTH_LOGOUT, AuditOutcome.IGNORED, resultCode);
+		return populateRefreshTokenContext(builder, refreshToken).build();
+	}
+
+	private AuditRecord logoutSuccessAudit(RefreshToken refreshToken) {
+		AuditRecord.Builder builder = AuditRecord.builder(AuditAction.AUTH_LOGOUT, AuditOutcome.SUCCESS, "revoked")
+				.organizationId(resolveOrganizationId(refreshToken.getUser().getId()));
+		return populateRefreshTokenContext(builder, refreshToken).build();
+	}
+
+	private AuditRecord.Builder populateRefreshTokenContext(AuditRecord.Builder builder, RefreshToken refreshToken) {
+		if (refreshToken == null) {
+			return builder;
+		}
+
+		User user = refreshToken.getUser();
+		return builder.actor(AuditActorType.USER, user.getId(), user.getEmail())
+				.organizationId(resolveOrganizationId(user.getId()))
+				.target(AuditTargetType.REFRESH_TOKEN, refreshToken.getId())
+				.metadata("userId", user.getId())
+				.metadata("userEmail", user.getEmail());
+	}
+
+	private java.util.UUID resolveOrganizationId(java.util.UUID userId) {
+		return resolveAppContext(userId).organizationId();
+	}
+
+	private void recordFailedAuthAudit(AuditRecord auditRecord) {
+		try {
+			auditRecorder.recordInNewTransaction(auditRecord);
+		} catch (RuntimeException exception) {
+			log.error("Failed to persist audit event for auth action {}", auditRecord.getAction(), exception);
+		}
 	}
 
 	private AuthSession issueSession(User user, Instant now) {
