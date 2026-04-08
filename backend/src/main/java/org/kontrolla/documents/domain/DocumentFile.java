@@ -22,7 +22,7 @@ public class DocumentFile {
   private UUID documentId;
 
   @Lob
-  @Column(nullable = false)
+  @Column(nullable = false, columnDefinition = "LONGBLOB")
   private byte[] content;
 
   protected DocumentFile() {
