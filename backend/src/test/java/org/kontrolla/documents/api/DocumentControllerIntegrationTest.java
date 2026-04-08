@@ -23,16 +23,22 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Set;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,256 +47,270 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class DocumentControllerIntegrationTest {
 
-	@Autowired
-	private MockMvc mockMvc;
+  @Autowired
+  private MockMvc mockMvc;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+  @Autowired
+  private ObjectMapper objectMapper;
 
-	@Autowired
-	private UserRepository userRepository;
+  @Autowired
+  private UserRepository userRepository;
 
-	@Autowired
-	private OrganizationRepository organizationRepository;
+  @Autowired
+  private OrganizationRepository organizationRepository;
 
-	@Autowired
-	private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired
+  private OrganizationMembershipRepository organizationMembershipRepository;
 
-	@Autowired
-	private EstablishmentRepository establishmentRepository;
+  @Autowired
+  private EstablishmentRepository establishmentRepository;
 
-	@Autowired
-	private PasswordEncoder passwordEncoder;
+  @Autowired
+  private PasswordEncoder passwordEncoder;
 
-	@Autowired
-	private TestDataCleaner testDataCleaner;
+  @Autowired
+  private TestDataCleaner testDataCleaner;
 
-	@Autowired
-	private Clock clock;
+  @Autowired
+  private Clock clock;
 
-	@BeforeEach
-	void setUp() {
-		testDataCleaner.clearAll();
-	}
+  @BeforeEach
+  void setUp() {
+    testDataCleaner.clearAll();
+  }
 
-	@Test
-	void managerCanCreateUpdateFetchAndListDocuments() throws Exception {
-		User manager = createUser("documents-api-manager@example.com", "Manager", "API");
-		Organization organization = createOrganization("Kontrolla Documents API");
-		Establishment establishment = createEstablishment(organization, "Downtown Bar");
-		createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
-		LocalDate today = LocalDate.now(clock);
+  @Test
+  void managerCanCreateUpdateReplaceDownloadAndListDocuments() throws Exception {
+    User manager = createUser("documents-api-manager@example.com", "Manager", "API");
+    Organization organization = createOrganization("Kontrolla Documents API");
+    Establishment establishment = createEstablishment(organization, "Downtown Bar");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+    LocalDate today = LocalDate.now(clock);
 
-		String token = login("documents-api-manager@example.com", "password123");
+    String token = login("documents-api-manager@example.com", "password123");
 
-		String createResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents".formatted(
-						organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "serviceArea": "IK_ALKOHOL",
-								  "title": "  Alcohol service licence  ",
-								  "holderName": "  Oslo Municipality  ",
-								  "issueDate": "%s",
-								  "renewalDate": "%s"
-								}
-								""".formatted(today.minusDays(365), today.plusDays(10))))
-				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.title").value("Alcohol service licence"))
-				.andExpect(jsonPath("$.holderName").value("Oslo Municipality"))
-				.andExpect(jsonPath("$.serviceArea").value("IK_ALKOHOL"))
-				.andExpect(jsonPath("$.status").value("EXPIRING"))
-				.andReturn()
-				.getResponse()
-				.getContentAsString();
+    String createResponse = mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organization.getId(), establishment.getId()))
+            .file(metadataPart("IK_ALKOHOL", "  Alcohol service licence  ", "  Oslo Municipality  ", today.minusDays(365), today.plusDays(10)))
+            .file(pdfPart("alcohol-service-licence.pdf", "license-v1"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.title").value("Alcohol service licence"))
+        .andExpect(jsonPath("$.holderName").value("Oslo Municipality"))
+        .andExpect(jsonPath("$.serviceArea").value("IK_ALKOHOL"))
+        .andExpect(jsonPath("$.contentType").value("application/pdf"))
+        .andExpect(jsonPath("$.fileName").value("alcohol-service-licence.pdf"))
+        .andExpect(jsonPath("$.status").value("EXPIRING"))
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
 
-		String documentId = objectMapper.readTree(createResponse).get("id").asText();
+    String documentId = objectMapper.readTree(createResponse).get("id").asText();
 
-		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents".formatted(
-						organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "serviceArea": "IK_ALKOHOL",
-								  "title": "Responsible service certificate",
-								  "holderName": "Lina Dahl",
-								  "issueDate": "%s",
-								  "renewalDate": "%s"
-								}
-								""".formatted(today.minusDays(200), today.plusDays(3))))
-				.andExpect(status().isCreated());
+    mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organization.getId(), establishment.getId()))
+            .file(metadataPart("IK_ALKOHOL", "Responsible service certificate", "Lina Dahl", today.minusDays(200), today.plusDays(3)))
+            .file(pdfPart("responsible-service-certificate.pdf", "certificate-v1"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isCreated());
 
-		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents".formatted(
-						organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "serviceArea": "IK_MAT",
-								  "title": "Cleaning routine",
-								  "holderName": "Kitchen operations",
-								  "issueDate": "%s",
-								  "renewalDate": "%s"
-								}
-								""".formatted(today.minusDays(120), today.plusDays(90))))
-				.andExpect(status().isCreated());
+    mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organization.getId(), establishment.getId()))
+            .file(metadataPart("IK_MAT", "Cleaning routine", "Kitchen operations", today.minusDays(120), today.plusDays(90)))
+            .file(pdfPart("cleaning-routine.pdf", "cleaning-v1"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isCreated());
 
-		mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
-						organization.getId(), establishment.getId(), documentId))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "serviceArea": "IK_ALKOHOL",
-								  "title": "Alcohol service licence 2026",
-								  "holderName": "Oslo Municipality Licensing",
-								  "issueDate": "%s",
-								  "renewalDate": "%s"
-								}
-								""".formatted(today.minusDays(365), today.plusDays(60))))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.title").value("Alcohol service licence 2026"))
-				.andExpect(jsonPath("$.status").value("VALID"));
+    mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "serviceArea": "IK_ALKOHOL",
+                  "title": "Alcohol service licence 2026",
+                  "holderName": "Oslo Municipality Licensing",
+                  "issueDate": "%s",
+                  "renewalDate": "%s"
+                }
+                """.formatted(today.minusDays(365), today.plusDays(60))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.title").value("Alcohol service licence 2026"))
+        .andExpect(jsonPath("$.status").value("VALID"));
 
-		mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
-						organization.getId(), establishment.getId(), documentId))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.id").value(documentId))
-				.andExpect(jsonPath("$.holderName").value("Oslo Municipality Licensing"))
-				.andExpect(jsonPath("$.status").value("VALID"));
+    mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents/%s/file".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .file(pdfPart("alcohol-service-licence-2026.pdf", "license-v2"))
+            .with(request -> {
+              request.setMethod("PUT");
+              return request;
+            })
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fileName").value("alcohol-service-licence-2026.pdf"))
+        .andExpect(jsonPath("$.contentType").value("application/pdf"));
 
-		mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents?serviceArea=IK_ALKOHOL".formatted(
-						organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.items.length()").value(2))
-				.andExpect(jsonPath("$.items[0].title").value("Responsible service certificate"))
-				.andExpect(jsonPath("$.items[0].status").value("EXPIRING"))
-				.andExpect(jsonPath("$.items[1].title").value("Alcohol service licence 2026"));
-	}
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(documentId))
+        .andExpect(jsonPath("$.holderName").value("Oslo Municipality Licensing"))
+        .andExpect(jsonPath("$.status").value("VALID"));
 
-	@Test
-	void invalidDateRangeReturnsBadRequest() throws Exception {
-		User manager = createUser("documents-api-dates@example.com", "Manager", "Dates");
-		Organization organization = createOrganization("Kontrolla API Dates");
-		Establishment establishment = createEstablishment(organization, "Date Checks");
-		createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
-		LocalDate today = LocalDate.now(clock);
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s/file".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/pdf"))
+        .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("alcohol-service-licence-2026.pdf")))
+        .andExpect(content().bytes(pdfBytes("license-v2")));
 
-		String token = login("documents-api-dates@example.com", "password123");
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents?serviceArea=IK_ALKOHOL".formatted(
+            organization.getId(), establishment.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.items[0].title").value("Responsible service certificate"))
+        .andExpect(jsonPath("$.items[0].status").value("EXPIRING"))
+        .andExpect(jsonPath("$.items[1].title").value("Alcohol service licence 2026"));
+  }
 
-		mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents".formatted(
-						organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "serviceArea": "IK_ALKOHOL",
-								  "title": "Staff permit register",
-								  "holderName": "People operations",
-								  "issueDate": "%s",
-								  "renewalDate": "%s"
-								}
-								""".formatted(today, today.minusDays(1))))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value("invalid_document_dates"));
-	}
+  @Test
+  void invalidDateRangeReturnsBadRequest() throws Exception {
+    User manager = createUser("documents-api-dates@example.com", "Manager", "Dates");
+    Organization organization = createOrganization("Kontrolla API Dates");
+    Establishment establishment = createEstablishment(organization, "Date Checks");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+    LocalDate today = LocalDate.now(clock);
 
-	@Test
-	void outsiderFromAnotherOrganizationCannotReadDocuments() throws Exception {
-		User manager = createUser("documents-api-cross-manager@example.com", "Manager", "Cross");
-		User outsider = createUser("documents-api-cross-outsider@example.com", "Outsider", "Cross");
-		Organization organizationA = createOrganization("Org A Documents");
-		Organization organizationB = createOrganization("Org B Documents");
-		Establishment establishment = createEstablishment(organizationA, "Inspection Bar");
-		createMembership(organizationA, manager, OrganizationRole.ORG_MANAGER, true);
-		createMembership(organizationB, outsider, OrganizationRole.ORG_MANAGER, true);
-		LocalDate today = LocalDate.now(clock);
+    String token = login("documents-api-dates@example.com", "password123");
 
-		String managerToken = login("documents-api-cross-manager@example.com", "password123");
-		String outsiderToken = login("documents-api-cross-outsider@example.com", "password123");
+    mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organization.getId(), establishment.getId()))
+            .file(metadataPart("IK_ALKOHOL", "Staff permit register", "People operations", today, today.minusDays(1)))
+            .file(pdfPart("staff-register.pdf", "staff-register"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("invalid_document_dates"));
+  }
 
-		String createResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents".formatted(
-						organizationA.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "serviceArea": "IK_ALKOHOL",
-								  "title": "Incident reporting routine sign-off",
-								  "holderName": "Shift supervisors",
-								  "issueDate": "%s",
-								  "renewalDate": "%s"
-								}
-								""".formatted(today.minusDays(180), today.plusDays(30))))
-				.andExpect(status().isCreated())
-				.andReturn()
-				.getResponse()
-				.getContentAsString();
+  @Test
+  void outsiderFromAnotherOrganizationCannotReadDocuments() throws Exception {
+    User manager = createUser("documents-api-cross-manager@example.com", "Manager", "Cross");
+    User outsider = createUser("documents-api-cross-outsider@example.com", "Outsider", "Cross");
+    Organization organizationA = createOrganization("Org A Documents");
+    Organization organizationB = createOrganization("Org B Documents");
+    Establishment establishment = createEstablishment(organizationA, "Inspection Bar");
+    createMembership(organizationA, manager, OrganizationRole.ORG_MANAGER, true);
+    createMembership(organizationB, outsider, OrganizationRole.ORG_MANAGER, true);
+    LocalDate today = LocalDate.now(clock);
 
-		String documentId = objectMapper.readTree(createResponse).get("id").asText();
+    String managerToken = login("documents-api-cross-manager@example.com", "password123");
+    String outsiderToken = login("documents-api-cross-outsider@example.com", "password123");
 
-		mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
-						organizationA.getId(), establishment.getId(), documentId))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
-				.andExpect(status().isForbidden());
+    String createResponse = mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organizationA.getId(), establishment.getId()))
+            .file(metadataPart("IK_ALKOHOL", "Incident reporting routine sign-off", "Shift supervisors", today.minusDays(180), today.plusDays(30)))
+            .file(pdfPart("incident-report.pdf", "incident-report"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
 
-		mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents?serviceArea=IK_ALKOHOL".formatted(
-						organizationA.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
-				.andExpect(status().isForbidden());
-	}
+    String documentId = objectMapper.readTree(createResponse).get("id").asText();
 
-	private User createUser(String email, String firstName, String lastName) {
-		User user = new User(
-				email,
-				firstName,
-				lastName,
-				passwordEncoder.encode("password123"),
-				true,
-				Set.of()
-		);
-		return userRepository.saveAndFlush(user);
-	}
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s".formatted(
+            organizationA.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
+        .andExpect(status().isForbidden());
 
-	private Organization createOrganization(String name) {
-		Organization organization = new Organization(name, OrganizationStatus.ACTIVE);
-		return organizationRepository.saveAndFlush(organization);
-	}
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents/%s/file".formatted(
+            organizationA.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
+        .andExpect(status().isForbidden());
 
-	private Establishment createEstablishment(Organization organization, String name) {
-		Establishment establishment = new Establishment(
-				organization,
-				name,
-				EstablishmentType.BAR,
-				EstablishmentStatus.ACTIVE
-		);
-		return establishmentRepository.saveAndFlush(establishment);
-	}
+    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/documents?serviceArea=IK_ALKOHOL".formatted(
+            organizationA.getId(), establishment.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
+        .andExpect(status().isForbidden());
+  }
 
-	private void createMembership(Organization organization, User user, OrganizationRole role, boolean active) {
-		OrganizationMembership membership = new OrganizationMembership(organization, user, role, active);
-		organizationMembershipRepository.saveAndFlush(membership);
-	}
+  private User createUser(String email, String firstName, String lastName) {
+    User user = new User(
+        email,
+        firstName,
+        lastName,
+        passwordEncoder.encode("password123"),
+        true,
+        Set.of()
+    );
+    return userRepository.saveAndFlush(user);
+  }
 
-	private String login(String email, String password) throws Exception {
-		String response = mockMvc.perform(post("/api/v1/auth/login")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "email": "%s",
-								  "password": "%s"
-								}
-								""".formatted(email, password)))
-				.andExpect(status().isOk())
-				.andReturn()
-				.getResponse()
-				.getContentAsString();
+  private Organization createOrganization(String name) {
+    Organization organization = new Organization(name, OrganizationStatus.ACTIVE);
+    return organizationRepository.saveAndFlush(organization);
+  }
 
-		JsonNode json = objectMapper.readTree(response);
-		return json.get("accessToken").asText();
-	}
+  private Establishment createEstablishment(Organization organization, String name) {
+    Establishment establishment = new Establishment(
+        organization,
+        name,
+        EstablishmentType.BAR,
+        EstablishmentStatus.ACTIVE
+    );
+    return establishmentRepository.saveAndFlush(establishment);
+  }
+
+  private void createMembership(Organization organization, User user, OrganizationRole role, boolean active) {
+    OrganizationMembership membership = new OrganizationMembership(organization, user, role, active);
+    organizationMembershipRepository.saveAndFlush(membership);
+  }
+
+  private String login(String email, String password) throws Exception {
+    String response = mockMvc.perform(post("/api/v1/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "email": "%s",
+                  "password": "%s"
+                }
+                """.formatted(email, password)))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+
+    JsonNode json = objectMapper.readTree(response);
+    return json.get("accessToken").asText();
+  }
+
+  private MockMultipartFile metadataPart(
+      String serviceArea,
+      String title,
+      String holderName,
+      LocalDate issueDate,
+      LocalDate renewalDate
+  ) {
+    String json = """
+        {
+          "serviceArea": "%s",
+          "title": "%s",
+          "holderName": "%s",
+          "issueDate": "%s",
+          "renewalDate": "%s"
+        }
+        """.formatted(serviceArea, title, holderName, issueDate, renewalDate);
+    return new MockMultipartFile("metadata", "", MediaType.APPLICATION_JSON_VALUE, json.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private MockMultipartFile pdfPart(String fileName, String marker) {
+    return new MockMultipartFile("file", fileName, "application/pdf", pdfBytes(marker));
+  }
+
+  private byte[] pdfBytes(String marker) {
+    return ("%PDF-1.7\n" + marker + "\n%%EOF").getBytes(StandardCharsets.UTF_8);
+  }
 }

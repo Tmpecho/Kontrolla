@@ -16,55 +16,58 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DocumentTest {
 
-	@Test
-	void returnsExpiredExpiringAndValidStatusesAtExpectedBoundaries() {
-		LocalDate today = LocalDate.of(2026, 4, 7);
+  @Test
+  void returnsExpiredExpiringAndValidStatusesAtExpectedBoundaries() {
+    LocalDate today = LocalDate.of(2026, 4, 7);
 
-		Document expired = createDocument(today.minusDays(1));
-		Document expiring = createDocument(today.plusDays(30));
-		Document valid = createDocument(today.plusDays(31));
+    Document expired = createDocument(today.minusDays(1));
+    Document expiring = createDocument(today.plusDays(30));
+    Document valid = createDocument(today.plusDays(31));
 
-		assertEquals(DocumentStatus.EXPIRED, expired.getStatus(today));
-		assertEquals(DocumentStatus.EXPIRING, expiring.getStatus(today));
-		assertEquals(DocumentStatus.VALID, valid.getStatus(today));
-	}
+    assertEquals(DocumentStatus.EXPIRED, expired.getStatus(today));
+    assertEquals(DocumentStatus.EXPIRING, expiring.getStatus(today));
+    assertEquals(DocumentStatus.VALID, valid.getStatus(today));
+  }
 
-	@Test
-	void rejectsNegativeWarningWindows() {
-		Document document = createDocument(LocalDate.of(2026, 5, 7));
+  @Test
+  void rejectsNegativeWarningWindows() {
+    Document document = createDocument(LocalDate.of(2026, 5, 7));
 
-		assertThrows(IllegalArgumentException.class, () -> document.getStatus(LocalDate.of(2026, 4, 7), -1));
-	}
+    assertThrows(IllegalArgumentException.class, () -> document.getStatus(LocalDate.of(2026, 4, 7), -1));
+  }
 
-	private static Document createDocument(LocalDate renewalDate) {
-		Organization organization = new Organization("Kontrolla Demo", OrganizationStatus.ACTIVE);
-		Establishment establishment = new Establishment(
-				organization,
-				"Demo Bar",
-				EstablishmentType.BAR,
-				EstablishmentStatus.ACTIVE
-		);
+  private static Document createDocument(LocalDate renewalDate) {
+    Organization organization = new Organization("Kontrolla Demo", OrganizationStatus.ACTIVE);
+    Establishment establishment = new Establishment(
+        organization,
+        "Demo Bar",
+        EstablishmentType.BAR,
+        EstablishmentStatus.ACTIVE
+    );
 
-		return new Document(
-				organization,
-				establishment,
-				createUser(),
-				DocumentServiceArea.IK_ALKOHOL,
-				"Alcohol service licence",
-				"Oslo Municipality",
-				LocalDate.of(2025, 4, 7),
-				renewalDate
-		);
-	}
+    return new Document(
+        organization,
+        establishment,
+        createUser(),
+        DocumentServiceArea.IK_ALKOHOL,
+        "Alcohol service licence",
+        "Oslo Municipality",
+        LocalDate.of(2025, 4, 7),
+        renewalDate,
+        "alcohol-service-licence.pdf",
+        "application/pdf",
+        2048
+    );
+  }
 
-	private static User createUser() {
-		return new User(
-				"demo@example.com",
-				"Demo",
-				"User",
-				"hashed-password",
-				true,
-				Set.of()
-		);
-	}
+  private static User createUser() {
+    return new User(
+        "demo@example.com",
+        "Demo",
+        "User",
+        "hashed-password",
+        true,
+        Set.of()
+    );
+  }
 }
