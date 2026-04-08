@@ -76,4 +76,16 @@ describe('shared http client', () => {
     expect(headers.get('Authorization')).toBe('Bearer test-access-token')
     expect(headers.get('X-XSRF-TOKEN')).toBeNull()
   })
+
+  it('returns undefined for no-content responses', async () => {
+    const fetchMock = fetch as Mock
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { requestJson } = await import('@/shared/api/http')
+    const response = await requestJson<void>('/api/v1/example', {
+      method: 'PUT',
+    })
+
+    expect(response).toBeUndefined()
+  })
 })
