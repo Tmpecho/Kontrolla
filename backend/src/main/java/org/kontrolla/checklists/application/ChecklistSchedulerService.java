@@ -65,8 +65,29 @@ public class ChecklistSchedulerService {
 		Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 		User actor = getUserOrThrow(currentUser.userId());
 
+		return generateRunsForWindow(establishment, windowStart, windowEnd, actor);
+	}
+
+	@Transactional
+	public int generateRunsForWindowInternal(
+			Establishment establishment,
+			Instant windowStart,
+			Instant windowEnd,
+			UUID actorUserId
+	) {
+		User actor = getUserOrThrow(actorUserId);
+		return generateRunsForWindow(establishment, windowStart, windowEnd, actor);
+	}
+
+	private int generateRunsForWindow(
+			Establishment establishment,
+			Instant windowStart,
+			Instant windowEnd,
+			User actor
+	) {
+
 		List<ChecklistDefinition> activeDefinitions = checklistDefinitionRepository.findByEstablishmentIdAndStatus(
-				establishmentId,
+				establishment.getId(),
 				ChecklistDefinitionStatus.ACTIVE
 		);
 

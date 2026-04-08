@@ -433,6 +433,44 @@ public class ChecklistRunService {
 	}
 
 	@Transactional
+	public int cancelFuturePendingRunsForDefinitionGroup(
+			UUID establishmentId,
+			UUID definitionGroupId,
+			Instant fromDueAt,
+			UUID actorUserId,
+			String reason
+	) {
+		List<ChecklistRun> pendingRuns = checklistRunRepository
+				.findByEstablishmentIdAndDefinitionGroupIdAndStatusAndDueAtGreaterThanEqualOrderByDueAtAsc(
+						establishmentId,
+						definitionGroupId,
+						ChecklistRunStatus.PENDING,
+						fromDueAt
+				);
+
+		if (pendingRuns.isEmpty()) {
+			return 0;
+		}
+
+		User actor = actorUserId == null ? null : getUserOrThrow(actorUserId);
+		Instant now = Instant.now();
+		int updatedRuns = 0;
+
+		for (ChecklistRun checklistRun : pendingRuns) {
+			checklistRun.setStatus(ChecklistRunStatus.CANCELLED);
+			checklistRun.addEvent(new ChecklistRunEvent(
+					ChecklistRunEventType.CANCELLED,
+					actor,
+					now,
+					reason == null ? null : "{\"reason\":\"%s\"}".formatted(reason)
+			));
+			updatedRuns++;
+		}
+
+		return updatedRuns;
+	}
+
+	@Transactional
 	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
 		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
 		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);

@@ -80,6 +80,13 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			Instant dueAt
 	);
 
+	List<ChecklistRun> findByEstablishmentIdAndDefinitionGroupIdAndStatusAndDueAtGreaterThanEqualOrderByDueAtAsc(
+			UUID establishmentId,
+			UUID definitionGroupId,
+			ChecklistRunStatus status,
+			Instant dueAt
+	);
+
 	boolean existsByChecklistDefinitionIdAndDueAt(UUID checklistDefinitionId, Instant dueAt);
 
 	@EntityGraph(attributePaths = {
