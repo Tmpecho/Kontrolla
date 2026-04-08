@@ -1,24 +1,32 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
+import { useAuthStore } from '@/auth/model/auth.store'
+import { listEstablishmentDocuments } from '@/documents/api/documents.api'
+import type {
+  DocumentServiceArea,
+  DocumentStatus,
+  EstablishmentDocument,
+} from '@/documents/model/document.types'
 import {
   expiryWarningDays,
   formatDocumentStatus,
-  getDocumentsWithStatus,
   parseLocalDate,
-} from '@/ik-alkohol/model/document.utils'
-import type {
-  ImportantDocumentListItem,
-  ImportantDocumentStatus,
-} from '@/ik-alkohol/model/document.types'
+  sortDocumentsByRenewalDate,
+} from '@/documents/model/document.utils'
+import { ApiError } from '@/shared/api/http'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import { appEnv } from '@/shared/config/env'
 
+const authStore = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 const searchQuery = ref('')
-const activeFilter = ref<'ALL' | ImportantDocumentStatus>('ALL')
-const documents = createImportantDocuments()
+const activeFilter = ref<'ALL' | DocumentStatus>('ALL')
+const documents = ref<EstablishmentDocument[]>([])
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
 
 const filterOptions = [
   { value: 'ALL', label: 'All' },
@@ -27,9 +35,66 @@ const filterOptions = [
   { value: 'EXPIRED', label: 'Expired' },
 ] as const
 
-const documentsWithStatus = computed<ImportantDocumentListItem[]>(() => {
-  return getDocumentsWithStatus(documents, expiryWarningDays)
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
+)
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+
+const hasDocumentContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+
+const missingContextMessage = computed(() => {
+  if (hasDocumentContext.value) {
+    return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'Documents cannot be loaded until organization and establishment context is available.'
+  }
+
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to load documents.'
 })
+
+const currentServiceArea = computed<DocumentServiceArea>(() => {
+  const routeName = typeof route.name === 'string' ? route.name : ''
+
+  if (routeName.startsWith('ik-alkohol-')) {
+    return 'IK_ALKOHOL'
+  }
+
+  return 'IK_MAT'
+})
+
+const isAlcoholPage = computed(() => currentServiceArea.value === 'IK_ALKOHOL')
+
+const pageTitle = computed(() => {
+  if (isAlcoholPage.value) {
+    return 'Important documents'
+  }
+
+  return 'Documents'
+})
+
+const pageSubtitle = computed(() => {
+  if (isAlcoholPage.value) {
+    return 'Track licences, staff records, and supporting alcohol-control documentation.'
+  }
+
+  return 'Track certificates, routines, and supporting food-safety documentation.'
+})
+
+const panelLabel = computed(() => {
+  if (isAlcoholPage.value) {
+    return 'Important documents overview'
+  }
+
+  return 'Documents overview'
+})
+
+const canUploadDocuments = computed(() => isAlcoholPage.value)
+
+const documentsWithStatus = computed(() => sortDocumentsByRenewalDate(documents.value))
 
 const filteredDocuments = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -39,7 +104,7 @@ const filteredDocuments = computed(() => {
       return true
     }
 
-    return [documentRecord.title, documentRecord.holderName]
+    return [documentRecord.title, documentRecord.holderName, documentRecord.fileName]
       .join(' ')
       .toLowerCase()
       .includes(query)
@@ -74,6 +139,10 @@ const readinessPercentage = computed(() => {
   return Math.round((readyForAuditCount.value / documentsWithStatus.value.length) * 100)
 })
 
+const showSummary = computed(() => {
+  return !missingContextMessage.value && !isLoading.value && !errorMessage.value
+})
+
 const emptyStateMessage = computed(() => {
   if (searchQuery.value.trim()) {
     return 'No documents matched your search.'
@@ -94,6 +163,17 @@ const emptyStateMessage = computed(() => {
   return 'No documents registered yet.'
 })
 
+let requestSequence = 0
+
+watch(currentServiceArea, () => {
+  searchQuery.value = ''
+  activeFilter.value = 'ALL'
+})
+
+watch([organizationId, establishmentId, currentServiceArea], () => {
+  void loadDocuments()
+}, { immediate: true })
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'medium',
@@ -101,7 +181,55 @@ function formatDate(value: string) {
 }
 
 function goToUploadPage() {
+  if (!canUploadDocuments.value) {
+    return
+  }
+
   void router.push({ name: 'ik-alkohol-documents-upload' })
+}
+
+async function loadDocuments(): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const serviceArea = currentServiceArea.value
+  const requestId = ++requestSequence
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    documents.value = []
+    errorMessage.value = null
+    isLoading.value = false
+    return
+  }
+
+  isLoading.value = true
+  errorMessage.value = null
+
+  try {
+    const page = await listEstablishmentDocuments({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      serviceArea,
+      size: 100,
+    })
+
+    if (requestId !== requestSequence) {
+      return
+    }
+
+    documents.value = sortDocumentsByRenewalDate(page.items)
+  } catch (error) {
+    if (requestId !== requestSequence) {
+      return
+    }
+
+    documents.value = []
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load documents.'
+  } finally {
+    if (requestId === requestSequence) {
+      isLoading.value = false
+    }
+  }
 }
 </script>
 
@@ -109,18 +237,21 @@ function goToUploadPage() {
   <div class="documents-page">
     <header class="page-header">
       <div class="page-header-copy">
-        <h1>Important documents</h1>
-        <p class="page-subtitle">
-          Track licences, staff records, and supporting alcohol-control documentation.
-        </p>
+        <h1>{{ pageTitle }}</h1>
+        <p class="page-subtitle">{{ pageSubtitle }}</p>
       </div>
 
-      <BaseButton class="upload-button" type="button" @click="goToUploadPage">
+      <BaseButton
+        v-if="canUploadDocuments"
+        class="upload-button"
+        type="button"
+        @click="goToUploadPage"
+      >
         Upload new document
       </BaseButton>
     </header>
 
-    <section class="summary-grid" aria-label="Document overview">
+    <section v-if="showSummary" class="summary-grid" aria-label="Document overview">
       <article class="summary-card summary-card-critical">
         <p class="summary-label">Critical attention required</p>
         <p class="summary-value">
@@ -143,7 +274,7 @@ function goToUploadPage() {
       </article>
     </section>
 
-    <section aria-label="Important documents overview" class="documents-panel">
+    <section :aria-label="panelLabel" class="documents-panel">
       <div class="list-toolbar">
         <div class="search-field">
           <label class="search-label" for="document-search">Search</label>
@@ -170,7 +301,19 @@ function goToUploadPage() {
         </div>
       </div>
 
-      <table v-if="filteredDocuments.length > 0" class="documents-table">
+      <div v-if="missingContextMessage" class="empty-state">
+        <p>{{ missingContextMessage }}</p>
+      </div>
+
+      <div v-else-if="isLoading" class="empty-state">
+        <p>Loading documents...</p>
+      </div>
+
+      <div v-else-if="errorMessage" class="empty-state">
+        <p>{{ errorMessage }}</p>
+      </div>
+
+      <table v-else-if="filteredDocuments.length > 0" class="documents-table">
         <thead class="documents-table-header">
           <tr>
             <th scope="col">Document title</th>

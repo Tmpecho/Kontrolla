@@ -1,12 +1,42 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
-import { expiryWarningDays, getDocumentsWithStatus, parseLocalDate } from '@/ik-alkohol/model/document.utils'
+import { useAuthStore } from '@/auth/model/auth.store'
+import { listEstablishmentDocuments } from '@/documents/api/documents.api'
+import type { EstablishmentDocument } from '@/documents/model/document.types'
+import {
+  expiryWarningDays,
+  parseLocalDate,
+  sortDocumentsByRenewalDate,
+} from '@/documents/model/document.utils'
+import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
 
-const documents = createImportantDocuments()
+const authStore = useAuthStore()
+const documents = ref<EstablishmentDocument[]>([])
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
 
-const documentsWithStatus = computed(() => getDocumentsWithStatus(documents, expiryWarningDays))
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
+)
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+
+const missingContextMessage = computed(() => {
+  if (organizationId.value && establishmentId.value) {
+    return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'Documents are unavailable until organization context is ready.'
+  }
+
+  return 'Set the default organization and establishment IDs or sign in with an organization context to load documents.'
+})
+
+const documentsWithStatus = computed(() => sortDocumentsByRenewalDate(documents.value))
 
 const expiredCount = computed(() => {
   return documentsWithStatus.value.filter((documentRecord) => documentRecord.status === 'EXPIRED').length
@@ -30,10 +60,59 @@ const readinessPercentage = computed(() => {
 
 const nextRenewalDocument = computed(() => documentsWithStatus.value[0] ?? null)
 
+let requestSequence = 0
+
+watch([organizationId, establishmentId], () => {
+  void loadDocuments()
+}, { immediate: true })
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('nb-NO', {
     dateStyle: 'medium',
   }).format(parseLocalDate(value))
+}
+
+async function loadDocuments(): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const requestId = ++requestSequence
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    documents.value = []
+    errorMessage.value = null
+    isLoading.value = false
+    return
+  }
+
+  isLoading.value = true
+  errorMessage.value = null
+
+  try {
+    const page = await listEstablishmentDocuments({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      serviceArea: 'IK_ALKOHOL',
+      size: 100,
+    })
+
+    if (requestId !== requestSequence) {
+      return
+    }
+
+    documents.value = sortDocumentsByRenewalDate(page.items)
+  } catch (error) {
+    if (requestId !== requestSequence) {
+      return
+    }
+
+    documents.value = []
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load documents.'
+  } finally {
+    if (requestId === requestSequence) {
+      isLoading.value = false
+    }
+  }
 }
 </script>
 
@@ -47,7 +126,12 @@ function formatDate(value: string) {
       <RouterLink :to="{ name: 'ik-alkohol-documents' }" class="tile-link">Open</RouterLink>
     </div>
 
-    <div class="summary-grid">
+    <p v-if="missingContextMessage" class="tile-message">{{ missingContextMessage }}</p>
+    <p v-else-if="isLoading" class="tile-message">Loading documents...</p>
+    <p v-else-if="errorMessage" class="tile-message">{{ errorMessage }}</p>
+    <p v-else-if="documentsWithStatus.length === 0" class="tile-message">No documents found.</p>
+
+    <div v-else class="summary-grid">
       <div class="summary-card summary-card-critical">
         <p class="summary-label">Needs attention</p>
         <p class="summary-value">{{ expiredCount + expiringCount }}</p>
@@ -92,6 +176,7 @@ function formatDate(value: string) {
 
 .tile-header h2,
 .tile-subtitle,
+.tile-message,
 .summary-label,
 .summary-value,
 .summary-hint,
@@ -102,6 +187,7 @@ function formatDate(value: string) {
 }
 
 .tile-subtitle,
+.tile-message,
 .summary-hint,
 .next-renewal-meta {
   color: var(--color-text-secondary);
@@ -120,6 +206,10 @@ function formatDate(value: string) {
 
 .tile-link:hover {
   text-decoration: underline;
+}
+
+.tile-message {
+  margin: 0;
 }
 
 .summary-grid {
