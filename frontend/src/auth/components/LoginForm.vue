@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// Your existing script block with all the auth logic
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/auth/model/auth.store'
