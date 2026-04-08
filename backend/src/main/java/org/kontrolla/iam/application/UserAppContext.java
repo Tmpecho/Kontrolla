@@ -5,10 +5,10 @@ import org.kontrolla.organizations.domain.OrganizationRole;
 import java.util.UUID;
 
 public record UserAppContext(
-    UUID organizationId,
-    String organizationName,
-    UUID establishmentId,
-    String establishmentName,
-    OrganizationRole organizationRole
+		UUID organizationId,
+		String organizationName,
+		OrganizationRole organizationRole,
+		UUID establishmentId,
+		String establishmentName
 ) {
 }

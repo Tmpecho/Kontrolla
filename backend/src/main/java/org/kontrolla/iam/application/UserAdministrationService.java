@@ -40,6 +40,21 @@ public class UserAdministrationService {
 		return userRepository.save(user);
 	}
 
+	@Transactional
+	public User createInvitedUser(
+			String email,
+			String firstName,
+			String lastName
+	) {
+		if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
+			throw new ConflictException("user_already_exists", "A user with that email already exists");
+		}
+
+		String placeholderPassword = java.util.UUID.randomUUID().toString();
+		User user = new User(email, firstName, lastName, passwordEncoder.encode(placeholderPassword), false, Set.of());
+		return userRepository.save(user);
+	}
+
 	@Transactional(readOnly = true)
 	public Page<User> listUsers(Pageable pageable) {
 		return userRepository.findAll(pageable);

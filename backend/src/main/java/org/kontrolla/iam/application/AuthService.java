@@ -35,6 +35,7 @@ public class AuthService {
 	private final EstablishmentRepository establishmentRepository;
 	private final AuthAttemptThrottleService authAttemptThrottleService;
 	private final PasswordEncoder passwordEncoder;
+	private final UserInviteService userInviteService;
 	private final JwtService jwtService;
 	private final AppSecurityProperties securityProperties;
 	private final Clock clock;
@@ -46,6 +47,7 @@ public class AuthService {
 			EstablishmentRepository establishmentRepository,
 			AuthAttemptThrottleService authAttemptThrottleService,
 			PasswordEncoder passwordEncoder,
+			UserInviteService userInviteService,
 			JwtService jwtService,
 			AppSecurityProperties securityProperties,
 			Clock clock
@@ -56,6 +58,7 @@ public class AuthService {
 		this.establishmentRepository = establishmentRepository;
 		this.authAttemptThrottleService = authAttemptThrottleService;
 		this.passwordEncoder = passwordEncoder;
+		this.userInviteService = userInviteService;
 		this.jwtService = jwtService;
 		this.securityProperties = securityProperties;
 		this.clock = clock;
@@ -113,6 +116,16 @@ public class AuthService {
 				.orElseThrow(() -> new UnauthorizedException("user_not_found", "Authenticated user no longer exists"));
 	}
 
+	@Transactional(readOnly = true)
+	public UserInviteService.InviteDetails getInviteDetails(String token) {
+		return userInviteService.getInviteDetails(token);
+	}
+
+	@Transactional
+	public void acceptInvite(String token, String password) {
+		userInviteService.acceptInvite(token, password);
+	}
+
 	private AuthSession issueSession(User user, Instant now) {
 		IssuedAccessToken accessToken = jwtService.issueAccessToken(user);
 		String rawRefreshToken = generateRawRefreshToken();
@@ -144,6 +157,7 @@ public class AuthService {
 		return new UserAppContext(
 				activeMembership.getOrganization().getId(),
 				activeMembership.getOrganization().getName(),
+				activeMembership.getRole(),
 				establishment.map(Establishment::getId).orElse(null),
 				establishment.map(Establishment::getName).orElse(null),
 				activeMembership.getRole()

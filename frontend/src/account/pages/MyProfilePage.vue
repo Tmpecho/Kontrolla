@@ -1,9 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 
 const authStore = useAuthStore()
+const router = useRouter()
+const canManageMembers = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 
 const fullName = computed(() => {
   if (!authStore.user) {
@@ -12,6 +24,10 @@ const fullName = computed(() => {
 
   return `${authStore.user.firstName} ${authStore.user.lastName}`
 })
+
+function goToOrganizationMembers() {
+  void router.push({ name: 'organization-members' })
+}
 </script>
 
 <template>
@@ -22,6 +38,12 @@ const fullName = computed(() => {
     </header>
 
     <section class="details-panel">
+      <div v-if="canManageMembers" class="profile-actions">
+        <button type="button" class="manage-members-button" @click="goToOrganizationMembers">
+          Manage organization members
+        </button>
+      </div>
+
       <div class="detail-row">
         <span class="detail-label">Name</span>
         <span class="detail-value">{{ fullName }}</span>
@@ -73,6 +95,33 @@ const fullName = computed(() => {
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-container);
+}
+
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.manage-members-button {
+  width: fit-content;
+  min-height: 42px;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: 4px;
+  background-color: #1557b0;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-hint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .detail-row {

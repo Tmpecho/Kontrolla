@@ -5,11 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.domain.EstablishmentStatus;
+import org.kontrolla.establishments.domain.EstablishmentType;
+import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.application.AuthAttemptThrottleService;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.domain.User;
-import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.iam.infrastructure.UserRepository;
+import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.domain.OrganizationRole;
@@ -17,13 +21,13 @@ import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
 import org.kontrolla.support.TestDataCleaner;
-import org.kontrolla.establishments.domain.Establishment;
-import org.kontrolla.establishments.domain.EstablishmentStatus;
-import org.kontrolla.establishments.domain.EstablishmentType;
-import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,29 +37,28 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-import javax.crypto.spec.SecretKeySpec;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -122,17 +125,7 @@ class AuthControllerIntegrationTest {
 		organizationMembershipRepository.saveAndFlush(
 				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
 
-		String loginBody = """
-				{
-				  "email": "alice@example.com",
-				  "password": "password123"
-				}
-				""";
-
-		String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(loginBody))
+		String loginResponse = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.accessToken").isString())
@@ -147,8 +140,7 @@ class AuthControllerIntegrationTest {
 		JsonNode json = objectMapper.readTree(loginResponse);
 		String accessToken = json.get("accessToken").asText();
 
-		mockMvc.perform(get("/api/v1/auth/me")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+		performMe(accessToken)
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.email").value("alice@example.com"))
 				.andExpect(jsonPath("$.firstName").value("Alice"))
@@ -182,17 +174,7 @@ class AuthControllerIntegrationTest {
 		organizationMembershipRepository.saveAndFlush(
 				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
 
-		String loginBody = """
-				{
-				  "email": "alice@example.com",
-				  "password": "password123"
-				}
-				""";
-
-		MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(loginBody))
+		MvcResult loginResult = performLogin("alice@example.com", "password123")
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andReturn();
@@ -292,9 +274,8 @@ class AuthControllerIntegrationTest {
 				.andExpect(cookie().maxAge(REFRESH_COOKIE_NAME, 0));
 
 		String hashedRefreshToken = hashToken(refreshCookie);
-		org.assertj.core.api.Assertions.assertThat(
-				refreshTokenRepository.findByTokenHash(hashedRefreshToken)
-		).isPresent()
+		org.assertj.core.api.Assertions.assertThat(refreshTokenRepository.findByTokenHash(hashedRefreshToken))
+				.isPresent()
 				.get()
 				.satisfies(token -> org.assertj.core.api.Assertions.assertThat(token.getRevokedAt()).isNotNull());
 	}
@@ -795,6 +776,5 @@ class AuthControllerIntegrationTest {
 		public Instant instant() {
 			return currentInstant;
 		}
-
 	}
 }

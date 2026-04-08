@@ -7,6 +7,7 @@ import org.kontrolla.documents.infrastructure.DocumentFileRepository;
 import org.kontrolla.documents.infrastructure.DocumentRepository;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
+import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.notifications.infrastructure.NotificationRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
@@ -18,6 +19,7 @@ public class TestDataCleaner {
 
   private final RefreshTokenRepository refreshTokenRepository;
   private final NotificationRepository notificationRepository;
+  private final UserInviteRepository userInviteRepository;
   private final DeviationRepository deviationRepository;
   private final DocumentFileRepository documentFileRepository;
   private final DocumentRepository documentRepository;
@@ -31,6 +33,7 @@ public class TestDataCleaner {
   public TestDataCleaner(
       RefreshTokenRepository refreshTokenRepository,
       NotificationRepository notificationRepository,
+      UserInviteRepository userInviteRepository,
       DeviationRepository deviationRepository,
       DocumentFileRepository documentFileRepository,
       DocumentRepository documentRepository,
@@ -43,6 +46,7 @@ public class TestDataCleaner {
   ) {
     this.refreshTokenRepository = refreshTokenRepository;
     this.notificationRepository = notificationRepository;
+    this.userInviteRepository = userInviteRepository;
     this.deviationRepository = deviationRepository;
     this.documentFileRepository = documentFileRepository;
     this.documentRepository = documentRepository;
@@ -57,6 +61,7 @@ public class TestDataCleaner {
   public void clearAll() {
     refreshTokenRepository.deleteAll();
     notificationRepository.deleteAll();
+    userInviteRepository.deleteAll();
     deviationRepository.deleteAll();
     documentFileRepository.deleteAll();
     documentRepository.deleteAll();

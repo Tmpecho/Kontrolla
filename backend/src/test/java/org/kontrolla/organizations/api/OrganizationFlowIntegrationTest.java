@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
-import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
@@ -24,7 +23,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Set;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,9 +42,6 @@ class OrganizationFlowIntegrationTest {
 
 	@Autowired
 	private UserRepository userRepository;
-
-	@Autowired
-	private RefreshTokenRepository refreshTokenRepository;
 
 	@Autowired
 	private OrganizationRepository organizationRepository;
@@ -189,6 +187,90 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
+	void organizationMemberCanListOwnOrganizationsMembers() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgManager = createUser("manager@example.com", "Manager", "User", Set.of());
+		User orgEmployee = createUser("employee@example.com", "Employee", "User", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Readable Org");
+		addMembership(adminToken, organizationId, orgManager.getId(), "ORG_MANAGER");
+		addMembership(adminToken, organizationId, orgEmployee.getId(), "ORG_EMPLOYEE");
+
+		String employeeToken = login("employee@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].id").isNotEmpty());
+	}
+
+	@Test
+	void memberListingHidesInactiveMembershipsByDefaultButCanIncludeThem() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+		User activeEmployee = createUser("active@example.com", "Active", "Member", Set.of());
+		User inactiveEmployee = createUser("inactive@example.com", "Inactive", "Member", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Filtered Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+		addMembership(adminToken, organizationId, activeEmployee.getId(), "ORG_EMPLOYEE");
+		String inactiveMembershipResponse = mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								""".formatted(inactiveEmployee.getId())))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.active").value(false))
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String inactiveMembershipId = objectMapper.readTree(inactiveMembershipResponse).get("id").asText();
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(inactiveMembershipId))));
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?includeInactive=true".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.hasItem(inactiveMembershipId)));
+	}
+
+	@Test
+	void orgAdminMemberListingIncludesCreatedEmployees() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+		User employeeOne = createUser("restaurant@example.com", "Restaurant", "Employee", Set.of());
+		User employeeTwo = createUser("bar@example.com", "Bar", "Employee", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Scoped Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+		addMembership(adminToken, organizationId, employeeOne.getId(), "ORG_EMPLOYEE");
+		addMembership(adminToken, organizationId, employeeTwo.getId(), "ORG_EMPLOYEE");
+
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members".formatted(organizationId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("orgadmin@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("restaurant@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("bar@example.com")));
+	}
+
+	@Test
 	void tenantMemberCannotModifyAnotherOrganizationsData() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAManager = createUser("orga@example.com", "Org", "AManager", Set.of());
@@ -260,6 +342,40 @@ class OrganizationFlowIntegrationTest {
 		mockMvc.perform(get("/api/v1/organizations/%s/establishments".formatted(organizationId))
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + noMemberToken))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void orgAdminCanInviteNewMemberWithoutExistingUserId() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Managed Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "new.member@example.com",
+								  "firstName": "New",
+								  "lastName": "Member",
+								  "role": "ORG_EMPLOYEE",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.membership.userEmail").value("new.member@example.com"))
+				.andExpect(jsonPath("$.membership.userFirstName").value("New"))
+				.andExpect(jsonPath("$.membership.userLastName").value("Member"))
+				.andExpect(jsonPath("$.membership.role").value("ORG_EMPLOYEE"))
+				.andExpect(jsonPath("$.membership.active").value(true))
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andExpect(jsonPath("$.inviteExpiresAt").isNotEmpty());
 	}
 
 	@Test

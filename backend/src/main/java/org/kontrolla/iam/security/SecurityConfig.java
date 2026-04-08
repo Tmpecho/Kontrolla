@@ -73,6 +73,8 @@ public class SecurityConfig {
 						.requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/v1/auth/invitations/*").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/v1/auth/invitations/*/accept").permitAll()
 						.anyRequest().authenticated()
 				)
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(this::toAuthentication)))
