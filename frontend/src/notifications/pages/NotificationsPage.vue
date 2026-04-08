@@ -12,12 +12,17 @@ import type { NotificationItem, NotificationStatusFilter } from '@/notifications
 import { formatNotificationTypeLabel, toNotificationRoute } from '@/notifications/model/notification.utils'
 import { ApiError } from '@/shared/api/http'
 
+const notificationDateTimeFormatter = new Intl.DateTimeFormat('nb-NO', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
 const notificationsStore = useNotificationsStore()
 const notifications = ref<NotificationItem[]>([])
 const isLoading = ref(false)
 const isLoadingMore = ref(false)
 const isMarkingAllRead = ref(false)
 const errorMessage = ref<string | null>(null)
+const actionErrorMessage = ref<string | null>(null)
 const activeFilter = ref<NotificationStatusFilter>('ALL')
 const currentPage = ref(0)
 const totalPages = ref(0)
@@ -29,6 +34,7 @@ async function loadNotificationsPage(reset = false) {
   if (reset) {
     isLoading.value = true
     errorMessage.value = null
+    actionErrorMessage.value = null
   } else {
     isLoadingMore.value = true
   }
@@ -63,21 +69,29 @@ async function selectFilter(filter: NotificationStatusFilter) {
 }
 
 async function handleMarkRead(notification: NotificationItem) {
-  const updatedNotification = await markNotificationRead(notification.id)
+  actionErrorMessage.value = null
 
-  if (activeFilter.value === 'UNREAD') {
-    notifications.value = notifications.value.filter((item) => item.id !== notification.id)
-  } else {
-    notifications.value = notifications.value.map((item) =>
-      item.id === notification.id ? updatedNotification : item,
-    )
+  try {
+    const updatedNotification = await markNotificationRead(notification.id)
+
+    if (activeFilter.value === 'UNREAD') {
+      notifications.value = notifications.value.filter((item) => item.id !== notification.id)
+    } else {
+      notifications.value = notifications.value.map((item) =>
+        item.id === notification.id ? updatedNotification : item,
+      )
+    }
+
+    notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
+  } catch (error) {
+    actionErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Unable to mark this notification as read.'
   }
-
-  notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
 }
 
 async function handleMarkAllRead() {
   isMarkingAllRead.value = true
+  actionErrorMessage.value = null
 
   try {
     await markAllNotificationsRead()
@@ -90,9 +104,16 @@ async function handleMarkAllRead() {
             readAt: notification.readAt ?? new Date().toISOString(),
           }))
     notificationsStore.setUnreadCount(0)
+  } catch (error) {
+    actionErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Unable to mark all notifications as read.'
   } finally {
     isMarkingAllRead.value = false
   }
+}
+
+function formatDateTime(createdAt: string): string {
+  return notificationDateTimeFormatter.format(new Date(createdAt))
 }
 
 onMounted(async () => {
@@ -147,6 +168,10 @@ onMounted(async () => {
     </div>
 
     <div v-else class="notifications-surface">
+      <div v-if="actionErrorMessage" class="state-card state-card-error">
+        <p>{{ actionErrorMessage }}</p>
+      </div>
+
       <ul v-if="hasNotifications" class="notifications-list">
         <li v-for="notification in notifications" :key="notification.id" class="notifications-list-item">
           <article
@@ -159,13 +184,7 @@ onMounted(async () => {
             <div class="notification-copy">
               <div class="notification-meta">
                 <span class="notification-type">{{ formatNotificationTypeLabel(notification.type) }}</span>
-                <time :datetime="notification.createdAt">
-                  {{
-                    new Intl.DateTimeFormat('nb-NO', { dateStyle: 'medium', timeStyle: 'short' }).format(
-                      new Date(notification.createdAt),
-                    )
-                  }}
-                </time>
+                <time :datetime="notification.createdAt">{{ formatDateTime(notification.createdAt) }}</time>
               </div>
               <h2 class="notification-title">{{ notification.title }}</h2>
               <p class="notification-message">{{ notification.message }}</p>

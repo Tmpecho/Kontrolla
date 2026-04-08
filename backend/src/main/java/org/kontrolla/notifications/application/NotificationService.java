@@ -51,7 +51,7 @@ public class NotificationService {
 	@Transactional
 	public long markAllRead(CurrentUser currentUser) {
 		notificationRepository.markAllRead(currentUser.userId(), Instant.now());
-		return 0;
+		return getUnreadCount(currentUser);
 	}
 
 	@Transactional
