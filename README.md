@@ -10,14 +10,16 @@ Kontrolla is built around organizations and the establishments that belong to ea
 
 The main services in the product include checklists and operational routines for things like daily opening and closing tasks, temperature logging, cleaning routines, deviation handling, and follow-up of required documentation and compliance work across establishments.
 
-It consists of:
+## Technical Overview
 
-- a Spring Boot backend in [`backend/`](/Users/johan/Developer/studie/Kontrolla/backend)
-- a Vue 3 frontend in [`frontend/`](/Users/johan/Developer/studie/Kontrolla/frontend)
+Kontrolla consists of:
+
+- a Spring Boot backend in [`backend/`](backend/)
+- a Vue 3 frontend in [`frontend/`](frontend/)
 
 ## Getting Started
 
-If you want to work on the project locally, start with the setup guide in [`docs/setup.md`](/Users/johan/Developer/studie/Kontrolla/docs/setup.md).
+If you want to work on the project locally, start with the setup guide in [`docs/setup.md`](docs/setup.md).
 
 ## Docker Compose
 
@@ -32,9 +34,9 @@ The backend will be available on `http://localhost:8080`.
 
 ## Project Structure
 
-- [`backend/`](/Users/johan/Developer/studie/Kontrolla/backend): Spring Boot API, database migrations, and backend tests
-- [`frontend/`](/Users/johan/Developer/studie/Kontrolla/frontend): Vue app, shared UI code, and frontend tests
-- [`docs/`](/Users/johan/Developer/studie/Kontrolla/docs): project documentation and setup notes
+- [`backend/`](backend/): Spring Boot API, database migrations, and backend tests
+- [`frontend/`](frontend/): Vue app, shared UI code, and frontend tests
+- [`docs/`](docs/): project documentation and setup notes
 
 ## GitHub Actions
 
@@ -57,14 +59,3 @@ The backend is split into explicit Spring profiles:
 
 The Docker Compose backend runs with the `dev` profile by default.
 Startup now fails fast if dev bootstrap credentials or the insecure dev JWT secret are present outside `dev`, and `dev` cannot be combined with `prod`.
-
-### Development Login
-
-In `dev`, bootstrap users are created automatically:
-
-- `demo@example.com` / `password123`
-- `admin@example.com` / `password123`
-- `emma.larsen@example.com` / `password123`
-- `noah.berg@example.com` / `password123`
-
-These bootstrap users do not exist in `prod`.

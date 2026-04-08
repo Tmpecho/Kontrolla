@@ -21,6 +21,17 @@ docker compose up
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:8080`
 
+## Development login
+
+In `dev`, bootstrap users are created automatically:
+
+- `demo@example.com` / `password123`
+- `admin@example.com` / `password123`
+- `emma.larsen@example.com` / `password123`
+- `noah.berg@example.com` / `password123`
+
+These bootstrap users do not exist in `prod`.
+
 ## Run services manually
 
 If you want to run parts of the stack outside Docker:
