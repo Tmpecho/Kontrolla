@@ -76,10 +76,10 @@ class AppSecurityStartupGuardTest {
 	}
 
 	@Test
-	void devAndTestStartupAllowsBootstrapCredentials() {
+	void devStartupAllowsBootstrapCredentials() {
 		contextRunner
 				.withPropertyValues(
-						"spring.profiles.active=dev,test",
+						"spring.profiles.active=dev",
 						"app.security.bootstrap-user.email=demo@example.com",
 						"app.security.bootstrap-user.password=password123",
 						"app.security.bootstrap-admin.email=platform.admin@example.com",
@@ -87,6 +87,21 @@ class AppSecurityStartupGuardTest {
 						"app.security.jwt.secret=" + AppSecurityStartupGuard.INSECURE_DEV_JWT_SECRET
 				)
 				.run(context -> assertThat(context).hasNotFailed());
+	}
+
+	@Test
+	void prodStartupFailsWhenBootstrapUserEmailOnlyIsConfigured() {
+		contextRunner
+				.withPropertyValues(
+						"spring.profiles.active=prod",
+						"app.security.bootstrap-user.email=demo@example.com"
+				)
+				.run(context -> {
+					assertThat(context).hasFailed();
+					assertThat(rootCauseOf(context.getStartupFailure()))
+							.isInstanceOf(IllegalStateException.class)
+							.hasMessage("Non-dev startup cannot enable bootstrap user credentials");
+				});
 	}
 
 	@Test
