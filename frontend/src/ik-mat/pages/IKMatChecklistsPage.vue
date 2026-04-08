@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
+import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import ChecklistRunCard from '@/checklists/components/ChecklistRunCard.vue'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
@@ -10,6 +11,7 @@ import { appEnv } from '@/shared/config/env'
 
 type TriageFilter = 'OVERDUE' | 'DUE_TODAY' | 'IN_PROGRESS' | 'COMPLETED'
 
+const authStore = useAuthStore()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -24,13 +26,21 @@ const pinnedRunIdsByFilter = ref<Record<TriageFilter, string[]>>({
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
-const hasChecklistContext = computed(
-  () => Boolean(appEnv.defaultOrganizationId && appEnv.defaultEstablishmentId),
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
 )
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+const hasChecklistContext = computed(() => Boolean(organizationId.value && establishmentId.value))
 
 const missingContextMessage = computed(() => {
   if (hasChecklistContext.value) {
     return null
+  }
+
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Choose an establishment to load checklist runs.'
   }
 
   if (!appEnv.isDevelopment) {
@@ -41,10 +51,10 @@ const missingContextMessage = computed(() => {
 })
 
 async function loadChecklistRuns(): Promise<void> {
-  const organizationId = appEnv.defaultOrganizationId
-  const establishmentId = appEnv.defaultEstablishmentId
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
 
-  if (!organizationId || !establishmentId) {
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
     return
   }
 
@@ -53,8 +63,8 @@ async function loadChecklistRuns(): Promise<void> {
 
   try {
     const page = await listChecklistRuns({
-      organizationId,
-      establishmentId,
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
       serviceArea: 'IK_MAT',
       size: 10,
     })
@@ -177,9 +187,13 @@ const filteredChecklistRuns = computed(() => {
   })
 })
 
-onMounted(async () => {
-  await loadChecklistRuns()
-})
+watch(
+  [organizationId, establishmentId],
+  () => {
+    void loadChecklistRuns()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -236,8 +250,8 @@ onMounted(async () => {
           v-for="run in filteredChecklistRuns"
           :key="run.id"
           :run="run"
-          :organization-id="appEnv.defaultOrganizationId!"
-          :establishment-id="appEnv.defaultEstablishmentId!"
+          :organization-id="organizationId ?? ''"
+          :establishment-id="establishmentId ?? ''"
           @update:run="handleRunUpdate"
         />
       </div>

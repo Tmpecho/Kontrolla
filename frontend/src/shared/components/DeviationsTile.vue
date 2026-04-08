@@ -51,6 +51,10 @@ const missingContextMessage = computed(() => {
     return null
   }
 
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Choose an establishment to load deviations.'
+  }
+
   if (!appEnv.isDevelopment) {
     return 'Deviations are unavailable until organization context is ready.'
   }

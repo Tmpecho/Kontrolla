@@ -67,7 +67,11 @@ onMounted(() => {
         <div class="context-row">
           <span class="context-label">Establishment</span>
           <span class="context-value context-value-secondary">
-            {{ authStore.appContext?.establishmentName ?? 'Unavailable' }}
+            {{
+              authStore.requiresEstablishmentSelection
+                ? 'Select establishment'
+                : authStore.appContext?.establishmentName ?? 'Unavailable'
+            }}
           </span>
         </div>
       </div>

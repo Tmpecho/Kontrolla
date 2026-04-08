@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
+import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 
 const props = withDefaults(
@@ -230,6 +231,10 @@ defineExpose({
       </div>
     </div>
 
+    <div class="context-container">
+      <EstablishmentSwitcher class="desktop-establishment-switcher" />
+    </div>
+
     <div ref="popupArea" class="right-container icons-container">
       <div class="icon-wrapper icon-wrapper-notifications">
         <button
@@ -311,6 +316,18 @@ defineExpose({
   flex-direction: row;
   align-items: center;
   gap: 30px;
+}
+
+.context-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+.desktop-establishment-switcher {
+  width: min(100%, 320px);
 }
 
 .icons-container {
@@ -414,6 +431,7 @@ defineExpose({
   }
 
   .desktop-service-links,
+  .context-container,
   .icon-wrapper-notifications {
     display: none;
   }

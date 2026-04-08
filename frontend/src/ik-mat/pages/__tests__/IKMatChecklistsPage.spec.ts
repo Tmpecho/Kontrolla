@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import { ApiError } from '@/shared/api/http'
 
-const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
+const { listChecklistRunsMock, appEnvMock, authStoreMock } = vi.hoisted(() => ({
   listChecklistRunsMock: vi.fn(),
   appEnvMock: {
     mode: 'test',
@@ -16,6 +16,10 @@ const { listChecklistRunsMock, appEnvMock } = vi.hoisted(() => ({
     defaultEstablishmentId: 'est-1' as string | undefined,
     showDevLoginHint: false,
   },
+  authStoreMock: {
+    appContext: null,
+    requiresEstablishmentSelection: false,
+  },
 }))
 
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
@@ -24,6 +28,10 @@ vi.mock('@/checklists/api/checklist-runs.api', () => ({
 
 vi.mock('@/shared/config/env', () => ({
   appEnv: appEnvMock,
+}))
+
+vi.mock('@/auth/model/auth.store', () => ({
+  useAuthStore: () => authStoreMock,
 }))
 
 function createDeferred<T>() {
@@ -62,6 +70,8 @@ describe('IKMatChecklistsPage', () => {
     appEnvMock.isProduction = false
     appEnvMock.defaultOrganizationId = 'org-1'
     appEnvMock.defaultEstablishmentId = 'est-1'
+    authStoreMock.appContext = null
+    authStoreMock.requiresEstablishmentSelection = false
   })
 
   it('renders a loading state while checklist runs are being fetched', async () => {
