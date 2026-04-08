@@ -4,6 +4,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.kontrolla.iam.application.AccountService;
 import org.kontrolla.iam.application.AuthService;
 import org.kontrolla.iam.application.AuthSession;
 import org.kontrolla.iam.security.AppSecurityProperties;
@@ -23,15 +24,18 @@ import java.util.Arrays;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+	private final AccountService accountService;
 	private final AuthService authService;
 	private final AppSecurityProperties securityProperties;
 	private final CsrfTokenRepository csrfTokenRepository;
 
 	public AuthController(
+			AccountService accountService,
 			AuthService authService,
 			AppSecurityProperties securityProperties,
 			CsrfTokenRepository csrfTokenRepository
 	) {
+		this.accountService = accountService;
 		this.authService = authService;
 		this.securityProperties = securityProperties;
 		this.csrfTokenRepository = csrfTokenRepository;
@@ -97,6 +101,29 @@ public class AuthController {
 	@GetMapping("/me")
 	public UserResponse me(@AuthenticationPrincipal CurrentUser currentUser) {
 		return UserResponse.from(authService.getCurrentUser(currentUser));
+	}
+
+	@PutMapping("/me")
+	public UserResponse updateMyProfile(
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody UpdateMyProfileRequest request
+	) {
+		return UserResponse.from(
+				accountService.updateMyProfile(
+						currentUser,
+						request.firstName(),
+						request.lastName()
+				)
+		);
+	}
+
+	@PutMapping("/me/password")
+	public ResponseEntity<Void> changeMyPassword(
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody ChangeMyPasswordRequest request
+	) {
+		accountService.changeMyPassword(currentUser, request.currentPassword(), request.newPassword());
+		return ResponseEntity.noContent().build();
 	}
 
 	private ResponseCookie refreshCookie(String rawToken) {

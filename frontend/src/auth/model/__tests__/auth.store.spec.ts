@@ -88,4 +88,41 @@ describe('auth.store', () => {
     expect(authStore.isAuthenticated).toBe(false)
     expect(clearCsrfTokenMock).toHaveBeenCalledTimes(1)
   })
+
+  it('updates the current user without changing the session tokens', async () => {
+    const { useAuthStore } = await import('@/auth/model/auth.store')
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'user-1',
+        email: 'alice@example.com',
+        firstName: 'Alice',
+        lastName: 'Example',
+        active: true,
+        globalRoles: [],
+        createdAt: '2026-04-07T08:00:00Z',
+        updatedAt: '2026-04-07T08:00:00Z',
+      },
+      accessToken: 'access-token',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      appContext: null,
+    })
+
+    authStore.setCurrentUser({
+      id: 'user-1',
+      email: 'alice@example.com',
+      firstName: 'Alicia',
+      lastName: 'Example-Smith',
+      active: true,
+      globalRoles: [],
+      createdAt: '2026-04-07T08:00:00Z',
+      updatedAt: '2026-04-08T08:00:00Z',
+    })
+
+    expect(authStore.user?.firstName).toBe('Alicia')
+    expect(authStore.user?.lastName).toBe('Example-Smith')
+    expect(authStore.accessToken).toBe('access-token')
+    expect(authStore.isAuthenticated).toBe(true)
+  })
 })

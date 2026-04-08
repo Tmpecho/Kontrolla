@@ -1,12 +1,143 @@
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+import { changeMyPassword } from '@/account/api/account.api'
+import { useAuthStore } from '@/auth/model/auth.store'
+import { ApiError } from '@/shared/api/http'
+import BaseButton from '@/shared/components/BaseButton.vue'
+import BaseInput from '@/shared/components/BaseInput.vue'
+
+const authStore = useAuthStore()
+const router = useRouter()
+const isSubmitting = ref(false)
+const errorMessage = ref<string | null>(null)
+
+const form = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmNewPassword: '',
+})
+
+const validationMessage = computed(() => {
+  if (!form.currentPassword.trim()) {
+    return 'Enter your current password.'
+  }
+
+  if (!form.newPassword.trim()) {
+    return 'Enter a new password.'
+  }
+
+  if (form.newPassword.length < 8) {
+    return 'New password must be at least 8 characters long.'
+  }
+
+  if (form.newPassword === form.currentPassword) {
+    return 'New password must be different from the current password.'
+  }
+
+  if (!form.confirmNewPassword.trim()) {
+    return 'Confirm your new password.'
+  }
+
+  if (form.confirmNewPassword !== form.newPassword) {
+    return 'Password confirmation does not match.'
+  }
+
+  return null
+})
+
+const canSubmit = computed(() => !validationMessage.value && !isSubmitting.value)
+
+function clearError() {
+  errorMessage.value = null
+}
+
+async function onSubmit() {
+  if (validationMessage.value) {
+    errorMessage.value = validationMessage.value
+    return
+  }
+
+  isSubmitting.value = true
+  errorMessage.value = null
+
+  try {
+    await changeMyPassword({
+      currentPassword: form.currentPassword,
+      newPassword: form.newPassword,
+    })
+    await authStore.logout()
+    await router.push({
+      name: 'login',
+      query: {
+        passwordChanged: '1',
+      },
+    })
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to update password.'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+</script>
+
 <template>
   <div class="settings-page">
     <header class="page-header">
       <h1>Settings</h1>
-      <p>Application and account settings.</p>
+      <p>Account security settings for your signed-in profile.</p>
     </header>
 
-    <section class="placeholder-panel">
-      <p>This page is a placeholder for future user and workspace settings.</p>
+    <section class="settings-panel">
+      <div class="panel-header">
+        <h2>Password</h2>
+        <p>
+          Change your password and sign in again with the updated credentials across the app.
+        </p>
+      </div>
+
+      <form class="settings-form" @submit.prevent="onSubmit">
+        <p v-if="errorMessage" class="feedback-message">{{ errorMessage }}</p>
+
+        <BaseInput
+          id="current-password"
+          v-model="form.currentPassword"
+          label="Current password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Current password"
+          @update:model-value="clearError"
+        />
+
+        <BaseInput
+          id="new-password"
+          v-model="form.newPassword"
+          label="New password"
+          type="password"
+          autocomplete="new-password"
+          placeholder="New password"
+          hint="Use at least 8 characters."
+          @update:model-value="clearError"
+        />
+
+        <BaseInput
+          id="confirm-new-password"
+          v-model="form.confirmNewPassword"
+          label="Confirm new password"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Confirm new password"
+          @update:model-value="clearError"
+        />
+
+        <div class="actions-row">
+          <BaseButton type="submit" :disabled="!canSubmit">
+            {{ isSubmitting ? 'Updating password...' : 'Update password' }}
+          </BaseButton>
+        </div>
+      </form>
     </section>
   </div>
 </template>
@@ -19,22 +150,58 @@
 }
 
 .page-header,
-.placeholder-panel {
+.settings-panel,
+.settings-form,
+.panel-header {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+
+.page-header,
+.panel-header {
+  gap: 8px;
 }
 
 .page-header h1,
 .page-header p,
-.placeholder-panel p {
+.panel-header h2,
+.panel-header p,
+.feedback-message {
   margin: 0;
 }
 
-.placeholder-panel {
+.settings-panel {
+  gap: 20px;
+  max-width: 720px;
   padding: 24px;
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-container);
+}
+
+.panel-header p {
+  color: var(--color-text-secondary);
+}
+
+.settings-form {
+  gap: 16px;
+}
+
+.feedback-message {
+  padding: 12px 14px;
+  border: 1px solid var(--color-critical);
+  border-radius: 4px;
+  color: var(--color-critical);
+  font-size: 0.9375rem;
+}
+
+.actions-row {
+  max-width: 260px;
+}
+
+@media (max-width: 720px) {
+  .actions-row {
+    max-width: none;
+  }
 }
 </style>
