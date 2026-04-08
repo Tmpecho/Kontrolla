@@ -18,6 +18,7 @@ const { listChecklistRunsMock, appEnvMock, authStoreMock } = vi.hoisted(() => ({
   },
   authStoreMock: {
     appContext: null,
+    establishments: [],
     requiresEstablishmentSelection: false,
   },
 }))
@@ -73,6 +74,7 @@ describe('IKMatDashboardPage', () => {
     appEnvMock.defaultOrganizationId = 'org-1'
     appEnvMock.defaultEstablishmentId = 'est-1'
     authStoreMock.appContext = null
+    authStoreMock.establishments = []
     authStoreMock.requiresEstablishmentSelection = false
   })
 

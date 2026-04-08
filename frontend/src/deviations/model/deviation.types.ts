@@ -47,6 +47,7 @@ export type DeviationSaveInput = {
 
 export type DeviationListItem = {
   id: string
+  establishmentId: string
   serviceArea: DeviationServiceArea
   title: string
   reportedAt: string

@@ -37,9 +37,13 @@ const categoryOptions = computed(() => deviationCategoriesByServiceArea[currentS
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
 )
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const establishmentId = computed(() => {
+  if (authStore.appContext?.organizationId) {
+    return authStore.appContext.establishmentId ?? null
+  }
+
+  return appEnv.defaultEstablishmentId ?? null
+})
 
 const pageSubtitle = computed(() => {
   if (currentServiceArea.value === 'IK_ALKOHOL') {

@@ -19,10 +19,23 @@ const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
 )
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+const establishmentId = computed(() => {
+  if (authStore.appContext?.organizationId) {
+    return authStore.appContext.establishmentId ?? null
+  }
+
+  return appEnv.defaultEstablishmentId ?? null
+})
+const availableEstablishmentIds = computed(() => {
+  if (establishmentId.value) {
+    return [establishmentId.value]
+  }
+
+  return (authStore.establishments ?? []).map((establishment) => establishment.id)
+})
+const hasChecklistContext = computed(
+  () => Boolean(organizationId.value && availableEstablishmentIds.value.length > 0),
 )
-const hasChecklistContext = computed(() => Boolean(organizationId.value && establishmentId.value))
 
 const missingContextMessage = computed(() => {
   if (hasChecklistContext.value) {
@@ -63,9 +76,10 @@ function formatUnitSummary(count: number, label: string): string {
 
 async function loadChecklistRuns(): Promise<void> {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
 
-  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+  if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
+    checklistRuns.value = []
+    errorMessage.value = null
     return
   }
 
@@ -73,14 +87,18 @@ async function loadChecklistRuns(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const page = await listChecklistRuns({
-      organizationId: resolvedOrganizationId,
-      establishmentId: resolvedEstablishmentId,
-      serviceArea: 'IK_MAT',
-      size: 10,
-    })
+    const pages = await Promise.all(
+      availableEstablishmentIds.value.map((nextEstablishmentId) =>
+        listChecklistRuns({
+          organizationId: resolvedOrganizationId,
+          establishmentId: nextEstablishmentId,
+          serviceArea: 'IK_MAT',
+          size: 20,
+        }),
+      ),
+    )
 
-    checklistRuns.value = selectLatestChecklistRuns(page.items)
+    checklistRuns.value = selectLatestChecklistRuns(pages.flatMap((page) => page.items)).slice(0, 10)
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -90,7 +108,7 @@ async function loadChecklistRuns(): Promise<void> {
 }
 
 watch(
-  [organizationId, establishmentId],
+  [organizationId, establishmentId, availableEstablishmentIds],
   () => {
     void loadChecklistRuns()
   },

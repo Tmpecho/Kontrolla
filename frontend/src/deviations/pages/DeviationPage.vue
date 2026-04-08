@@ -10,6 +10,7 @@ import {
   listEstablishmentDeviations,
   listOrganizationMembers,
   mapDeviationResponseToListItem,
+  type OrganizationMemberResponse,
   toMemberNameLookup,
   toMemberOptions,
   updateDeviationDetails,
@@ -54,11 +55,24 @@ const filterOptions = [
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
 )
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const establishmentId = computed(() => {
+  if (authStore.appContext?.organizationId) {
+    return authStore.appContext.establishmentId ?? null
+  }
 
-const hasDeviationContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+  return appEnv.defaultEstablishmentId ?? null
+})
+const availableEstablishmentIds = computed(() => {
+  if (establishmentId.value) {
+    return [establishmentId.value]
+  }
+
+  return (authStore.establishments ?? []).map((establishment) => establishment.id)
+})
+
+const hasDeviationContext = computed(
+  () => Boolean(organizationId.value && availableEstablishmentIds.value.length > 0),
+)
 
 const missingContextMessage = computed(() => {
   if (hasDeviationContext.value) {
@@ -191,8 +205,11 @@ function replaceDeviation(updatedDeviation: DeviationListItem) {
 
 async function loadSelectedDeviation() {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
   const deviationId = selectedDeviationId.value
+  const resolvedEstablishmentId =
+    selectedDeviationDetails.value?.establishmentId ??
+    selectedDeviationSummary.value?.establishmentId ??
+    establishmentId.value
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId || !deviationId) {
     selectedDeviationDetails.value = null
@@ -230,9 +247,8 @@ async function loadSelectedDeviation() {
 
 async function loadDeviations() {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
 
-  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+  if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
     deviations.value = []
     memberOptions.value = []
     selectedDeviationDetails.value = null
@@ -244,26 +260,45 @@ async function loadDeviations() {
   errorMessage.value = null
 
   try {
-    const [deviationPage, memberPage] = await Promise.all([
-      listEstablishmentDeviations({
-        organizationId: resolvedOrganizationId,
-        establishmentId: resolvedEstablishmentId,
-        size: 200,
-      }),
-      listOrganizationMembers({
-        organizationId: resolvedOrganizationId,
-        establishmentId: resolvedEstablishmentId,
-        includeInactive: true,
-        size: 200,
-      }).catch(() => null),
+    const [deviationPages, memberPages] = await Promise.all([
+      Promise.all(
+        availableEstablishmentIds.value.map((nextEstablishmentId) =>
+          listEstablishmentDeviations({
+            organizationId: resolvedOrganizationId,
+            establishmentId: nextEstablishmentId,
+            size: 200,
+          }),
+        ),
+      ),
+      Promise.all(
+        availableEstablishmentIds.value.map((nextEstablishmentId) =>
+          listOrganizationMembers({
+            organizationId: resolvedOrganizationId,
+            establishmentId: nextEstablishmentId,
+            includeInactive: true,
+            size: 200,
+          }).catch(() => null),
+        ),
+      ),
     ])
 
-    memberNamesById.value = memberPage ? toMemberNameLookup(memberPage.items) : {}
+    const mergedMembers = new Map<string, OrganizationMemberResponse>()
+    for (const page of memberPages) {
+      if (!page) {
+        continue
+      }
 
-    deviations.value = deviationPage.items.map((deviation) =>
+      for (const member of page.items) {
+        mergedMembers.set(member.userId, member)
+      }
+    }
+
+    memberNamesById.value = toMemberNameLookup([...mergedMembers.values()])
+
+    deviations.value = deviationPages.flatMap((page) => page.items).map((deviation) =>
       mapDeviationResponseToListItem(deviation, memberNamesById.value),
     )
-    memberOptions.value = memberPage ? toMemberOptions(memberPage.items) : []
+    memberOptions.value = toMemberOptions([...mergedMembers.values()])
 
     if (selectedDeviationId.value) {
       await loadSelectedDeviation()
@@ -303,8 +338,8 @@ async function clearSelectedDeviation() {
 
 async function handleDeviationSave(nextValues: DeviationSaveInput) {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
   const currentDeviation = selectedDeviation.value
+  const resolvedEstablishmentId = currentDeviation?.establishmentId ?? establishmentId.value
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
     return
@@ -372,8 +407,8 @@ async function handleDeviationSave(nextValues: DeviationSaveInput) {
 
 async function handleTimelineNoteAdd(note: string) {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
   const currentDeviation = selectedDeviation.value
+  const resolvedEstablishmentId = currentDeviation?.establishmentId ?? establishmentId.value
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
     return
@@ -421,7 +456,7 @@ function handleEscape(event: KeyboardEvent) {
   }
 }
 
-watch([organizationId, establishmentId], () => {
+watch([organizationId, establishmentId, availableEstablishmentIds], () => {
   void loadDeviations()
 }, { immediate: true })
 

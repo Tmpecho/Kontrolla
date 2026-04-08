@@ -263,6 +263,7 @@ export function mapDeviationResponseToListItem(
 
   return {
     id: deviation.id,
+    establishmentId: deviation.establishmentId,
     serviceArea: getDeviationServiceAreaForCategory(categoryLabel),
     title: deviation.title,
     reportedAt: deviation.createdAt,

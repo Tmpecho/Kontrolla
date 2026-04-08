@@ -42,12 +42,23 @@ const errorMessage = ref<string | null>(null)
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
 )
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const establishmentId = computed(() => {
+  if (authStore.appContext?.organizationId) {
+    return authStore.appContext.establishmentId ?? null
+  }
+
+  return appEnv.defaultEstablishmentId ?? null
+})
+const availableEstablishmentIds = computed(() => {
+  if (establishmentId.value) {
+    return [establishmentId.value]
+  }
+
+  return (authStore.establishments ?? []).map((establishment) => establishment.id)
+})
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (organizationId.value && availableEstablishmentIds.value.length > 0) {
     return null
   }
 
@@ -95,9 +106,8 @@ function getDeviationLink(deviationId: string) {
 
 async function loadDeviations(): Promise<void> {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
 
-  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+  if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
     deviations.value = []
     errorMessage.value = null
     return
@@ -107,13 +117,17 @@ async function loadDeviations(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const page = await listEstablishmentDeviations({
-      organizationId: resolvedOrganizationId,
-      establishmentId: resolvedEstablishmentId,
-      size: 10,
-    })
+    const pages = await Promise.all(
+      availableEstablishmentIds.value.map((nextEstablishmentId) =>
+        listEstablishmentDeviations({
+          organizationId: resolvedOrganizationId,
+          establishmentId: nextEstablishmentId,
+          size: 10,
+        }),
+      ),
+    )
 
-    deviations.value = page.items.map((deviation) => ({
+    deviations.value = pages.flatMap((page) => page.items).map((deviation) => ({
       id: deviation.id,
       title: deviation.title,
       reportedAt: deviation.createdAt,
@@ -130,7 +144,7 @@ async function loadDeviations(): Promise<void> {
   }
 }
 
-watch([organizationId, establishmentId], () => {
+watch([organizationId, establishmentId, availableEstablishmentIds], () => {
   void loadDeviations()
 }, { immediate: true })
 </script>
