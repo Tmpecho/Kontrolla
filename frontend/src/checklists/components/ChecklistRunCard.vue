@@ -152,7 +152,7 @@ const progressStates = computed(() => [
 
 const baseParams = computed(() => ({
   organizationId: props.organizationId,
-  establishmentId: props.establishmentId || props.run.establishmentId,
+  establishmentId: props.run.establishmentId || props.establishmentId,
   checklistRunId: props.run.id,
 }))
 
