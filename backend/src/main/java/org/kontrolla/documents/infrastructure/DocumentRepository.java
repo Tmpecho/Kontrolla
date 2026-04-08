@@ -12,18 +12,18 @@ import java.util.UUID;
 
 public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
-	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser"})
-	Page<Document> findByEstablishmentIdAndOrganizationIdAndServiceArea(
-			UUID establishmentId,
-			UUID organizationId,
-			DocumentServiceArea serviceArea,
-			Pageable pageable
-	);
+  @EntityGraph(attributePaths = {"organization", "establishment", "createdByUser"})
+  Page<Document> findByEstablishmentIdAndOrganizationIdAndServiceArea(
+      UUID establishmentId,
+      UUID organizationId,
+      DocumentServiceArea serviceArea,
+      Pageable pageable
+  );
 
-	@EntityGraph(attributePaths = {"organization", "establishment", "createdByUser"})
-	Optional<Document> findByIdAndEstablishmentIdAndOrganizationId(
-			UUID id,
-			UUID establishmentId,
-			UUID organizationId
-	);
+  @EntityGraph(attributePaths = {"organization", "establishment", "createdByUser"})
+  Optional<Document> findByIdAndEstablishmentIdAndOrganizationId(
+      UUID id,
+      UUID establishmentId,
+      UUID organizationId
+  );
 }

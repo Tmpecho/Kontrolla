@@ -22,81 +22,99 @@ import java.time.LocalDate;
 @Table(name = "documents")
 public class Document extends AbstractAuditableUuidEntity {
 
-	public static final int DEFAULT_EXPIRY_WARNING_DAYS = 30;
+  public static final int DEFAULT_EXPIRY_WARNING_DAYS = 30;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "organization_id", nullable = false)
-	private Organization organization;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "organization_id", nullable = false)
+  private Organization organization;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "establishment_id", nullable = false)
-	private Establishment establishment;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "establishment_id", nullable = false)
+  private Establishment establishment;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "created_by_user_id", nullable = false)
-	private User createdByUser;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "created_by_user_id", nullable = false)
+  private User createdByUser;
 
-	@Setter
-	@Enumerated(EnumType.STRING)
-	@Column(name = "service_area", nullable = false, length = 32)
-	private DocumentServiceArea serviceArea;
+  @Setter
+  @Enumerated(EnumType.STRING)
+  @Column(name = "service_area", nullable = false, length = 32)
+  private DocumentServiceArea serviceArea;
 
-	@Setter
-	@Column(nullable = false, length = 255)
-	private String title;
+  @Setter
+  @Column(nullable = false, length = 255)
+  private String title;
 
-	@Setter
-	@Column(name = "holder_name", nullable = false, length = 255)
-	private String holderName;
+  @Setter
+  @Column(name = "holder_name", nullable = false, length = 255)
+  private String holderName;
 
-	@Setter
-	@Column(name = "issue_date", nullable = false)
-	private LocalDate issueDate;
+  @Setter
+  @Column(name = "issue_date", nullable = false)
+  private LocalDate issueDate;
 
-	@Setter
-	@Column(name = "renewal_date", nullable = false)
-	private LocalDate renewalDate;
+  @Setter
+  @Column(name = "renewal_date", nullable = false)
+  private LocalDate renewalDate;
 
-	protected Document() {
-	}
+  @Setter
+  @Column(name = "file_name", nullable = false, length = 255)
+  private String fileName;
 
-	public Document(
-			Organization organization,
-			Establishment establishment,
-			User createdByUser,
-			DocumentServiceArea serviceArea,
-			String title,
-			String holderName,
-			LocalDate issueDate,
-			LocalDate renewalDate
-	) {
-		this.organization = organization;
-		this.establishment = establishment;
-		this.createdByUser = createdByUser;
-		this.serviceArea = serviceArea;
-		this.title = title;
-		this.holderName = holderName;
-		this.issueDate = issueDate;
-		this.renewalDate = renewalDate;
-	}
+  @Setter
+  @Column(name = "content_type", nullable = false, length = 255)
+  private String contentType;
 
-	public DocumentStatus getStatus(LocalDate today) {
-		return getStatus(today, DEFAULT_EXPIRY_WARNING_DAYS);
-	}
+  @Setter
+  @Column(name = "file_size_bytes", nullable = false)
+  private long fileSizeBytes;
 
-	public DocumentStatus getStatus(LocalDate today, int warningDays) {
-		if (warningDays < 0) {
-			throw new IllegalArgumentException("warningDays must be non-negative");
-		}
+  protected Document() {
+  }
 
-		if (renewalDate.isBefore(today)) {
-			return DocumentStatus.EXPIRED;
-		}
+  public Document(
+      Organization organization,
+      Establishment establishment,
+      User createdByUser,
+      DocumentServiceArea serviceArea,
+      String title,
+      String holderName,
+      LocalDate issueDate,
+      LocalDate renewalDate,
+      String fileName,
+      String contentType,
+      long fileSizeBytes
+  ) {
+    this.organization = organization;
+    this.establishment = establishment;
+    this.createdByUser = createdByUser;
+    this.serviceArea = serviceArea;
+    this.title = title;
+    this.holderName = holderName;
+    this.issueDate = issueDate;
+    this.renewalDate = renewalDate;
+    this.fileName = fileName;
+    this.contentType = contentType;
+    this.fileSizeBytes = fileSizeBytes;
+  }
 
-		if (!renewalDate.isAfter(today.plusDays(warningDays))) {
-			return DocumentStatus.EXPIRING;
-		}
+  public DocumentStatus getStatus(LocalDate today) {
+    return getStatus(today, DEFAULT_EXPIRY_WARNING_DAYS);
+  }
 
-		return DocumentStatus.VALID;
-	}
+  public DocumentStatus getStatus(LocalDate today, int warningDays) {
+    if (warningDays < 0) {
+      throw new IllegalArgumentException("warningDays must be non-negative");
+    }
+
+    if (renewalDate.isBefore(today)) {
+      return DocumentStatus.EXPIRED;
+    }
+
+    if (!renewalDate.isAfter(today.plusDays(warningDays))) {
+      return DocumentStatus.EXPIRING;
+    }
+
+    return DocumentStatus.VALID;
+  }
 }
