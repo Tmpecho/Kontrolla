@@ -46,7 +46,7 @@ describe('EstablishmentSwitcher', () => {
     expect(wrapper.findAll('option')).toHaveLength(3)
   })
 
-  it('keeps the compact variant label visually hidden to avoid stretching the top bar', async () => {
+  it('shows the compact variant label above the selector', async () => {
     authStoreMock.establishments = [
       { id: 'est-1', name: 'First Establishment' },
       { id: 'est-2', name: 'Second Establishment' },
@@ -59,7 +59,7 @@ describe('EstablishmentSwitcher', () => {
       },
     })
 
-    expect(wrapper.get('.switcher-label').classes()).toContain('switcher-label-sr-only')
+    expect(wrapper.get('.switcher-label').text()).toBe('Establishment')
     expect(wrapper.get('.switcher').classes()).toContain('switcher-compact')
   })
 })
