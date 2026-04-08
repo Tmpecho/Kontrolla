@@ -237,6 +237,8 @@ defineExpose({
       </div>
     </div>
 
+    <EstablishmentSwitcher class="mobile-establishment-switcher" variant="panel" />
+
     <div ref="popupArea" class="right-container icons-container">
       <EstablishmentSwitcher class="desktop-establishment-switcher" />
 
@@ -292,6 +294,10 @@ defineExpose({
   justify-content: space-between;
   padding: 14px 30px;
   background-color: var(--color-white);
+}
+
+.mobile-establishment-switcher {
+  display: none;
 }
 
 .left-container {
@@ -435,7 +441,10 @@ defineExpose({
 
 @media (max-width: 960px) {
   .top-bar-container {
+    flex-wrap: wrap;
+    align-items: flex-start;
     padding: 12px 16px;
+    gap: 12px;
   }
 
   .mobile-menu-button,
@@ -449,8 +458,15 @@ defineExpose({
     display: none;
   }
 
+  .mobile-establishment-switcher {
+    display: flex;
+    width: 100%;
+    order: 3;
+  }
+
   .left-container {
     gap: 12px;
+    flex: 1;
   }
 
   .right-container {

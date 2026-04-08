@@ -15,7 +15,7 @@ const props = withDefaults(
 const authStore = useAuthStore()
 
 const isVisible = computed(() => {
-  return Boolean(authStore.appContext?.organizationId) && authStore.establishments.length > 0
+  return Boolean(authStore.appContext?.organizationId) && authStore.establishments.length > 1
 })
 
 const selectedEstablishmentId = computed(() => authStore.appContext?.establishmentId ?? '')
