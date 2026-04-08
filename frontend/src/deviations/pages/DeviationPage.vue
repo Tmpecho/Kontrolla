@@ -38,7 +38,7 @@ const router = useRouter()
 const searchQuery = ref('')
 const activeFilter = ref<'ALL' | 'OPEN' | 'RECENT'>('ALL')
 const deviations = ref<DeviationListItem[]>([])
-const memberOptions = ref<DeviationMemberOption[]>([])
+const memberOptionsByEstablishment = ref<Record<string, DeviationMemberOption[]>>({})
 const memberNamesById = ref<Record<string, string>>({})
 const selectedDeviationDetails = ref<DeviationListItem | null>(null)
 const isLoading = ref(false)
@@ -138,6 +138,16 @@ const selectedDeviation = computed(() => {
   }
 
   return selectedDeviationSummary.value
+})
+
+const selectedMemberOptions = computed(() => {
+  const resolvedEstablishmentId = selectedDeviation.value?.establishmentId ?? establishmentId.value
+
+  if (!resolvedEstablishmentId) {
+    return []
+  }
+
+  return memberOptionsByEstablishment.value[resolvedEstablishmentId] ?? []
 })
 
 const filteredDeviations = computed(() => {
@@ -250,7 +260,7 @@ async function loadDeviations() {
 
   if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
     deviations.value = []
-    memberOptions.value = []
+    memberOptionsByEstablishment.value = {}
     selectedDeviationDetails.value = null
     errorMessage.value = null
     return
@@ -277,35 +287,47 @@ async function loadDeviations() {
             establishmentId: nextEstablishmentId,
             includeInactive: true,
             size: 200,
-          }).catch(() => null),
+          })
+            .then((page) => ({
+              establishmentId: nextEstablishmentId,
+              page,
+            }))
+            .catch(() => ({
+              establishmentId: nextEstablishmentId,
+              page: null,
+            })),
         ),
       ),
     ])
 
+    const nextMemberOptionsByEstablishment: Record<string, DeviationMemberOption[]> = {}
     const mergedMembers = new Map<string, OrganizationMemberResponse>()
-    for (const page of memberPages) {
+    for (const { establishmentId: nextEstablishmentId, page } of memberPages) {
       if (!page) {
+        nextMemberOptionsByEstablishment[nextEstablishmentId] = []
         continue
       }
+
+      nextMemberOptionsByEstablishment[nextEstablishmentId] = toMemberOptions(page.items)
 
       for (const member of page.items) {
         mergedMembers.set(member.userId, member)
       }
     }
 
+    memberOptionsByEstablishment.value = nextMemberOptionsByEstablishment
     memberNamesById.value = toMemberNameLookup([...mergedMembers.values()])
 
     deviations.value = deviationPages.flatMap((page) => page.items).map((deviation) =>
       mapDeviationResponseToListItem(deviation, memberNamesById.value),
     )
-    memberOptions.value = toMemberOptions([...mergedMembers.values()])
 
     if (selectedDeviationId.value) {
       await loadSelectedDeviation()
     }
   } catch (error) {
     deviations.value = []
-    memberOptions.value = []
+    memberOptionsByEstablishment.value = {}
     memberNamesById.value = {}
     selectedDeviationDetails.value = null
     errorMessage.value =
@@ -625,7 +647,7 @@ onBeforeUnmount(() => {
         <DeviationDetailPanel
           :deviation="selectedDeviation"
           :is-saving="isSaving"
-          :member-options="memberOptions"
+          :member-options="selectedMemberOptions"
           :save-error-message="saveErrorMessage"
           :show-close-button="true"
           @add-note="handleTimelineNoteAdd"
@@ -651,7 +673,7 @@ onBeforeUnmount(() => {
       <DeviationDetailPanel
         :deviation="selectedDeviation"
         :is-saving="isSaving"
-        :member-options="memberOptions"
+        :member-options="selectedMemberOptions"
         :save-error-message="saveErrorMessage"
         :show-close-button="true"
         @add-note="handleTimelineNoteAdd"
