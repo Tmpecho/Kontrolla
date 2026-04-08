@@ -64,7 +64,7 @@ public class TransactionalAuditRecorder implements AuditRecorder {
 				resolvedAuditRecord.clientIp(),
 				resolvedAuditRecord.userAgent(),
 				resolvedAuditRecord.resultCode(),
-				writeJson(resolvedAuditRecord.metadata())
+				writeJsonOrThrow(resolvedAuditRecord.metadata())
 		));
 		scheduleLogEmission(auditEvent, resolvedAuditRecord.metadata());
 	}
@@ -103,10 +103,14 @@ public class TransactionalAuditRecorder implements AuditRecorder {
 		payload.put("resultCode", auditEvent.getResultCode());
 		payload.put("metadata", metadata);
 
-		auditLog.info(writeJson(payload));
+		try {
+			auditLog.info(writeJsonOrThrow(payload));
+		} catch (RuntimeException exception) {
+			log.error("Failed to emit audit log for event {}", auditEvent.getId(), exception);
+		}
 	}
 
-	private String writeJson(Map<String, ?> payload) {
+	private String writeJsonOrThrow(Map<String, ?> payload) {
 		try {
 			return objectMapper.writeValueAsString(payload);
 		} catch (JsonProcessingException exception) {

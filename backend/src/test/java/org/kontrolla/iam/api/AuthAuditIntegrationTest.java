@@ -238,6 +238,39 @@ class AuthAuditIntegrationTest {
 		assertThat(auditEvent.getClientIp()).isEqualTo("203.0.113.70");
 	}
 
+	@Test
+	void logoutWithAlreadyRevokedTokenPersistsIgnoredAuditEvent() throws Exception {
+		createUserWithOrganizationContext("alice@example.com", "password123");
+
+		MvcResult loginResult = performLogin("alice@example.com", "password123", "203.0.113.80")
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
+				.andReturn();
+
+		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.with(SecurityMockMvcRequestPostProcessors.csrf())
+						.with(remoteAddr("203.0.113.81"))
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.with(SecurityMockMvcRequestPostProcessors.csrf())
+						.with(remoteAddr("203.0.113.82"))
+						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
+				.andExpect(status().isNoContent());
+
+		AuditEvent auditEvent = latestAuditEvent();
+		assertThat(auditEvent.getAction()).isEqualTo(AuditAction.AUTH_LOGOUT);
+		assertThat(auditEvent.getOutcome()).isEqualTo(AuditOutcome.IGNORED);
+		assertThat(auditEvent.getResultCode()).isEqualTo("token_not_active");
+		assertThat(auditEvent.getActorType()).isEqualTo(AuditActorType.USER);
+		assertThat(auditEvent.getTargetType()).isEqualTo(AuditTargetType.REFRESH_TOKEN);
+		assertThat(auditEvent.getTargetId()).isNotNull();
+		assertThat(auditEvent.getClientIp()).isEqualTo("203.0.113.82");
+	}
+
 	private AuditEvent singleAuditEvent() {
 		List<AuditEvent> auditEvents = auditEventRepository.findAll();
 		assertThat(auditEvents).hasSize(1);
