@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
 import LoginForm from '@/auth/components/LoginForm.vue'
 import { appEnv } from '@/shared/config/env'
+
+const route = useRoute()
+
+const showPasswordChangedMessage = computed(() => route.query.passwordChanged === '1')
 </script>
 <template>
   <div class="page-layout">
@@ -26,6 +33,9 @@ import { appEnv } from '@/shared/config/env'
           <code>password123</code>
         </div>
         <div class="form-box">
+          <div v-if="showPasswordChangedMessage" class="success-notification">
+            Password updated. Sign in again.
+          </div>
           <LoginForm />
         </div>
       </div>
@@ -123,5 +133,14 @@ body {
   color: var(--color-text-primary);
   box-sizing: border-box;
   z-index: 10;
+}
+
+.success-notification {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-success);
+  border-radius: 4px;
+  color: var(--color-success);
+  font-size: 0.875rem;
 }
 </style>
