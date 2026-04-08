@@ -20,18 +20,6 @@ const isVisible = computed(() => {
 
 const selectedEstablishmentId = computed(() => authStore.appContext?.establishmentId ?? '')
 
-const helperCopy = computed(() => {
-  if (authStore.isLoadingEstablishments) {
-    return 'Loading establishments...'
-  }
-
-  if (authStore.requiresEstablishmentSelection) {
-    return 'Choose the establishment you are working in.'
-  }
-
-  return 'All operational pages use this active establishment.'
-})
-
 function onSelectionChange(event: Event) {
   const select = event.target as HTMLSelectElement
   const nextValue = select.value.trim()
@@ -70,7 +58,6 @@ function onSelectionChange(event: Event) {
         {{ establishment.name }}
       </option>
     </select>
-    <p class="switcher-helper">{{ helperCopy }}</p>
   </div>
 </template>
 
@@ -89,8 +76,7 @@ function onSelectionChange(event: Event) {
   gap: 8px;
 }
 
-.switcher-label,
-.switcher-helper {
+.switcher-label {
   margin: 0;
 }
 
@@ -115,12 +101,6 @@ function onSelectionChange(event: Event) {
 .switcher-select:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-}
-
-.switcher-helper {
-  color: var(--color-text-secondary);
-  font-size: 0.8125rem;
-  line-height: 1.35;
 }
 
 .switcher-panel .switcher-select {

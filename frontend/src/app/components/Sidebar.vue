@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 
 defineOptions({
@@ -239,22 +238,6 @@ const displayOrganizationName = computed(() => {
   return 'Organization unavailable'
 })
 
-const displayEstablishmentName = computed(() => {
-  if (!authStore.isSessionReady) {
-    return 'Loading establishment...'
-  }
-
-  if (authStore.requiresEstablishmentSelection) {
-    return 'Select establishment'
-  }
-
-  if (authStore.appContext?.establishmentName) {
-    return authStore.appContext.establishmentName
-  }
-
-  return 'Establishment unavailable'
-})
-
 function isNavigationItemActive(routeName?: AppRouteName) {
   if (!routeName) {
     return false
@@ -291,8 +274,7 @@ async function onLogout() {
     <div class="sidebar-scroll">
       <div class="establishment-info">
         <h2>{{ displayOrganizationName }}</h2>
-        <p>{{ displayEstablishmentName }}</p>
-        <EstablishmentSwitcher variant="panel" />
+        <p>{{ authStore.appContext?.establishmentName ?? 'Establishment unavailable' }}</p>
       </div>
 
       <nav v-if="variant === 'mobile'" aria-label="Services" class="navigation-group">

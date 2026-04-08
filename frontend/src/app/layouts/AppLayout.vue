@@ -2,7 +2,6 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import TopBar from '@/app/components/TopBar.vue'
 import Sidebar from '@/app/components/Sidebar.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
@@ -165,16 +164,6 @@ onBeforeUnmount(() => {
       </div>
 
       <main class="app-content" :class="{ 'app-content--nav-open': isMobileNavigationOpen }">
-        <section
-          v-if="authStore.requiresEstablishmentSelection"
-          class="establishment-selection-banner"
-        >
-          <div>
-            <h2>Select establishment</h2>
-            <p>Choose which establishment you are currently working in before continuing.</p>
-          </div>
-          <EstablishmentSwitcher variant="panel" />
-        </section>
         <RouterView />
       </main>
     </div>
@@ -207,26 +196,6 @@ onBeforeUnmount(() => {
   padding: 24px;
   min-width: 0;
   overflow-y: auto;
-}
-
-.establishment-selection-banner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 20px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
-}
-
-.establishment-selection-banner h2,
-.establishment-selection-banner p {
-  margin: 0;
-}
-
-.establishment-selection-banner p {
-  color: var(--color-text-secondary);
 }
 
 @media (max-width: 960px) {

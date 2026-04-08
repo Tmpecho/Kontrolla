@@ -231,11 +231,9 @@ defineExpose({
       </div>
     </div>
 
-    <div class="context-container">
-      <EstablishmentSwitcher class="desktop-establishment-switcher" />
-    </div>
-
     <div ref="popupArea" class="right-container icons-container">
+      <EstablishmentSwitcher class="desktop-establishment-switcher" />
+
       <div class="icon-wrapper icon-wrapper-notifications">
         <button
           id="notifications-trigger"
@@ -318,16 +316,9 @@ defineExpose({
   gap: 30px;
 }
 
-.context-container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-  padding: 0 16px;
-}
-
 .desktop-establishment-switcher {
-  width: min(100%, 320px);
+  width: 240px;
+  flex-shrink: 0;
 }
 
 .icons-container {
@@ -431,7 +422,7 @@ defineExpose({
   }
 
   .desktop-service-links,
-  .context-container,
+  .desktop-establishment-switcher,
   .icon-wrapper-notifications {
     display: none;
   }
