@@ -143,13 +143,19 @@ public class AuthService {
 			return;
 		}
 
+		Instant now = Instant.now(clock);
 		RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)).orElse(null);
 		if (refreshToken == null) {
 			recordFailedAuthAudit(logoutIgnoredAudit("token_not_found", null));
 			return;
 		}
 
-		refreshToken.revoke(Instant.now(clock));
+		if (!refreshToken.isActiveAt(now)) {
+			recordFailedAuthAudit(logoutIgnoredAudit("token_not_active", refreshToken));
+			return;
+		}
+
+		refreshToken.revoke(now);
 		auditRecorder.record(logoutSuccessAudit(refreshToken));
 	}
 

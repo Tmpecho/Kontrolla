@@ -1,5 +1,6 @@
 package org.kontrolla.audit.application;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -86,7 +87,18 @@ class TransactionalAuditRecorderIntegrationTest {
 		assertThat(output.getOut()).doesNotContain("password123");
 	}
 
-	private AuditRecord auditRecord(String createdEmail) {
+	@Test
+	void afterCommitLoggingFailureDoesNotPropagateAndAuditRowStillPersists(CapturedOutput output) {
+		transactionTemplate.executeWithoutResult(status -> auditRecorder.record(
+				auditRecord(new FailsOnSecondSerializationValue("after-commit-log@example.com"))
+		));
+
+		AuditEvent auditEvent = singleAuditEvent();
+		assertThat(auditEvent.getMetadataJson()).contains("after-commit-log@example.com");
+		assertThat(output.getOut()).contains("Failed to emit audit log for event " + auditEvent.getId());
+	}
+
+	private AuditRecord auditRecord(Object createdEmail) {
 		return AuditRecord.builder(AuditAction.USER_CREATE, AuditOutcome.SUCCESS, "admin_user_created")
 				.target(AuditTargetType.USER, UUID.randomUUID())
 				.metadata("createdEmail", createdEmail)
@@ -100,5 +112,24 @@ class TransactionalAuditRecorderIntegrationTest {
 		List<AuditEvent> auditEvents = auditEventRepository.findAll();
 		assertThat(auditEvents).hasSize(1);
 		return auditEvents.getFirst();
+	}
+
+	private static final class FailsOnSecondSerializationValue {
+
+		private final String value;
+		private int serializationCount;
+
+		private FailsOnSecondSerializationValue(String value) {
+			this.value = value;
+		}
+
+		@JsonValue
+		String value() {
+			serializationCount++;
+			if (serializationCount > 1) {
+				throw new IllegalStateException("second serialization should fail");
+			}
+			return value;
+		}
 	}
 }
