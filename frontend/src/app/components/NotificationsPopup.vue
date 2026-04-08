@@ -44,20 +44,20 @@ async function loadRecentNotifications() {
 }
 
 async function openNotification(notification: NotificationItem) {
-	if (notification.isUnread) {
-		await handleMarkRead(notification)
-	}
+  if (notification.isUnread) {
+    await handleMarkRead(notification)
+  }
 
-	emit('close')
-	await router.push(toNotificationRoute(notification))
+  emit('close')
+  await router.push(toNotificationRoute(notification))
 }
 
 async function handleMarkRead(notification: NotificationItem) {
-	const updatedNotification = await markNotificationRead(notification.id)
-	notifications.value = notifications.value.map((item) =>
-		item.id === notification.id ? updatedNotification : item,
-	)
-	notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
+  const updatedNotification = await markNotificationRead(notification.id)
+  notifications.value = notifications.value.map((item) =>
+    item.id === notification.id ? updatedNotification : item,
+  )
+  notificationsStore.setUnreadCount(Math.max(0, notificationsStore.unreadCount - 1))
 }
 
 function closePopup() {
