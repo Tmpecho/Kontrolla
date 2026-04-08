@@ -97,6 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoadingOrganizations = ref(false)
   const establishments = ref<Establishment[]>([])
   const isLoadingEstablishments = ref(false)
+  let establishmentHydrationRequestId = 0
 
   const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
   const isPlatformAdmin = computed(() => user.value?.globalRoles.includes('PLATFORM_ADMIN') ?? false)
@@ -299,6 +300,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function hydrateEstablishments() {
     const organizationId = appContext.value?.organizationId
+    const requestId = ++establishmentHydrationRequestId
 
     if (!organizationId) {
       establishments.value = []
@@ -319,19 +321,33 @@ export const useAuthStore = defineStore('auth', () => {
           size: 100,
         })
 
+        if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
+          return
+        }
+
         fetchedEstablishments.push(...page.items)
         totalPages = page.totalPages
         pageNumber += 1
       } while (pageNumber < totalPages)
+
+      if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
+        return
+      }
 
       establishments.value = fetchedEstablishments
         .filter((establishment) => establishment.status === 'ACTIVE')
         .sort((left, right) => left.name.localeCompare(right.name))
       synchronizeEstablishmentSelection()
     } catch {
+      if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
+        return
+      }
+
       establishments.value = []
     } finally {
-      isLoadingEstablishments.value = false
+      if (requestId === establishmentHydrationRequestId) {
+        isLoadingEstablishments.value = false
+      }
     }
   }
 

@@ -451,6 +451,141 @@ describe('auth.store', () => {
     expect(authStore.establishments.map((establishment) => establishment.id)).toEqual(['est-2'])
   })
 
+  it('ignores stale establishment responses after switching organizations twice', async () => {
+    const firstDeferred = createDeferred<{
+      items: Array<{
+        id: string
+        organizationId: string
+        name: string
+        type: 'RESTAURANT' | 'BAR' | 'CAFE' | 'OTHER'
+        status: 'ACTIVE' | 'INACTIVE'
+        createdAt: string
+        updatedAt: string
+      }>
+      page: number
+      size: number
+      totalElements: number
+      totalPages: number
+    }>()
+    const secondDeferred = createDeferred<{
+      items: Array<{
+        id: string
+        organizationId: string
+        name: string
+        type: 'RESTAURANT' | 'BAR' | 'CAFE' | 'OTHER'
+        status: 'ACTIVE' | 'INACTIVE'
+        createdAt: string
+        updatedAt: string
+      }>
+      page: number
+      size: number
+      totalElements: number
+      totalPages: number
+    }>()
+
+    listEstablishmentsMock
+      .mockReturnValueOnce(firstDeferred.promise)
+      .mockReturnValueOnce(secondDeferred.promise)
+
+    const authStore = useAuthStore()
+    authStore.setSession({
+      user: {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        active: true,
+        globalRoles: ['PLATFORM_ADMIN'],
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      appContext: {
+        organizationId: 'org-1',
+        organizationName: 'Alpha Group',
+        organizationRole: 'ORG_ADMIN',
+        establishmentId: 'est-1',
+        establishmentName: 'Alpha Kitchen',
+      },
+    })
+    authStore.organizations = [
+      {
+        id: 'org-1',
+        name: 'Alpha Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      {
+        id: 'org-2',
+        name: 'Beta Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+      {
+        id: 'org-3',
+        name: 'Gamma Group',
+        status: 'ACTIVE',
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+    ]
+
+    const firstSwitchPromise = authStore.updateSelectedOrganization('org-2')
+    const secondSwitchPromise = authStore.updateSelectedOrganization('org-3')
+
+    secondDeferred.resolve({
+      items: [
+        {
+          id: 'est-3',
+          organizationId: 'org-3',
+          name: 'Gamma Cafe',
+          type: 'CAFE',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    await secondSwitchPromise
+
+    expect(authStore.appContext?.organizationId).toBe('org-3')
+    expect(authStore.appContext?.establishmentId).toBe('est-3')
+    expect(authStore.establishments.map((establishment) => establishment.id)).toEqual(['est-3'])
+
+    firstDeferred.resolve({
+      items: [
+        {
+          id: 'est-2',
+          organizationId: 'org-2',
+          name: 'Beta Bar',
+          type: 'BAR',
+          status: 'ACTIVE',
+          createdAt: '2026-04-08T08:00:00Z',
+          updatedAt: '2026-04-08T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 1,
+      totalPages: 1,
+    })
+
+    await firstSwitchPromise
+
+    expect(authStore.appContext?.organizationId).toBe('org-3')
+    expect(authStore.appContext?.establishmentId).toBe('est-3')
+    expect(authStore.establishments.map((establishment) => establishment.id)).toEqual(['est-3'])
+  })
+
   it('loads every establishment page before synchronizing the selector state', async () => {
     listEstablishmentsMock
       .mockResolvedValueOnce({
