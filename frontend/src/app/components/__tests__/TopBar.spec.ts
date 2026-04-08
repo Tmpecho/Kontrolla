@@ -7,7 +7,7 @@ const authStoreMock = {
     globalRoles: [] as string[],
   },
   appContext: {
-    organizationRole: 'ORG_ADMIN' as 'ORG_ADMIN',
+    organizationRole: 'ORG_ADMIN' as const,
   },
 }
 
