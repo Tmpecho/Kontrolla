@@ -1,6 +1,5 @@
 package org.kontrolla.checklists.application;
 
-import org.kontrolla.checklists.api.UpdateChecklistTaskRequest;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -30,7 +29,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -219,7 +217,7 @@ public class ChecklistRunService {
 			UUID organizationId,
 			UUID establishmentId,
 			UUID checklistRunId,
-			List<ChecklistTaskExecutionInput> taskExecutions,
+			SubmitChecklistRunCommand command,
 			CurrentUser currentUser
 	) {
 		ChecklistRun checklistRun = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
@@ -235,7 +233,7 @@ public class ChecklistRunService {
 		Map<UUID, ChecklistTaskExecution> taskExecutionsById = checklistRun.getTaskExecutions().stream()
 				.collect(LinkedHashMap::new, (map, item) -> map.put(item.getId(), item), Map::putAll);
 
-		List<ChecklistTaskExecutionInput> normalizedTaskExecutions = normalizeTaskExecutions(taskExecutions);
+		List<ChecklistRunTaskExecutionInput> normalizedTaskExecutions = normalizeTaskExecutions(command.tasks());
 		User actor = getUserOrThrow(currentUser.userId());
 		Instant now = Instant.now();
 
@@ -272,7 +270,7 @@ public class ChecklistRunService {
 			UUID establishmentId,
 			UUID checklistRunId,
 			UUID taskId,
-			UpdateChecklistTaskRequest request,
+			UpdateChecklistTaskCommand command,
 			CurrentUser currentUser
 	) {
 		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
@@ -303,13 +301,13 @@ public class ChecklistRunService {
 						"Checklist task execution not found"
 				));
 
-		ChecklistTaskExecutionInput taskExecutionInput = new ChecklistTaskExecutionInput(
+		ChecklistRunTaskExecutionInput taskExecutionInput = new ChecklistRunTaskExecutionInput(
 				task.getId(),
-				request.executionStatus(),
-				request.comment(),
-				request.verificationResult(),
-				request.measuredValue(),
-				request.enteredText()
+				command.executionStatus(),
+				command.comment(),
+				command.verificationResult(),
+				command.measuredValue(),
+				command.enteredText()
 		);
 
 		validateTaskExecution(task, taskExecutionInput);
@@ -506,8 +504,8 @@ public class ChecklistRunService {
 				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
 	}
 
-	private List<ChecklistTaskExecutionInput> normalizeTaskExecutions(List<ChecklistTaskExecutionInput> taskExecutions) {
-		Map<UUID, ChecklistTaskExecutionInput> taskExecutionsById = new LinkedHashMap<>();
+	private List<ChecklistRunTaskExecutionInput> normalizeTaskExecutions(List<ChecklistRunTaskExecutionInput> taskExecutions) {
+		Map<UUID, ChecklistRunTaskExecutionInput> taskExecutionsById = new LinkedHashMap<>();
 		taskExecutions.stream().map(this::normalizeTaskExecutionInput).filter(taskExecution ->
 				taskExecutionsById.put(taskExecution.checklistTaskExecutionId(), taskExecution) != null).forEach(_ -> {
 			throw new ConflictException(
@@ -518,8 +516,8 @@ public class ChecklistRunService {
 		return List.copyOf(taskExecutionsById.values());
 	}
 
-	private ChecklistTaskExecutionInput normalizeTaskExecutionInput(ChecklistTaskExecutionInput taskExecutionInput) {
-		return new ChecklistTaskExecutionInput(
+	private ChecklistRunTaskExecutionInput normalizeTaskExecutionInput(ChecklistRunTaskExecutionInput taskExecutionInput) {
+		return new ChecklistRunTaskExecutionInput(
 				taskExecutionInput.checklistTaskExecutionId(),
 				taskExecutionInput.executionStatus(),
 				normalizeOptionalText(taskExecutionInput.comment()),
@@ -547,7 +545,7 @@ public class ChecklistRunService {
 
 	private void applyTaskExecution(
 			ChecklistTaskExecution taskExecution,
-			ChecklistTaskExecutionInput taskExecutionInput,
+			ChecklistRunTaskExecutionInput taskExecutionInput,
 			User actor,
 			Instant now
 	) {
@@ -567,7 +565,7 @@ public class ChecklistRunService {
 		taskExecution.setResolvedByUser(actor);
 	}
 
-	private void validateTaskExecution(ChecklistTaskExecution taskExecution, ChecklistTaskExecutionInput taskExecutionInput) {
+	private void validateTaskExecution(ChecklistTaskExecution taskExecution, ChecklistRunTaskExecutionInput taskExecutionInput) {
 		if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.SKIPPED && taskExecution.isRequired()) {
 			throw new ConflictException(
 					"checklist_task_execution_required_skip_forbidden",
@@ -634,15 +632,5 @@ public class ChecklistRunService {
 					"All required checklist tasks must be completed before submission"
 			);
 		});
-	}
-
-	public record ChecklistTaskExecutionInput(
-			UUID checklistTaskExecutionId,
-			ChecklistTaskExecutionStatus executionStatus,
-			String comment,
-			ChecklistVerificationResult verificationResult,
-			BigDecimal measuredValue,
-			String enteredText
-	) {
 	}
 }

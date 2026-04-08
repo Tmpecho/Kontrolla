@@ -2,10 +2,8 @@ package org.kontrolla.checklists.application;
 
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
-import org.kontrolla.checklists.domain.ChecklistTaskDefinition;
-import org.kontrolla.checklists.domain.ChecklistTaskKind;
 import org.kontrolla.checklists.domain.ChecklistSchedule;
-import org.kontrolla.checklists.domain.ChecklistScheduleType;
+import org.kontrolla.checklists.domain.ChecklistTaskDefinition;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.common.exception.ConflictException;
@@ -21,10 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -83,11 +78,7 @@ public class ChecklistDefinitionService {
 	public ChecklistDefinition createChecklistDefinition(
 			UUID organizationId,
 			UUID establishmentId,
-			ChecklistServiceArea serviceArea,
-			String title,
-			String description,
-			List<ChecklistTaskInput> tasks,
-			List<ChecklistScheduleInput> schedules,
+			CreateChecklistDefinitionCommand command,
 			CurrentUser currentUser
 	) {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
@@ -98,17 +89,17 @@ public class ChecklistDefinitionService {
 		ChecklistDefinition checklistDefinition = new ChecklistDefinition(
 				UUID.randomUUID(),
 				establishment,
-				serviceArea,
-				title,
-				description,
+				command.serviceArea(),
+				command.title(),
+				command.description(),
 				1,
 				resolveDefinitionStatusForNewVersion(null),
 				now,
 				actor,
 				actor
 		);
-		checklistDefinition.replaceTasks(toChecklistTasks(tasks));
-		checklistDefinition.replaceSchedules(toChecklistSchedules(schedules, actor));
+		checklistDefinition.replaceTasks(toChecklistTasks(command.tasks()));
+		checklistDefinition.replaceSchedules(toChecklistSchedules(command.schedules(), actor));
 
 		return checklistDefinitionRepository.save(checklistDefinition);
 	}
@@ -118,12 +109,7 @@ public class ChecklistDefinitionService {
 			UUID organizationId,
 			UUID establishmentId,
 			UUID checklistDefinitionId,
-			ChecklistServiceArea serviceArea,
-			String title,
-			String description,
-			ChecklistDefinitionStatus status,
-			List<ChecklistTaskInput> tasks,
-			List<ChecklistScheduleInput> schedules,
+			UpdateChecklistDefinitionCommand command,
 			CurrentUser currentUser
 	) {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
@@ -141,17 +127,17 @@ public class ChecklistDefinitionService {
 		ChecklistDefinition nextDefinition = new ChecklistDefinition(
 				currentDefinition.getDefinitionGroupId(),
 				currentDefinition.getEstablishment(),
-				serviceArea,
-				title,
-				description,
+				command.serviceArea(),
+				command.title(),
+				command.description(),
 				currentDefinition.getVersionNumber() + 1,
-				resolveDefinitionStatusForNewVersion(status),
+				resolveDefinitionStatusForNewVersion(command.status()),
 				now,
 				actor,
 				actor
 		);
-		nextDefinition.replaceTasks(toChecklistTasks(tasks));
-		nextDefinition.replaceSchedules(toChecklistSchedules(schedules, actor));
+		nextDefinition.replaceTasks(toChecklistTasks(command.tasks()));
+		nextDefinition.replaceSchedules(toChecklistSchedules(command.schedules(), actor));
 
 		return checklistDefinitionRepository.save(nextDefinition);
 	}
@@ -175,7 +161,7 @@ public class ChecklistDefinitionService {
 		);
 	}
 
-	private List<ChecklistTaskDefinition> toChecklistTasks(List<ChecklistTaskInput> tasks) {
+	private List<ChecklistTaskDefinition> toChecklistTasks(List<ChecklistDefinitionTaskInput> tasks) {
 		return tasks.stream()
 				.map(task -> new ChecklistTaskDefinition(
 						task.title(),
@@ -190,7 +176,7 @@ public class ChecklistDefinitionService {
 				.toList();
 	}
 
-	private List<ChecklistSchedule> toChecklistSchedules(List<ChecklistScheduleInput> schedules, User actor) {
+	private List<ChecklistSchedule> toChecklistSchedules(List<ChecklistDefinitionScheduleInput> schedules, User actor) {
 		if (schedules == null) {
 			return List.of();
 		}
@@ -227,29 +213,5 @@ public class ChecklistDefinitionService {
 			);
 		}
 		return status;
-	}
-
-	public record ChecklistTaskInput(
-			String title,
-			String details,
-			ChecklistTaskKind taskKind,
-			boolean required,
-			int sortOrder,
-			String measurementUnit,
-			BigDecimal minimumAllowedValue,
-			BigDecimal maximumAllowedValue
-	) {
-	}
-
-	public record ChecklistScheduleInput(
-			ChecklistScheduleType scheduleType,
-			LocalDate startDate,
-			LocalDate endDate,
-			LocalTime dueTime,
-			Integer weekdayMask,
-			Integer dayOfMonth,
-			String timezone,
-			Boolean active
-	) {
 	}
 }
