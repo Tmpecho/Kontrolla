@@ -38,49 +38,56 @@ function createUnit(id: string, name: string) {
   }
 }
 
-const { authStoreMock, appEnvMock, listTemperatureUnitsMock } = vi.hoisted(() => {
-  const { reactive } = require('vue') as typeof import('vue')
+const mocks = vi.hoisted(() => ({
+  authStoreMock: null as null | {
+    appContext: null | {
+      organizationId: null | string
+      establishmentId: null | string
+      organizationRole: null | string
+      organizationName: null | string
+      establishmentName: null | string
+    }
+    requiresEstablishmentSelection: boolean
+  },
+  appEnvMock: {
+    mode: 'test',
+    isDevelopment: true,
+    isProduction: false,
+    apiBaseUrl: 'http://localhost:8080',
+    defaultOrganizationId: undefined as string | undefined,
+    defaultEstablishmentId: undefined as string | undefined,
+    showDevLoginHint: false,
+  },
+  listTemperatureUnitsMock: vi.fn(),
+}))
 
-  return {
-    authStoreMock: reactive({
+vi.mock('@/auth/model/auth.store', async () => {
+  const { reactive } = await import('vue')
+
+  if (!mocks.authStoreMock) {
+    mocks.authStoreMock = reactive({
       appContext: {
         organizationId: 'org-1',
         establishmentId: 'est-1',
         organizationRole: 'ORG_EMPLOYEE',
         organizationName: null,
         establishmentName: null,
-      } as null | {
-        organizationId: null | string
-        establishmentId: null | string
-        organizationRole: null | string
-        organizationName: null | string
-        establishmentName: null | string
       },
       requiresEstablishmentSelection: false,
-    }),
-    appEnvMock: {
-      mode: 'test',
-      isDevelopment: true,
-      isProduction: false,
-      apiBaseUrl: 'http://localhost:8080',
-      defaultOrganizationId: undefined as string | undefined,
-      defaultEstablishmentId: undefined as string | undefined,
-      showDevLoginHint: false,
-    },
-    listTemperatureUnitsMock: vi.fn(),
+    })
+  }
+
+  return {
+    useAuthStore: () => mocks.authStoreMock,
   }
 })
 
-vi.mock('@/auth/model/auth.store', () => ({
-  useAuthStore: () => authStoreMock,
-}))
-
 vi.mock('@/ik-mat/api/temperature.api', () => ({
-  listTemperatureUnits: listTemperatureUnitsMock,
+  listTemperatureUnits: mocks.listTemperatureUnitsMock,
 }))
 
 vi.mock('@/shared/config/env', () => ({
-  appEnv: appEnvMock,
+  appEnv: mocks.appEnvMock,
 }))
 
 function mountTile() {
@@ -102,22 +109,26 @@ function mountTile() {
 
 describe('TemperatureTile', () => {
   afterEach(() => {
-    listTemperatureUnitsMock.mockReset()
-    authStoreMock.appContext = {
+    mocks.listTemperatureUnitsMock.mockReset()
+    if (!mocks.authStoreMock) {
+      throw new Error('authStoreMock was not initialized')
+    }
+
+    mocks.authStoreMock.appContext = {
       organizationId: 'org-1',
       establishmentId: 'est-1',
       organizationRole: 'ORG_EMPLOYEE',
       organizationName: null,
       establishmentName: null,
     }
-    authStoreMock.requiresEstablishmentSelection = false
-    appEnvMock.isDevelopment = true
-    appEnvMock.defaultOrganizationId = undefined
-    appEnvMock.defaultEstablishmentId = undefined
+    mocks.authStoreMock.requiresEstablishmentSelection = false
+    mocks.appEnvMock.isDevelopment = true
+    mocks.appEnvMock.defaultOrganizationId = undefined
+    mocks.appEnvMock.defaultEstablishmentId = undefined
   })
 
   it('passes a route location to the tile link', async () => {
-    listTemperatureUnitsMock.mockResolvedValue([createUnit('unit-1', 'Sushi prep fridge')])
+    mocks.listTemperatureUnitsMock.mockResolvedValue([createUnit('unit-1', 'Sushi prep fridge')])
 
     const wrapper = mountTile()
     await flushPromises()
@@ -127,14 +138,18 @@ describe('TemperatureTile', () => {
 
   it('stops loading immediately when context becomes unavailable', async () => {
     const deferred = createDeferred<ReturnType<typeof createUnit>[]>()
-    listTemperatureUnitsMock.mockReturnValueOnce(deferred.promise)
+    mocks.listTemperatureUnitsMock.mockReturnValueOnce(deferred.promise)
 
     const wrapper = mountTile()
     await nextTick()
 
     expect(wrapper.text()).toContain('Loading temperature units...')
 
-    authStoreMock.appContext = {
+    if (!mocks.authStoreMock) {
+      throw new Error('authStoreMock was not initialized')
+    }
+
+    mocks.authStoreMock.appContext = {
       organizationId: null,
       establishmentId: null,
       organizationRole: null,
@@ -157,14 +172,18 @@ describe('TemperatureTile', () => {
     const firstRequest = createDeferred<ReturnType<typeof createUnit>[]>()
     const secondRequest = createDeferred<ReturnType<typeof createUnit>[]>()
 
-    listTemperatureUnitsMock.mockImplementation(({ organizationId }: { organizationId: string }) => {
+    mocks.listTemperatureUnitsMock.mockImplementation(({ organizationId }: { organizationId: string }) => {
       return organizationId === 'org-1' ? firstRequest.promise : secondRequest.promise
     })
 
     const wrapper = mountTile()
     await nextTick()
 
-    authStoreMock.appContext = {
+    if (!mocks.authStoreMock) {
+      throw new Error('authStoreMock was not initialized')
+    }
+
+    mocks.authStoreMock.appContext = {
       organizationId: 'org-2',
       establishmentId: 'est-2',
       organizationRole: 'ORG_EMPLOYEE',
@@ -185,7 +204,7 @@ describe('TemperatureTile', () => {
   })
 
   it('shows API errors from the latest request only', async () => {
-    listTemperatureUnitsMock.mockRejectedValue(new ApiError('Could not load temperature units.', 500))
+    mocks.listTemperatureUnitsMock.mockRejectedValue(new ApiError('Could not load temperature units.', 500))
 
     const wrapper = mountTile()
     await flushPromises()
