@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import TemperatureSparkline from '@/ik-mat/components/TemperatureSparkline.vue'
 import {
   createTemperatureLog,
@@ -24,7 +25,6 @@ import {
   isTemperatureWithinRange,
 } from '@/ik-mat/model/temperature.utils'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 
 type TemperatureFilter = 'ALL' | 'OVERDUE' | 'DUE_SOON'
 type SaveState = 'IDLE' | 'SAVING'
@@ -38,6 +38,7 @@ type TemperatureSaveResult = {
 }
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 
 const units = ref<TemperatureUnit[]>([])
 const now = ref(new Date())
@@ -65,14 +66,10 @@ const filterOptions: Array<{ value: TemperatureFilter; label: string }> = [
   { value: 'DUE_SOON', label: 'Due soon' },
 ]
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
-const hasTemperatureContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+const hasTemperatureContext = computed(() => workspaceContext.hasEstablishmentContext.value)
 const canManageTemperatureUnits = computed(() => {
   if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
     return true
@@ -85,15 +82,19 @@ const canManageTemperatureUnits = computed(() => {
 })
 
 const missingContextMessage = computed(() => {
+  if (workspaceContext.isStartupPending.value) {
+    return null
+  }
+
   if (hasTemperatureContext.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Temperature logs cannot be loaded until organization and establishment context is available.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment to load temperature units.'
   }
 
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to load temperature units.'
+  return 'Temperature logs cannot be loaded until organization and establishment context is available.'
 })
 
 const unitsWithStatus = computed<TemperatureUnitListItem[]>(() => {
