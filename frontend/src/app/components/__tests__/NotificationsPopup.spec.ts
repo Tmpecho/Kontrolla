@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -27,6 +27,10 @@ describe('NotificationsPopup', () => {
     refreshUnreadCountMock.mockReset()
     refreshUnreadCountMock.mockResolvedValue(3)
     setUnreadCountMock.mockReset()
+  })
+
+  afterEach(() => {
+    document.body.innerHTML = ''
   })
 
   it('loads recent notifications and shows the view-all link', async () => {
@@ -62,18 +66,23 @@ describe('NotificationsPopup', () => {
     await router.isReady()
 
     const { default: NotificationsPopup } = await import('@/app/components/NotificationsPopup.vue')
-    const wrapper = mount(NotificationsPopup, {
+    mount(NotificationsPopup, {
       attachTo: document.body,
+      props: {
+        open: true,
+      },
       global: {
         plugins: [router],
       },
     })
 
     await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('Morning shift')
+      expect(document.body.textContent).toContain('Morning shift')
     })
 
-    expect(wrapper.get('.view-all-link').attributes('href')).toBe('/app/notifications')
+    expect(document.body.querySelector('.view-all-link')?.getAttribute('href')).toBe(
+      '/app/notifications',
+    )
   })
 
   it('marks an unread notification as read from the popup', async () => {
@@ -124,24 +133,27 @@ describe('NotificationsPopup', () => {
     await router.isReady()
 
     const { default: NotificationsPopup } = await import('@/app/components/NotificationsPopup.vue')
-    const wrapper = mount(NotificationsPopup, {
+    mount(NotificationsPopup, {
       attachTo: document.body,
+      props: {
+        open: true,
+      },
       global: {
         plugins: [router],
       },
     })
 
     await vi.waitFor(() => {
-      expect(wrapper.find('.notification-read-button').exists()).toBe(true)
+      expect(document.body.querySelector('.notification-read-button')).not.toBeNull()
     })
 
-    await wrapper.get('.notification-read-button').trigger('click')
+    ;(document.body.querySelector('.notification-read-button') as HTMLButtonElement).click()
 
     await vi.waitFor(() => {
       expect(markNotificationReadMock).toHaveBeenCalledWith('notification-1')
       expect(setUnreadCountMock).toHaveBeenCalledWith(2)
-      expect(wrapper.find('.notification-read-button').exists()).toBe(false)
-      expect(wrapper.find('.notification-link-read').exists()).toBe(true)
+      expect(document.body.querySelector('.notification-read-button')).toBeNull()
+      expect(document.body.querySelector('.notification-link-read')).not.toBeNull()
     })
   })
 
@@ -179,22 +191,25 @@ describe('NotificationsPopup', () => {
     await router.isReady()
 
     const { default: NotificationsPopup } = await import('@/app/components/NotificationsPopup.vue')
-    const wrapper = mount(NotificationsPopup, {
+    mount(NotificationsPopup, {
       attachTo: document.body,
+      props: {
+        open: true,
+      },
       global: {
         plugins: [router],
       },
     })
 
     await vi.waitFor(() => {
-      expect(wrapper.find('.notification-read-button').exists()).toBe(true)
+      expect(document.body.querySelector('.notification-read-button')).not.toBeNull()
     })
 
-    await wrapper.get('.notification-read-button').trigger('click')
+    ;(document.body.querySelector('.notification-read-button') as HTMLButtonElement).click()
     await flushPromises()
 
     expect(setUnreadCountMock).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Unable to mark this notification as read.')
-    expect(wrapper.find('.notification-read-button').exists()).toBe(true)
+    expect(document.body.textContent).toContain('Unable to mark this notification as read.')
+    expect(document.body.querySelector('.notification-read-button')).not.toBeNull()
   })
 })

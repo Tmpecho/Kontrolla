@@ -82,6 +82,7 @@ vi.mock('vue-router', () => ({
 
 describe('DeviationPage', () => {
   afterEach(() => {
+    document.body.innerHTML = ''
     addDeviationTimelineNoteMock.mockReset()
     assignDeviationMock.mockReset()
     getDeviationMock.mockReset()
@@ -94,6 +95,7 @@ describe('DeviationPage', () => {
     authStoreMock.establishments = []
     routeState.name = 'ik-mat-deviation'
     routeState.query = { deviationId: 'dev-1' }
+    window.innerWidth = 1024
   })
 
   it('loads selected deviation details and adds a timeline note', async () => {
@@ -455,5 +457,70 @@ describe('DeviationPage', () => {
     expect(assigneeOptions).toContain('Unassigned')
     expect(assigneeOptions).toContain('Est One')
     expect(assigneeOptions).not.toContain('Est Two')
+  })
+
+  it('renders selected deviation details in the shared mobile drawer and closes on backdrop click', async () => {
+    window.innerWidth = 900
+
+    listEstablishmentDeviationsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'dev-1',
+          organizationId: 'org-1',
+          establishmentId: 'est-1',
+          createdByUserId: 'user-1',
+          assignedToUserId: null,
+          title: 'Walk-in fridge too warm',
+          description: 'Opening check measured 10C.',
+          status: 'OPEN',
+          severity: 'HIGH',
+          category: 'TEMPERATURE',
+          createdAt: '2026-04-06T08:00:00Z',
+          updatedAt: '2026-04-06T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    listOrganizationMembersMock.mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+      totalPages: 1,
+    })
+    getDeviationMock.mockResolvedValue({
+      id: 'dev-1',
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      createdByUserId: 'user-1',
+      assignedToUserId: null,
+      title: 'Walk-in fridge too warm',
+      description: 'Opening check measured 10C.',
+      status: 'OPEN',
+      severity: 'HIGH',
+      category: 'TEMPERATURE',
+      createdAt: '2026-04-06T08:00:00Z',
+      updatedAt: '2026-04-06T08:00:00Z',
+      timeline: [],
+    })
+
+    mount(DeviationPage, { attachTo: document.body })
+    await flushPromises()
+
+    expect(document.body.querySelector('.app-overlay-panel')).not.toBeNull()
+    expect(document.body.textContent).toContain('Walk-in fridge too warm')
+
+    const backdrop = document.body.querySelector('.app-overlay-backdrop')
+    expect(backdrop).not.toBeNull()
+
+    backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+
+    expect(routerReplaceMock).toHaveBeenCalledWith({
+      query: {},
+    })
   })
 })

@@ -1,138 +1,50 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import TopBar from '@/app/components/TopBar.vue'
 import Sidebar from '@/app/components/Sidebar.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useNotificationsStore } from '@/notifications/model/notifications.store'
+import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
-const topBar = ref<InstanceType<typeof TopBar> | null>(null)
-const mobileNavigationDrawer = ref<HTMLElement | null>(null)
 const isMobileNavigationOpen = ref(false)
-const previousBodyOverflow = ref<string | null>(null)
 const notificationsStore = useNotificationsStore()
 
 function handleMobileNavigationToggle() {
-  if (isMobileNavigationOpen.value) {
-    closeMobileNavigation()
-    return
-  }
-
-  isMobileNavigationOpen.value = true
+  isMobileNavigationOpen.value = !isMobileNavigationOpen.value
 }
 
-function closeMobileNavigation(returnFocus = true) {
+function closeMobileNavigation() {
   if (!isMobileNavigationOpen.value) {
     return
   }
 
   isMobileNavigationOpen.value = false
-
-  if (returnFocus) {
-    void nextTick(() => {
-      topBar.value?.focusMobileNavTrigger()
-    })
-  }
-}
-
-function handleEscape(event: KeyboardEvent) {
-  if (event.key === 'Escape' && isMobileNavigationOpen.value) {
-    closeMobileNavigation()
-  }
-}
-
-function getFocusableDrawerElements() {
-  return mobileNavigationDrawer.value?.querySelectorAll<HTMLElement>(
-    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  )
-}
-
-function handleMobileNavigationKeydown(event: KeyboardEvent) {
-  if (!isMobileNavigationOpen.value || event.key !== 'Tab') {
-    return
-  }
-
-  const focusableElements = getFocusableDrawerElements()
-
-  if (!focusableElements || focusableElements.length === 0) {
-    event.preventDefault()
-    mobileNavigationDrawer.value?.focus()
-    return
-  }
-
-  const firstFocusableElement = focusableElements.item(0)
-  const lastFocusableElement = focusableElements.item(focusableElements.length - 1)
-  const activeElement = document.activeElement
-
-  if (!firstFocusableElement || !lastFocusableElement) {
-    event.preventDefault()
-    mobileNavigationDrawer.value?.focus()
-    return
-  }
-
-  if (event.shiftKey && activeElement === mobileNavigationDrawer.value) {
-    event.preventDefault()
-    lastFocusableElement.focus()
-    return
-  }
-
-  if (event.shiftKey && activeElement === firstFocusableElement) {
-    event.preventDefault()
-    lastFocusableElement.focus()
-    return
-  }
-
-  if (!event.shiftKey && activeElement === lastFocusableElement) {
-    event.preventDefault()
-    firstFocusableElement.focus()
-  }
 }
 
 function handleResize() {
   if (window.innerWidth > 960 && isMobileNavigationOpen.value) {
-    closeMobileNavigation(false)
+    closeMobileNavigation()
   }
 }
 
 watch(
   () => route.fullPath,
   () => {
-    closeMobileNavigation(false)
+    closeMobileNavigation()
   },
 )
 
-watch(isMobileNavigationOpen, async (isOpen) => {
-  if (isOpen) {
-    previousBodyOverflow.value = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-  } else if (previousBodyOverflow.value !== null) {
-    document.body.style.overflow = previousBodyOverflow.value
-    previousBodyOverflow.value = null
-  }
-
-  if (isOpen) {
-    await nextTick()
-    mobileNavigationDrawer.value?.focus()
-  }
-})
-
 onMounted(() => {
-  document.addEventListener('keydown', handleEscape)
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', handleEscape)
   window.removeEventListener('resize', handleResize)
   notificationsStore.stopPolling()
-
-  if (previousBodyOverflow.value !== null) {
-    document.body.style.overflow = previousBodyOverflow.value
-    previousBodyOverflow.value = null
-  }
 })
 
 watch(
@@ -151,33 +63,20 @@ watch(
 
 <template>
   <div class="app-shell">
-    <TopBar
-      ref="topBar"
-      :mobile-nav-open="isMobileNavigationOpen"
-      @toggle-mobile-nav="handleMobileNavigationToggle"
-    />
+    <TopBar :mobile-nav-open="isMobileNavigationOpen" @toggle-mobile-nav="handleMobileNavigationToggle" />
 
     <div class="app-body">
       <Sidebar class="desktop-sidebar" />
 
-      <div
-        v-if="isMobileNavigationOpen"
-        class="mobile-navigation-layer"
+      <AppOverlay
+        :open="isMobileNavigationOpen"
+        aria-label="App navigation"
+        panel-id="mobile-navigation"
+        variant="drawer-left"
+        @close="closeMobileNavigation"
       >
-        <div class="mobile-navigation-backdrop" @click="closeMobileNavigation()" />
-        <aside
-          id="mobile-navigation"
-          ref="mobileNavigationDrawer"
-          class="mobile-navigation-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-label="App navigation"
-          tabindex="-1"
-          @keydown="handleMobileNavigationKeydown"
-        >
-          <Sidebar variant="mobile" @navigate="closeMobileNavigation(false)" />
-        </aside>
-      </div>
+        <Sidebar variant="mobile" @navigate="closeMobileNavigation" />
+      </AppOverlay>
 
       <main class="app-content" :class="{ 'app-content--nav-open': isMobileNavigationOpen }">
         <RouterView />
@@ -203,10 +102,6 @@ watch(
   overflow: hidden;
 }
 
-.mobile-navigation-layer {
-  display: none;
-}
-
 .app-content {
   flex: 1;
   padding: 24px;
@@ -217,30 +112,6 @@ watch(
 @media (max-width: 960px) {
   .desktop-sidebar {
     display: none;
-  }
-
-  .mobile-navigation-layer {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    display: block;
-  }
-
-  .mobile-navigation-backdrop {
-    position: absolute;
-    inset: 0;
-    background-color: rgba(15, 23, 42, 0.32);
-  }
-
-  .mobile-navigation-drawer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: min(86vw, 320px);
-    background-color: var(--color-white);
-    box-shadow: var(--shadow-elevated);
-    outline: none;
   }
 
   .app-content {

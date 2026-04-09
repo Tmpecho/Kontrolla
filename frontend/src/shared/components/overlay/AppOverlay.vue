@@ -8,6 +8,7 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     variant: OverlayVariant
+    panelId?: string
     modal?: boolean
     anchorEl?: HTMLElement | null
     closeOnEscape?: boolean
@@ -17,6 +18,7 @@ const props = withDefaults(
     ariaLabelledby?: string
   }>(),
   {
+    panelId: undefined,
     modal: undefined,
     anchorEl: null,
     closeOnEscape: true,
@@ -54,17 +56,21 @@ function isTargetWithinAnchor(target: Node | null) {
 }
 
 function getFocusableElements() {
-  return (
-    panelRef.value?.querySelectorAll<HTMLElement>(
+  if (!panelRef.value) {
+    return []
+  }
+
+  return Array.from(
+    panelRef.value.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ) ?? []
+    ),
   )
 }
 
 function focusInitialElement() {
   const focusableElements = getFocusableElements()
   if (focusableElements.length > 0) {
-    focusableElements.item(0)?.focus()
+    focusableElements[0]?.focus()
     return
   }
 
@@ -105,8 +111,8 @@ function trapFocus(event: KeyboardEvent) {
     return
   }
 
-  const firstFocusableElement = focusableElements.item(0)
-  const lastFocusableElement = focusableElements.item(focusableElements.length - 1)
+  const firstFocusableElement = focusableElements[0]
+  const lastFocusableElement = focusableElements[focusableElements.length - 1]
   const activeElement = document.activeElement
   const focusIsInsideOverlay = activeElement instanceof Node && overlayElement.contains(activeElement)
 
@@ -322,6 +328,7 @@ onBeforeUnmount(() => {
 
       <div
         ref="panelRef"
+        :id="panelId"
         class="app-overlay-panel"
         :data-variant="variant"
         :style="panelStyle"
