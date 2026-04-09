@@ -816,6 +816,7 @@ watch(
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .directory-table-shell {
@@ -1092,15 +1093,146 @@ watch(
     flex-direction: column;
     align-items: start;
   }
+
+  .directory-actions {
+    width: 100%;
+  }
 }
 
 @media (max-width: 980px) {
   .directory-table-shell {
-    overflow-x: auto;
+    overflow: visible;
+    border: 0;
+    background: transparent;
   }
 
-  .directory-table {
-    min-width: 760px;
+  .directory-table-head {
+    display: none;
+  }
+
+  .directory-table,
+  .directory-table-row,
+  .directory-table-row-create {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directory-table-row,
+  .directory-table-row-create {
+    gap: 0;
+    border: 1px solid #e1e5ef;
+    border-radius: 4px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .directory-table-row + .directory-table-row,
+  .directory-table-row-create + .directory-table-row {
+    margin-top: 12px;
+  }
+
+  .directory-table-row-create {
+    margin-bottom: 12px;
+  }
+
+  .directory-table-row[data-self-member='true'] {
+    background: linear-gradient(180deg, #fff4dd 0%, #fff9ef 100%);
+  }
+
+  .cell {
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #edf0f6;
+  }
+
+  .directory-table-row .cell:last-child,
+  .directory-table-row-create .cell:last-child {
+    border-bottom: 0;
+  }
+
+  .cell::before {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-label);
+    font-weight: 600;
+    letter-spacing: var(--field-label-letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .directory-table-row .cell:nth-child(1)::before,
+  .directory-table-row-create .cell:nth-child(1)::before {
+    content: 'Member details';
+  }
+
+  .directory-table-row .cell:nth-child(2)::before,
+  .directory-table-row-create .cell:nth-child(2)::before {
+    content: 'Role';
+  }
+
+  .directory-table-row .cell:nth-child(3)::before,
+  .directory-table-row-create .cell:nth-child(3)::before {
+    content: 'Status';
+  }
+
+  .directory-table-row-create .cell:nth-child(4)::before {
+    content: 'Actions';
+  }
+
+  .composer-fields,
+  .composer-actions,
+  .status-cell,
+  .actions-cell {
+    align-items: stretch;
+  }
+
+  .composer-actions .primary-button,
+  .composer-actions .secondary-button,
+  .directory-actions .primary-button,
+  .directory-actions .secondary-button {
+    width: 100%;
+  }
+
+  .switch-field {
+    width: 100%;
+  }
+
+  .blocked-field {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .directory-page {
+    gap: 20px;
+  }
+
+  .directory-panel,
+  .notice-panel,
+  .invite-link-panel {
+    padding: 16px;
+  }
+
+  .directory-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .directory-actions .icon-button {
+    width: 100%;
+  }
+
+  .member-copy strong {
+    font-size: var(--font-size-body);
+  }
+
+  .member-copy span,
+  .pending-note,
+  .state-message,
+  .directory-header p {
+    font-size: var(--font-size-body-sm);
+  }
+
+  .composer-fields {
+    gap: 10px;
   }
 }
 </style>
