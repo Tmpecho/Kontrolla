@@ -159,10 +159,6 @@ function clearError(): void {
   errorMessage.value = null
 }
 
-function clearFieldError(field: 'title' | 'category' | 'description'): void {
-  clearError()
-}
-
 async function onSubmit() {
   const resolvedOrganizationId = organizationId.value
   const resolvedEstablishmentId = establishmentId.value
@@ -243,7 +239,7 @@ watch(
           type="text"
           v-model="form.title"
           :error="titleError"
-          @update:model-value="clearFieldError('title')"
+          @update:model-value="clearError"
         />
       </div>
 
@@ -256,7 +252,7 @@ watch(
             class="input-field"
             :class="{ 'input-field-error': Boolean(categoryError) }"
             :aria-invalid="Boolean(categoryError)"
-            @change="clearFieldError('category')"
+            @change="clearError"
           >
             <option v-for="category in categoryOptions" :key="category" :value="category">
               {{ category }}
@@ -282,7 +278,7 @@ watch(
           type="text-area"
           v-model="form.description"
           :error="descriptionError"
-          @update:model-value="clearFieldError('description')"
+          @update:model-value="clearError"
         />
       </div>
 
