@@ -161,6 +161,50 @@ class ChecklistRunServiceIntegrationTest {
 	}
 
 	@Test
+	void removingAssignmentDoesNotRestoreItWhenAnotherUserIsAssignedLater() {
+		User manager = createUser("manager-reassign@example.com");
+		User removedEmployee = createUser("removed-employee@example.com");
+		User addedEmployee = createUser("added-employee@example.com");
+		Organization organization = createOrganization("Kontrolla Reassign");
+		Establishment establishment = createEstablishment(organization, "Sushi Reassign");
+		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+		createMembership(organization, removedEmployee, OrganizationRole.ORG_EMPLOYEE);
+		createMembership(organization, addedEmployee, OrganizationRole.ORG_EMPLOYEE);
+
+		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+		ChecklistRun run = createRun(definition, establishment, manager);
+
+		ChecklistRun initiallyAssignedRun = checklistRunService.assignChecklistRun(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				List.of(removedEmployee.getId()),
+				currentUser(manager)
+		);
+
+		UUID assignmentId = initiallyAssignedRun.getAssignments().iterator().next().getId();
+		checklistRunService.removeChecklistRunAssignment(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				assignmentId,
+				currentUser(manager)
+		);
+
+		ChecklistRun reassignedRun = checklistRunService.assignChecklistRun(
+				organization.getId(),
+				establishment.getId(),
+				run.getId(),
+				List.of(addedEmployee.getId()),
+				currentUser(manager)
+		);
+
+		assertThat(reassignedRun.getAssignments())
+				.extracting(assignment -> assignment.getAssignedUser().getId())
+				.containsExactly(addedEmployee.getId());
+	}
+
+	@Test
 	void updatingTheLastRequiredTaskMarksRunCompletedWithActorAndEvent() {
 		User manager = createUser("manager-update@example.com");
 		User employee = createUser("employee-update@example.com");

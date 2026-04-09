@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import type { ChecklistRun, ChecklistTaskExecution } from '@/checklists/model/checklist.types'
 import {
+  assignChecklistRun,
   cancelChecklistRun,
+  removeChecklistRunAssignment,
   reopenChecklistRun,
   resetChecklistRun,
   updateChecklistRunTask,
   type SubmitChecklistRunTaskInput,
 } from '@/checklists/api/checklist-runs.api'
-import { AlertCircle, Check, Circle, CircleDashed } from 'lucide-vue-next'
+import { listOrganizationMembers } from '@/account/api/organization-members.api'
+import type { OrganizationMembership } from '@/account/model/organization-members.types'
+import { useAuthStore } from '@/auth/model/auth.store'
+import { AlertCircle, Check, Circle, CircleDashed, Trash2, UserPlus } from 'lucide-vue-next'
 import ChecklistTaskItem from './ChecklistTaskItem.vue'
 import { computed, ref, watch } from 'vue'
+import { ApiError } from '@/shared/api/http'
 
 type AutoSaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
@@ -19,16 +25,26 @@ const props = defineProps<{
   establishmentId: string
   selected?: boolean
   forceExpanded?: boolean
+  showSetupActions?: boolean
+  canManageAssignments?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:run', run: ChecklistRun): void
+  (e: 'edit:definitionGroup', definitionGroupId: string): void
 }>()
 
 const workingTasks = ref<ChecklistTaskExecution[]>([])
 const isSaving = ref(false)
 const isExpanded = ref(false)
 const autoSaveState = ref<AutoSaveState>('idle')
+const assignmentMembers = ref<OrganizationMembership[]>([])
+const isAssignmentPanelOpen = ref(false)
+const isLoadingAssignmentMembers = ref(false)
+const isAssigning = ref(false)
+const selectedAssigneeId = ref('')
+const assignmentErrorMessage = ref<string | null>(null)
+const authStore = useAuthStore()
 
 const cloneTasks = (tasks?: ChecklistTaskExecution[]) =>
   tasks ? JSON.parse(JSON.stringify(tasks)) : []
@@ -49,6 +65,21 @@ watch(
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => props.run.assignments,
+  () => {
+    if (
+      selectedAssigneeId.value &&
+      props.run.assignments.some(
+        (assignment) => assignment.assignedUserId === selectedAssigneeId.value,
+      )
+    ) {
+      selectedAssigneeId.value = ''
+    }
+  },
+  { deep: true },
 )
 
 const isPending = computed(() => props.run.status === 'PENDING')
@@ -79,6 +110,25 @@ const assignedSummary = computed(() => {
 
   return count === 1 ? '1 assigned' : `${count} assigned`
 })
+
+const currentUserId = computed(() => authStore.user?.id ?? null)
+
+const canAssignRuns = computed(() => props.canManageAssignments === true)
+
+const assignedUserIds = computed(
+  () => new Set(props.run.assignments.map((assignment) => assignment.assignedUserId)),
+)
+
+const availableAssignmentMembers = computed(() =>
+  assignmentMembers.value.filter((member) => !assignedUserIds.value.has(member.userId)),
+)
+
+const currentUserAssignmentOption = computed(() =>
+  currentUserId.value
+    ? (availableAssignmentMembers.value.find((member) => member.userId === currentUserId.value) ??
+      null)
+    : null,
+)
 
 const STATUS_CLASSES: Record<string, string> = {
   COMPLETED: 'status-success',
@@ -173,6 +223,105 @@ const handleReopen = withLoading(() => reopenChecklistRun(baseParams.value))
 const toggleExpanded = () => {
   isExpanded.value = !isExpanded.value
 }
+const handleEditSetup = () => {
+  emit('edit:definitionGroup', props.run.definitionGroupId)
+}
+
+const formatMemberName = (member: OrganizationMembership) => {
+  const fullName = `${member.userFirstName} ${member.userLastName}`.trim()
+  return fullName || member.userEmail
+}
+
+async function loadAssignmentMembers(): Promise<void> {
+  if (
+    !canAssignRuns.value ||
+    isLoadingAssignmentMembers.value ||
+    assignmentMembers.value.length > 0
+  ) {
+    return
+  }
+
+  isLoadingAssignmentMembers.value = true
+  assignmentErrorMessage.value = null
+
+  try {
+    const page = await listOrganizationMembers({
+      organizationId: props.organizationId,
+      establishmentId: props.run.establishmentId || props.establishmentId,
+      includeInactive: false,
+      size: 200,
+    })
+
+    assignmentMembers.value = page.items.filter((member) => member.active)
+  } catch (error) {
+    assignmentErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load assignable members.'
+  } finally {
+    isLoadingAssignmentMembers.value = false
+  }
+}
+
+async function toggleAssignmentPanel(): Promise<void> {
+  isAssignmentPanelOpen.value = !isAssignmentPanelOpen.value
+
+  if (isAssignmentPanelOpen.value) {
+    await loadAssignmentMembers()
+  }
+}
+
+async function applyAssignment(userIds: string[]): Promise<void> {
+  if (!canAssignRuns.value || userIds.length === 0) {
+    return
+  }
+
+  isAssigning.value = true
+  assignmentErrorMessage.value = null
+
+  try {
+    const updatedRun = await assignChecklistRun(baseParams.value, { assignedUserIds: userIds })
+    emit('update:run', updatedRun)
+    selectedAssigneeId.value = ''
+  } catch (error) {
+    assignmentErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to assign checklist run.'
+  } finally {
+    isAssigning.value = false
+  }
+}
+
+async function handleAssignSelected(): Promise<void> {
+  if (!selectedAssigneeId.value) {
+    return
+  }
+
+  await applyAssignment([selectedAssigneeId.value])
+}
+
+async function handleAssignToMe(): Promise<void> {
+  if (!currentUserAssignmentOption.value) {
+    return
+  }
+
+  await applyAssignment([currentUserAssignmentOption.value.userId])
+}
+
+async function handleRemoveAssignment(assignmentId: string): Promise<void> {
+  isAssigning.value = true
+  assignmentErrorMessage.value = null
+
+  try {
+    await removeChecklistRunAssignment({ ...baseParams.value, assignmentId })
+    emit('update:run', {
+      ...props.run,
+      assignments: props.run.assignments.filter((assignment) => assignment.id !== assignmentId),
+    })
+  } catch (error) {
+    assignmentErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to remove assignment.'
+  } finally {
+    isAssigning.value = false
+  }
+}
 
 const toSubmitInput = (task: ChecklistTaskExecution): SubmitChecklistRunTaskInput => ({
   checklistTaskExecutionId: task.checklistTaskExecutionId,
@@ -234,6 +383,14 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
           <h3 class="run-title">{{ run.title }}</h3>
         </div>
         <div class="header-actions">
+          <button
+            v-if="showSetupActions"
+            type="button"
+            class="btn btn-secondary btn-compact"
+            @click.stop="handleEditSetup"
+          >
+            Edit setup
+          </button>
           <span class="status-badge" :class="statusMeta.class">{{ statusMeta.label }}</span>
           <span class="header-divider" aria-hidden="true"></span>
           <svg
@@ -256,6 +413,16 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
           <span class="header-meta-label">Assigned</span>
           <span class="header-meta-value">{{ assignedSummary }}</span>
         </div>
+      </div>
+      <div v-if="canAssignRuns" class="header-tools">
+        <button
+          type="button"
+          class="btn btn-secondary btn-compact assignment-toggle"
+          @click.stop="toggleAssignmentPanel"
+        >
+          <UserPlus :size="14" aria-hidden="true" />
+          {{ isAssignmentPanelOpen ? 'Hide assignment' : 'Assign' }}
+        </button>
       </div>
       <div class="progress-strip" aria-label="Checklist progress summary">
         <div class="progress-track" aria-hidden="true"></div>
@@ -286,6 +453,84 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
         </div>
       </div>
     </header>
+
+    <section v-if="canAssignRuns && isAssignmentPanelOpen" class="assignment-panel">
+      <div class="assignment-panel-header">
+        <div>
+          <h4 class="tasks-heading">Assignments</h4>
+          <p class="assignment-help">Assign staff with access to this establishment.</p>
+        </div>
+      </div>
+
+      <div class="assignment-chip-list">
+        <div v-for="assignment in run.assignments" :key="assignment.id" class="assignment-chip">
+          <span>{{ assignment.assignedUserName || 'Assigned user' }}</span>
+          <button
+            type="button"
+            class="assignment-chip-remove"
+            aria-label="Remove assignment"
+            :disabled="isAssigning"
+            @click.stop="handleRemoveAssignment(assignment.id)"
+          >
+            <Trash2 :size="13" aria-hidden="true" />
+          </button>
+        </div>
+        <p v-if="run.assignments.length === 0" class="empty-text assignment-empty">
+          No one assigned yet.
+        </p>
+      </div>
+
+      <div class="assignment-controls">
+        <button
+          type="button"
+          class="btn btn-secondary btn-compact"
+          :disabled="!currentUserAssignmentOption || isAssigning"
+          @click="handleAssignToMe"
+        >
+          <UserPlus :size="14" aria-hidden="true" />
+          Assign to me
+        </button>
+
+        <label class="assignment-select">
+          <span class="assignment-label">Assign member</span>
+          <select
+            v-model="selectedAssigneeId"
+            :disabled="
+              isLoadingAssignmentMembers || isAssigning || availableAssignmentMembers.length === 0
+            "
+          >
+            <option value="">
+              {{
+                isLoadingAssignmentMembers
+                  ? 'Loading members...'
+                  : availableAssignmentMembers.length === 0
+                    ? 'No available members'
+                    : 'Select member'
+              }}
+            </option>
+            <option
+              v-for="member in availableAssignmentMembers"
+              :key="member.id"
+              :value="member.userId"
+            >
+              {{ formatMemberName(member) }}
+            </option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          class="btn btn-primary btn-compact"
+          :disabled="!selectedAssigneeId || isAssigning"
+          @click="handleAssignSelected"
+        >
+          <UserPlus :size="14" aria-hidden="true" />
+          Add assignee
+        </button>
+      </div>
+
+      <p v-if="assignmentErrorMessage" class="assignment-error">{{ assignmentErrorMessage }}</p>
+    </section>
 
     <!-- Tasks Section -->
     <div v-if="isExpanded" class="tasks-container">
@@ -342,7 +587,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .run-card {
   background: var(--color-container);
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -443,6 +688,11 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   gap: 1rem;
   flex-wrap: wrap;
   margin-top: 0.45rem;
+}
+.header-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
 }
 .header-meta-item {
   display: flex;
@@ -553,6 +803,116 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   padding: 0.5rem;
 }
 
+.assignment-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 0.95rem 1.05rem;
+  border-top: 1px solid var(--color-border-muted);
+  border-bottom: 1px solid var(--color-border-muted);
+  border-radius: 0.5cqh;
+  background: color-mix(in srgb, var(--color-surface) 36%, white);
+}
+
+.assignment-panel-header h4,
+.assignment-help {
+  margin: 0;
+}
+
+.assignment-help {
+  margin-top: 0.2rem;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.assignment-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.assignment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0.28rem 0.35rem 0.28rem 0.65rem;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 0.5cqh;
+  background: var(--color-container);
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+}
+
+.assignment-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.5cqh;
+  background: transparent;
+  color: var(--color-critical);
+  cursor: pointer;
+}
+
+.assignment-chip-remove:hover {
+  background: #fef2f2;
+  border-color: #f0b8b8;
+}
+
+.assignment-empty {
+  padding: 0;
+  text-align: left;
+}
+
+.assignment-controls {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.assignment-select {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.assignment-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.assignment-select select {
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.65rem 0.8rem 0.58rem;
+  border: none;
+  border-bottom: 1px solid #8d8d8d;
+  border-radius: 0.5cqh;
+  background: #f4f4f4;
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.assignment-select select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-bottom-color: var(--color-primary);
+  background: #fff;
+}
+
+.assignment-error {
+  margin: 0;
+  color: var(--color-critical);
+  font-size: 0.75rem;
+}
+
 .status-badge,
 .tasks-heading {
   font-weight: 600;
@@ -607,6 +967,10 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 }
 
 @media (max-width: 720px) {
+  .assignment-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .tasks-header {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -619,10 +983,20 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .btn {
   font: 600 0.75rem var(--font-sans, inherit);
   padding: 0.42rem 0.7rem;
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   border: 1px solid transparent;
   cursor: pointer;
   transition: 0.15s;
+}
+.btn-compact {
+  padding-inline: 0.6rem;
+}
+.assignment-toggle,
+.assignment-controls .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
 }
 .btn:disabled {
   opacity: 0.6;

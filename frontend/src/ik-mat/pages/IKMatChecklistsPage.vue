@@ -4,24 +4,37 @@ import { useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import ChecklistDefinitionManager from '@/checklists/components/ChecklistDefinitionManager.vue'
 import ChecklistRunCard from '@/checklists/components/ChecklistRunCard.vue'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun, ChecklistRunStatus } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 
-type TriageFilter = 'OVERDUE' | 'DUE_TODAY' | 'IN_PROGRESS' | 'COMPLETED'
+type TriageFilter = 'UPCOMING' | 'LATE' | 'DUE_TODAY' | 'IN_PROGRESS' | 'COMPLETED'
 
 const authStore = useAuthStore()
 const route = useRoute()
-const checklistRuns = ref<ChecklistRun[]>([])
+const allChecklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
-const activeFilter = ref<TriageFilter>('OVERDUE')
+const activeFilter = ref<TriageFilter>('UPCOMING')
 const searchQuery = ref('')
 const pinnedChecklistRunId = ref<string | null>(null)
+const requestedDefinitionGroupId = ref<string | null>(null)
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
+const canManageChecklistDefinitions = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN' ||
+    authStore.appContext?.organizationRole === 'ORG_MANAGER'
+  )
+})
 
 const resolvedChecklistContext = computed(() => {
   if (!authStore.isSessionReady) {
@@ -59,6 +72,15 @@ const resolvedChecklistContext = computed(() => {
 })
 
 const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
+const selectedManagementEstablishmentId = computed(() => {
+  const context = resolvedChecklistContext.value
+
+  if (!context || context.establishmentIds.length !== 1) {
+    return null
+  }
+
+  return context.establishmentIds[0] ?? null
+})
 
 const missingContextMessage = computed(() => {
   if (!authStore.isSessionReady) {
@@ -84,7 +106,7 @@ async function loadChecklistRuns(): Promise<void> {
   const context = resolvedChecklistContext.value
 
   if (!context) {
-    checklistRuns.value = []
+    allChecklistRuns.value = []
     errorMessage.value = null
     return
   }
@@ -99,12 +121,12 @@ async function loadChecklistRuns(): Promise<void> {
           organizationId: context.organizationId,
           establishmentId,
           serviceArea: 'IK_MAT',
-          size: 20,
+          size: 200,
         }),
       ),
     )
 
-    checklistRuns.value = selectLatestChecklistRuns(pages.flatMap((page) => page.items))
+    allChecklistRuns.value = pages.flatMap((page) => page.items)
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -113,8 +135,20 @@ async function loadChecklistRuns(): Promise<void> {
   }
 }
 
+async function handleDefinitionsSaved(): Promise<void> {
+  await loadChecklistRuns()
+}
+
+function handleDefinitionEditRequest(definitionGroupId: string): void {
+  requestedDefinitionGroupId.value = definitionGroupId
+}
+
+function clearDefinitionEditRequest(): void {
+  requestedDefinitionGroupId.value = null
+}
+
 function handleRunUpdate(updatedRun: ChecklistRun) {
-  checklistRuns.value = checklistRuns.value.map((run) =>
+  allChecklistRuns.value = allChecklistRuns.value.map((run) =>
     run.id === updatedRun.id ? updatedRun : run,
   )
 
@@ -141,8 +175,8 @@ function isOverdue(run: ChecklistRun): boolean {
   return new Date(run.dueAt).getTime() < new Date().getTime()
 }
 
-function isDueToday(run: ChecklistRun): boolean {
-  if (!ACTIVE_STATUSES.includes(run.status) || run.status === 'IN_PROGRESS' || isOverdue(run)) {
+function isDueOnCurrentDate(run: ChecklistRun): boolean {
+  if (!ACTIVE_STATUSES.includes(run.status) || run.status === 'IN_PROGRESS') {
     return false
   }
 
@@ -152,15 +186,36 @@ function isDueToday(run: ChecklistRun): boolean {
   return (
     dueDate.getFullYear() === now.getFullYear() &&
     dueDate.getMonth() === now.getMonth() &&
-    dueDate.getDate() === now.getDate() &&
-    dueDate.getTime() >= now.getTime()
+    dueDate.getDate() === now.getDate()
   )
+}
+
+function isDueToday(run: ChecklistRun): boolean {
+  return isDueOnCurrentDate(run)
+}
+
+function isLate(run: ChecklistRun): boolean {
+  if (run.status !== 'OVERDUE') {
+    return false
+  }
+
+  return !isDueOnCurrentDate(run)
+}
+
+function isUpcoming(run: ChecklistRun): boolean {
+  if (run.status !== 'PENDING') {
+    return false
+  }
+
+  return !isDueToday(run)
 }
 
 function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
   switch (filter) {
-    case 'OVERDUE':
-      return isOverdue(run)
+    case 'UPCOMING':
+      return isUpcoming(run)
+    case 'LATE':
+      return isLate(run)
     case 'DUE_TODAY':
       return isDueToday(run)
     case 'IN_PROGRESS':
@@ -170,9 +225,20 @@ function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
   }
 }
 
+const deduplicatedChecklistRuns = computed(() => selectLatestChecklistRuns(allChecklistRuns.value))
+
+function triageSourceRuns(filter: TriageFilter): ChecklistRun[] {
+  if (filter === 'UPCOMING' || filter === 'DUE_TODAY' || filter === 'LATE') {
+    return allChecklistRuns.value
+  }
+
+  return deduplicatedChecklistRuns.value
+}
+
 const triageOptions = computed(() => {
   const options: Array<{ key: TriageFilter; label: string; count: number }> = [
-    { key: 'OVERDUE', label: 'Overdue', count: 0 },
+    { key: 'UPCOMING', label: 'Upcoming', count: 0 },
+    { key: 'LATE', label: 'Late', count: 0 },
     { key: 'DUE_TODAY', label: 'Due today', count: 0 },
     { key: 'IN_PROGRESS', label: 'In progress', count: 0 },
     { key: 'COMPLETED', label: 'Completed', count: 0 },
@@ -180,7 +246,7 @@ const triageOptions = computed(() => {
 
   return options.map((option) => ({
     ...option,
-    count: checklistRuns.value.filter((run) => matchesFilter(run, option.key)).length,
+    count: triageSourceRuns(option.key).filter((run) => matchesFilter(run, option.key)).length,
   }))
 })
 
@@ -195,8 +261,9 @@ const isFilterVisuallyActive = (filter: TriageFilter) =>
 
 const filteredChecklistRuns = computed(() => {
   const normalizedQuery = searchQuery.value.trim().toLowerCase()
+  const sourceRuns = triageSourceRuns(activeFilter.value)
 
-  return checklistRuns.value.filter((run) => {
+  return sourceRuns.filter((run) => {
     const haystack = [run.title, run.description ?? '', run.status.replace(/_/g, ' ')]
       .join(' ')
       .toLowerCase()
@@ -209,13 +276,121 @@ const filteredChecklistRuns = computed(() => {
   })
 })
 
+function toLocalDateKey(value: string): string {
+  const date = new Date(value)
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatDateGroupLabel(value: string): string {
+  return new Intl.DateTimeFormat('nb-NO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(value))
+}
+
+function diffInLocalDays(from: Date, to: Date): number {
+  const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  const toMidnight = new Date(to.getFullYear(), to.getMonth(), to.getDate())
+  const millisecondsPerDay = 24 * 60 * 60 * 1000
+  return Math.floor((toMidnight.getTime() - fromMidnight.getTime()) / millisecondsPerDay)
+}
+
+function getDateGroupStyle(runs: ChecklistRun[], index: number) {
+  const now = new Date()
+  const maxOverdueDays = runs.reduce((currentMax, run) => {
+    if (!isOverdue(run) && run.status !== 'OVERDUE') {
+      return currentMax
+    }
+
+    return Math.max(currentMax, diffInLocalDays(new Date(run.dueAt), now))
+  }, -1)
+
+  if (maxOverdueDays >= 0) {
+    if (maxOverdueDays >= 3) {
+      return {
+        '--date-group-background': '#efd6d3',
+        '--date-group-border': '#bf7b72',
+      }
+    }
+
+    if (maxOverdueDays >= 1) {
+      return {
+        '--date-group-background': '#f3e2d8',
+        '--date-group-border': '#c89573',
+      }
+    }
+
+    return {
+      '--date-group-background': '#f6ede4',
+      '--date-group-border': '#d4aa8b',
+    }
+  }
+
+  switch (index % 4) {
+    case 0:
+      return {
+        '--date-group-background': '#dcebe4',
+        '--date-group-border': '#8fae9e',
+      }
+    case 1:
+      return {
+        '--date-group-background': '#dde8f6',
+        '--date-group-border': '#8fa6c2',
+      }
+    case 2:
+      return {
+        '--date-group-background': '#e8e2f1',
+        '--date-group-border': '#a598bb',
+      }
+    default:
+      return {
+        '--date-group-background': '#ddebef',
+        '--date-group-border': '#8fa9b3',
+      }
+  }
+}
+
+const groupedChecklistRuns = computed(() => {
+  const groups = new Map<
+    string,
+    {
+      key: string
+      label: string
+      runs: ChecklistRun[]
+    }
+  >()
+
+  for (const run of filteredChecklistRuns.value) {
+    const key = toLocalDateKey(run.dueAt)
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.runs.push(run)
+      continue
+    }
+
+    groups.set(key, {
+      key,
+      label: formatDateGroupLabel(run.dueAt),
+      runs: [run],
+    })
+  }
+
+  return [...groups.values()].sort((left, right) => left.key.localeCompare(right.key))
+})
+
 watch(hasSearchQuery, (isSearching) => {
   if (isSearching) {
     pinnedChecklistRunId.value = null
   }
 })
 
-watch(checklistRuns, (runs) => {
+watch(allChecklistRuns, (runs) => {
   if (pinnedChecklistRunId.value && !runs.some((run) => run.id === pinnedChecklistRunId.value)) {
     pinnedChecklistRunId.value = null
   }
@@ -225,7 +400,7 @@ watch(
   resolvedChecklistContext,
   async (context) => {
     if (!context) {
-      checklistRuns.value = []
+      allChecklistRuns.value = []
       errorMessage.value = null
       isLoading.value = false
       return
@@ -258,8 +433,25 @@ watch(
       <p>{{ errorMessage }}</p>
     </div>
 
-    <template v-else-if="checklistRuns.length > 0">
-      <section class="triage-bar" aria-label="Checklist triage">
+    <template v-else>
+      <ChecklistDefinitionManager
+        v-if="canManageChecklistDefinitions && selectedManagementEstablishmentId"
+        :organization-id="resolvedChecklistContext!.organizationId"
+        :establishment-id="selectedManagementEstablishmentId"
+        service-area="IK_MAT"
+        :requested-definition-group-id="requestedDefinitionGroupId"
+        @saved="handleDefinitionsSaved"
+        @request-handled="clearDefinitionEditRequest"
+      />
+
+      <div
+        v-else-if="canManageChecklistDefinitions"
+        class="state-card"
+      >
+        <p>Choose a single establishment to create, edit, or delete scheduled checklist setups.</p>
+      </div>
+
+      <section v-if="allChecklistRuns.length > 0" class="triage-bar" aria-label="Checklist triage">
         <div class="triage-tabs" role="tablist" aria-label="Checklist status filters">
           <button
             v-for="option in triageOptions"
@@ -286,27 +478,50 @@ watch(
         </label>
       </section>
 
-      <div v-if="filteredChecklistRuns.length > 0" class="runs-grid">
-        <ChecklistRunCard
-          v-for="run in filteredChecklistRuns"
-          :key="run.id"
-          :run="run"
-          :organization-id="resolvedChecklistContext!.organizationId"
-          :establishment-id="resolvedChecklistContext!.establishmentIds[0] ?? ''"
-          :selected="visibleChecklistRunId === run.id"
-          :force-expanded="visibleChecklistRunId === run.id"
-          @update:run="handleRunUpdate"
-        />
+      <div v-if="allChecklistRuns.length > 0 && filteredChecklistRuns.length > 0" class="date-groups">
+        <section
+          v-for="(group, index) in groupedChecklistRuns"
+          :key="group.key"
+          class="date-group"
+          :style="getDateGroupStyle(group.runs, index)"
+        >
+          <header class="date-group-header">
+            <h2>{{ group.label }}</h2>
+            <span>{{ group.runs.length }} {{ group.runs.length === 1 ? 'run' : 'runs' }}</span>
+          </header>
+
+          <div class="runs-grid">
+            <ChecklistRunCard
+              v-for="run in group.runs"
+              :key="run.id"
+              :run="run"
+              :organization-id="resolvedChecklistContext!.organizationId"
+              :establishment-id="resolvedChecklistContext!.establishmentIds[0] ?? ''"
+              :selected="visibleChecklistRunId === run.id"
+              :force-expanded="visibleChecklistRunId === run.id"
+              :show-setup-actions="canManageChecklistDefinitions && selectedManagementEstablishmentId === run.establishmentId"
+              :can-manage-assignments="canManageChecklistDefinitions"
+              @update:run="handleRunUpdate"
+              @edit:definition-group="handleDefinitionEditRequest"
+            />
+          </div>
+        </section>
+      </div>
+
+      <div v-else-if="allChecklistRuns.length > 0" class="state-card">
+        <p>{{ hasSearchQuery ? 'No checklist runs match your search.' : 'No checklist runs match the current filter.' }}</p>
       </div>
 
       <div v-else class="state-card">
-        <p>{{ hasSearchQuery ? 'No checklist runs match your search.' : 'No checklist runs match the current filter.' }}</p>
+        <p>
+          {{
+            canManageChecklistDefinitions && selectedManagementEstablishmentId
+              ? 'No checklist runs yet. Create a one-off or recurring checklist setup above.'
+              : 'No checklist runs found.'
+          }}
+        </p>
       </div>
     </template>
-
-    <div v-else class="state-card">
-      <p>No checklist runs found.</p>
-    </div>
   </div>
 </template>
 
@@ -386,7 +601,7 @@ watch(
   justify-content: center;
   min-width: 1.5rem;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: 0.5cqh;
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 0.875rem;
@@ -401,7 +616,7 @@ watch(
   min-height: 2.75rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: 0.5cqh;
   background: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
@@ -417,10 +632,66 @@ watch(
   gap: 16px;
 }
 
+.date-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.date-group {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--date-group-border, var(--color-border));
+  border-radius: 0.5cqh;
+  background: var(--date-group-background, var(--color-container));
+}
+
+.date-group:nth-child(4n + 1) {
+  --date-group-background: color-mix(in srgb, var(--color-container) 72%, #f4efe2 28%);
+  --date-group-border: color-mix(in srgb, var(--color-border) 64%, #d4b26a 36%);
+}
+
+.date-group:nth-child(4n + 2) {
+  --date-group-background: color-mix(in srgb, var(--color-container) 70%, #e4efe8 30%);
+  --date-group-border: color-mix(in srgb, var(--color-border) 62%, #7ea783 38%);
+}
+
+.date-group:nth-child(4n + 3) {
+  --date-group-background: color-mix(in srgb, var(--color-container) 70%, #e9edf5 30%);
+  --date-group-border: color-mix(in srgb, var(--color-border) 62%, #7d94bf 38%);
+}
+
+.date-group:nth-child(4n) {
+  --date-group-background: color-mix(in srgb, var(--color-container) 70%, #f1e6e6 30%);
+  --date-group-border: color-mix(in srgb, var(--color-border) 62%, #c49090 38%);
+}
+
+.date-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.date-group-header h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.date-group-header span {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .state-card {
   padding: 20px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 0.5cqh;
   background: var(--color-container);
 }
 

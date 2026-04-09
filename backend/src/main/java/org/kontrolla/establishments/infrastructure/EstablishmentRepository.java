@@ -65,4 +65,7 @@ public interface EstablishmentRepository extends JpaRepository<Establishment, UU
 
 	@EntityGraph(attributePaths = {"organization"})
 	List<Establishment> findByOrganizationIdAndIdIn(UUID organizationId, Collection<UUID> ids);
+
+	@EntityGraph(attributePaths = {"organization"})
+	List<Establishment> findByStatus(EstablishmentStatus status);
 }

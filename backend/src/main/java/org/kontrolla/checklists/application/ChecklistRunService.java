@@ -47,6 +47,10 @@ public class ChecklistRunService {
 			ChecklistRunStatus.PENDING,
 			ChecklistRunStatus.IN_PROGRESS
 	);
+	private static final List<ChecklistRunStatus> REGENERATABLE_STATUSES = List.of(
+			ChecklistRunStatus.PENDING,
+			ChecklistRunStatus.OVERDUE
+	);
 
 	private final ChecklistRunRepository checklistRunRepository;
 	private final ChecklistRunAssignmentRepository checklistRunAssignmentRepository;
@@ -174,12 +178,13 @@ public class ChecklistRunService {
 			CurrentUser currentUser
 	) {
 		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
-		findChecklistRunOrThrow(establishmentId, checklistRunId);
+		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
 
 		ChecklistRunAssignment assignment = checklistRunAssignmentRepository.findByIdAndChecklistRunId(assignmentId, checklistRunId)
 				.orElseThrow(checklistAccessService::checklistAssignmentNotFound);
 
-		checklistRunAssignmentRepository.delete(assignment);
+		checklistRun.removeAssignment(assignment);
+		checklistRunRepository.save(checklistRun);
 	}
 
 	@Transactional
@@ -449,6 +454,44 @@ public class ChecklistRunService {
 	}
 
 	@Transactional
+	public int cancelRegeneratableRunsForDefinitionGroup(
+			UUID establishmentId,
+			UUID definitionGroupId,
+			Instant fromDueAt,
+			UUID actorUserId,
+			String reason
+	) {
+		List<ChecklistRun> pendingRuns = checklistRunRepository
+				.findByEstablishmentIdAndDefinitionGroupIdAndStatusInAndDueAtGreaterThanEqualOrderByDueAtAsc(
+						establishmentId,
+						definitionGroupId,
+						REGENERATABLE_STATUSES,
+						fromDueAt
+				);
+
+		if (pendingRuns.isEmpty()) {
+			return 0;
+		}
+
+		User actor = actorUserId == null ? null : getUserOrThrow(actorUserId);
+		Instant now = Instant.now();
+		int updatedRuns = 0;
+
+		for (ChecklistRun checklistRun : pendingRuns) {
+			checklistRun.setStatus(ChecklistRunStatus.CANCELLED);
+			checklistRun.addEvent(new ChecklistRunEvent(
+					ChecklistRunEventType.CANCELLED,
+					actor,
+					now,
+					reason == null ? null : jsonMetadata("reason", reason)
+			));
+			updatedRuns++;
+		}
+
+		return updatedRuns;
+	}
+
+	@Transactional
 	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
 		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
 		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
@@ -494,6 +537,36 @@ public class ChecklistRunService {
 
 		checklistAccessService.requireAssignmentFilterAccess(organizationId, establishmentId, assignedUserId, currentUser);
 		return assignedUserId;
+	}
+
+	private String jsonMetadata(String key, String value) {
+		return "{\"%s\":\"%s\"}".formatted(escapeJson(key), escapeJson(value));
+	}
+
+	private String escapeJson(String value) {
+		StringBuilder escaped = new StringBuilder(value.length() + 8);
+
+		for (int index = 0; index < value.length(); index++) {
+			char character = value.charAt(index);
+			switch (character) {
+				case '\\' -> escaped.append("\\\\");
+				case '"' -> escaped.append("\\\"");
+				case '\b' -> escaped.append("\\b");
+				case '\f' -> escaped.append("\\f");
+				case '\n' -> escaped.append("\\n");
+				case '\r' -> escaped.append("\\r");
+				case '\t' -> escaped.append("\\t");
+				default -> {
+					if (character < 0x20) {
+						escaped.append("\\u%04x".formatted((int) character));
+					} else {
+						escaped.append(character);
+					}
+				}
+			}
+		}
+
+		return escaped.toString();
 	}
 
 	private ChecklistRun findChecklistRunOrThrow(UUID establishmentId, UUID checklistRunId) {

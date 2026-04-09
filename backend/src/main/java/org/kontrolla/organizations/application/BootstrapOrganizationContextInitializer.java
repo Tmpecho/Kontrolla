@@ -77,7 +77,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private static final String IK_ALKOHOL_WEEKLY_TITLE_SUFFIX = " Weekly IK-Alkohol Review";
 	private static final String IK_ALKOHOL_MONTHLY_TITLE_SUFFIX = " Monthly Licensing Review";
 	private static final int CHECKLIST_LOOKBACK_DAYS = 14;
-	private static final int CHECKLIST_LOOKAHEAD_DAYS = 7;
+	private static final int CHECKLIST_LOOKAHEAD_DAYS = 60;
 	private static final String DEFAULT_SEED_PASSWORD = "password123";
 
 	private final UserRepository userRepository;
@@ -577,6 +577,12 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			}
 
 			seedChecklistRunStates(organization, establishment, actor);
+			checklistSchedulerService.markOverdueRuns(
+					organization.getId(),
+					establishment.getId(),
+					Instant.now(),
+					currentUser
+			);
 		}
 	}
 

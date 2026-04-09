@@ -34,6 +34,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -241,6 +242,112 @@ class ChecklistDefinitionVersioningIntegrationTest {
 			assertThat(task.title()).isEqualTo("Record fridge temperature");
 			assertThat(task.sourceChecklistTaskDefinitionId()).isEqualTo(definition.getTasks().getFirst().getId());
 		});
+	}
+
+	@Test
+	void updateChecklistDefinitionCancelsOverdueRunsInRegenerationWindowBeforeCreatingReplacement() {
+		User actor = createPlatformAdmin("overdue-version-admin@example.com");
+		Organization organization = createOrganization("Overdue Version Org");
+		Establishment establishment = createEstablishment(organization, "Overdue Version Sushi");
+		CurrentUser currentUser = currentUser(actor);
+
+		ZoneId zoneId = ZoneId.of("Europe/Oslo");
+		Instant now = Instant.now();
+		LocalDate scheduleDate = LocalDate.ofInstant(now, zoneId);
+		LocalTime dueTime = LocalTime.ofInstant(now.minusSeconds(3600), zoneId).withSecond(0).withNano(0);
+
+		ChecklistDefinition definition = checklistDefinitionService.createChecklistDefinition(
+				organization.getId(),
+				establishment.getId(),
+				ChecklistServiceArea.IK_MAT,
+				"Daily review",
+				"Original review",
+				List.of(
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Check labels",
+								null,
+								ChecklistTaskKind.ACTION,
+								true,
+								0,
+								null,
+								null,
+								null
+						)
+				),
+				List.of(
+						new ChecklistDefinitionService.ChecklistScheduleInput(
+								ChecklistScheduleType.DAILY,
+								scheduleDate,
+								null,
+								dueTime,
+								null,
+								null,
+								"Europe/Oslo",
+								true
+						)
+				),
+				currentUser
+		);
+
+		List<ChecklistRun> originalRuns = checklistRunRepository.findByEstablishmentIdOrderByDueAtAsc(establishment.getId());
+		ChecklistRun runDueToday = originalRuns.stream()
+				.filter(run -> run.getDefinitionGroupId().equals(definition.getDefinitionGroupId()))
+				.filter(run -> !run.getDueAt().isAfter(now))
+				.reduce((first, second) -> second)
+				.orElseThrow();
+		runDueToday.setStatus(ChecklistRunStatus.OVERDUE);
+		checklistRunRepository.saveAndFlush(runDueToday);
+
+		checklistDefinitionService.updateChecklistDefinition(
+				organization.getId(),
+				establishment.getId(),
+				definition.getId(),
+				ChecklistServiceArea.IK_MAT,
+				"Daily review",
+				"Updated review",
+				ChecklistDefinitionStatus.ACTIVE,
+				List.of(
+						new ChecklistDefinitionService.ChecklistTaskInput(
+								"Check labels and allergens",
+								null,
+								ChecklistTaskKind.ACTION,
+								true,
+								0,
+								null,
+								null,
+								null
+						)
+				),
+				List.of(
+						new ChecklistDefinitionService.ChecklistScheduleInput(
+								ChecklistScheduleType.DAILY,
+								scheduleDate,
+								null,
+								dueTime,
+								null,
+								null,
+								"Europe/Oslo",
+								true
+						)
+				),
+				currentUser
+		);
+
+		List<ChecklistRun> runsAtDueTime = checklistRunRepository.findByEstablishmentIdOrderByDueAtAsc(establishment.getId()).stream()
+				.filter(run -> run.getDefinitionGroupId().equals(definition.getDefinitionGroupId()))
+				.filter(run -> run.getDueAt().equals(runDueToday.getDueAt()))
+				.toList();
+
+		assertThat(runsAtDueTime).hasSize(2);
+		assertThat(runsAtDueTime)
+				.extracting(ChecklistRun::getStatus)
+				.containsExactlyInAnyOrder(ChecklistRunStatus.CANCELLED, ChecklistRunStatus.OVERDUE);
+		assertThat(runsAtDueTime)
+				.filteredOn(run -> run.getStatus() == ChecklistRunStatus.CANCELLED)
+				.singleElement()
+				.satisfies(run -> assertThat(run.getEvents())
+						.extracting(ChecklistRunEvent::getEventType)
+						.contains(ChecklistRunEventType.CANCELLED));
 	}
 
 	@Test

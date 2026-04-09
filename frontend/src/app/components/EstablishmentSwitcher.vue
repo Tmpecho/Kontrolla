@@ -41,7 +41,6 @@ function onSelectionChange(event: Event) {
   >
     <label
       class="switcher-label"
-      :class="{ 'switcher-label-sr-only': props.variant === 'compact' }"
       :for="selectId"
     >
       Establishment
@@ -96,18 +95,6 @@ function onSelectionChange(event: Event) {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.switcher-label-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .switcher-select {

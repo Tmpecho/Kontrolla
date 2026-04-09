@@ -208,7 +208,7 @@ const handleTextChange = (e: Event) => {
   row-gap: 0.125rem;
   padding: 0.55rem 0.35rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 78%, white);
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   background: color-mix(in srgb, var(--color-surface) 28%, white);
   position: relative;
 }
@@ -318,7 +318,7 @@ const handleTextChange = (e: Event) => {
   max-width: 100%;
   padding: 0.38rem 0.55rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   background: var(--color-white);
   font: 400 0.76rem var(--font-sans, inherit);
   color: var(--color-text-primary);
@@ -337,11 +337,18 @@ const handleTextChange = (e: Event) => {
   width: 100%;
   max-width: 100%;
   justify-content: flex-start;
+  min-width: 0;
+}
+
+.input-group .task-input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .input-unit {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-secondary);
+  flex: 0 0 auto;
 }
 .input-hint {
   font-size: 0.625rem;
@@ -373,11 +380,24 @@ const handleTextChange = (e: Event) => {
   }
 
   .task-control {
+    grid-column: 2;
     justify-content: flex-start;
     margin-top: 0.15rem;
     align-self: start;
     padding: 0;
     border-left: 0;
+    width: 100%;
+  }
+
+  .task-input-area {
+    width: 100%;
+  }
+
+  .input-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.45rem;
   }
 
   .task-input-area,

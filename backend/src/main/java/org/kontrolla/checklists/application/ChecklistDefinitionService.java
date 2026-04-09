@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,19 +33,27 @@ import java.util.UUID;
 public class ChecklistDefinitionService {
 
 	private static final String DEFAULT_TIMEZONE = "Europe/Oslo";
+	private static final long GENERATION_LOOKBACK_DAYS = 1;
+	private static final long GENERATION_LOOKAHEAD_DAYS = 60;
 
 	private final ChecklistDefinitionRepository checklistDefinitionRepository;
+	private final ChecklistRunService checklistRunService;
+	private final ChecklistSchedulerService checklistSchedulerService;
 	private final OrganizationAccessService organizationAccessService;
 	private final EstablishmentService establishmentService;
 	private final UserRepository userRepository;
 
 	public ChecklistDefinitionService(
 			ChecklistDefinitionRepository checklistDefinitionRepository,
+			ChecklistRunService checklistRunService,
+			ChecklistSchedulerService checklistSchedulerService,
 			OrganizationAccessService organizationAccessService,
 			EstablishmentService establishmentService,
 			UserRepository userRepository
 	) {
 		this.checklistDefinitionRepository = checklistDefinitionRepository;
+		this.checklistRunService = checklistRunService;
+		this.checklistSchedulerService = checklistSchedulerService;
 		this.organizationAccessService = organizationAccessService;
 		this.establishmentService = establishmentService;
 		this.userRepository = userRepository;
@@ -106,7 +115,9 @@ public class ChecklistDefinitionService {
 		checklistDefinition.replaceTasks(toChecklistTasks(command.tasks()));
 		checklistDefinition.replaceSchedules(toChecklistSchedules(command.schedules(), actor));
 
-		return checklistDefinitionRepository.save(checklistDefinition);
+		ChecklistDefinition savedDefinition = checklistDefinitionRepository.save(checklistDefinition);
+		generateScheduledRuns(establishment, actor, now, savedDefinition.getStatus());
+		return savedDefinition;
 	}
 
 	@Transactional
@@ -151,6 +162,13 @@ public class ChecklistDefinitionService {
 		);
 		User actor = getUserOrThrow(currentUser.userId());
 		Instant now = Instant.now();
+		checklistRunService.cancelRegeneratableRunsForDefinitionGroup(
+				establishmentId,
+				currentDefinition.getDefinitionGroupId(),
+				now.minus(GENERATION_LOOKBACK_DAYS, ChronoUnit.DAYS),
+				actor.getId(),
+				"definition_updated"
+		);
 
 		currentDefinition.supersede(now, actor);
 
@@ -169,7 +187,9 @@ public class ChecklistDefinitionService {
 		nextDefinition.replaceTasks(toChecklistTasks(command.tasks()));
 		nextDefinition.replaceSchedules(toChecklistSchedules(command.schedules(), actor));
 
-		return checklistDefinitionRepository.save(nextDefinition);
+		ChecklistDefinition savedDefinition = checklistDefinitionRepository.save(nextDefinition);
+		generateScheduledRuns(currentDefinition.getEstablishment(), actor, now, savedDefinition.getStatus());
+		return savedDefinition;
 	}
 
 	@Transactional
@@ -293,6 +313,30 @@ public class ChecklistDefinitionService {
 	private User getUserOrThrow(UUID userId) {
 		return userRepository.findById(userId)
 				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
+	}
+
+	private void generateScheduledRuns(
+			Establishment establishment,
+			User actor,
+			Instant now,
+			ChecklistDefinitionStatus status
+	) {
+		if (status != ChecklistDefinitionStatus.ACTIVE) {
+			return;
+		}
+
+		checklistSchedulerService.generateRunsForWindowInternal(
+				establishment,
+				now.minus(GENERATION_LOOKBACK_DAYS, ChronoUnit.DAYS),
+				now.plus(GENERATION_LOOKAHEAD_DAYS, ChronoUnit.DAYS),
+				actor.getId()
+		);
+		checklistRunService.markOverdueRuns(
+				establishment.getOrganization().getId(),
+				establishment.getId(),
+				now,
+				actor.getId()
+		);
 	}
 
 	private ChecklistDefinitionStatus resolveDefinitionStatusForNewVersion(ChecklistDefinitionStatus status) {
