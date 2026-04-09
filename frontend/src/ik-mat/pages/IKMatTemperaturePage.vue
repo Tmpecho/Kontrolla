@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import TemperatureSparkline from '@/ik-mat/components/TemperatureSparkline.vue'
-import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
+import { createTemperatureLog, listTemperatureUnits } from '@/ik-mat/api/temperature.api'
 import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
 import type {
   TemperatureAlertState,
+  TemperatureLogEntry,
   TemperatureLoggingStatus,
+  TemperatureUnit,
   TemperatureUnitListItem,
 } from '@/ik-mat/model/temperature.types'
 import {
@@ -17,8 +19,10 @@ import {
   getTemperatureUnitsWithStatus,
   isTemperatureWithinRange,
 } from '@/ik-mat/model/temperature.utils'
+import { ApiError } from '@/shared/api/http'
+import { appEnv } from '@/shared/config/env'
 
-type TemperatureFilter = 'ALL' | 'ATTENTION' | 'OVERDUE' | 'DUE_SOON' | 'FRIDGES' | 'FREEZERS'
+type TemperatureFilter = 'ALL' | 'OVERDUE' | 'DUE_SOON'
 type SaveState = 'IDLE' | 'SAVING'
 type TemperatureSaveResult = {
   unitId: string
@@ -31,7 +35,7 @@ type TemperatureSaveResult = {
 
 const authStore = useAuthStore()
 
-const units = ref(createTemperatureUnits())
+const units = ref<TemperatureUnit[]>([])
 const now = ref(new Date())
 const searchQuery = ref('')
 const activeFilter = ref<TemperatureFilter>('ALL')
@@ -43,17 +47,38 @@ const draftError = ref<string | null>(null)
 const saveState = ref<SaveState>('IDLE')
 const latestSaveResult = ref<TemperatureSaveResult | null>(null)
 const isMobileEditor = ref(false)
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
 
 let nowRefreshTimer: number | null = null
+let requestSequence = 0
 
 const filterOptions: Array<{ value: TemperatureFilter; label: string }> = [
   { value: 'ALL', label: 'All' },
-  { value: 'ATTENTION', label: 'Needs attention' },
-  { value: 'OVERDUE', label: 'Overdue now' },
+  { value: 'OVERDUE', label: 'Overdue' },
   { value: 'DUE_SOON', label: 'Due soon' },
-  { value: 'FRIDGES', label: 'Fridges' },
-  { value: 'FREEZERS', label: 'Freezers' },
 ]
+
+const organizationId = computed(
+  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
+)
+const establishmentId = computed(
+  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
+)
+
+const hasTemperatureContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+
+const missingContextMessage = computed(() => {
+  if (hasTemperatureContext.value) {
+    return null
+  }
+
+  if (!appEnv.isDevelopment) {
+    return 'Temperature logs cannot be loaded until organization and establishment context is available.'
+  }
+
+  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to load temperature units.'
+})
 
 const unitsWithStatus = computed<TemperatureUnitListItem[]>(() => {
   return [...getTemperatureUnitsWithStatus(units.value, now.value)].sort((left, right) => {
@@ -90,22 +115,11 @@ const filteredUnits = computed(() => {
   })
 
   switch (activeFilter.value) {
-    case 'ATTENTION':
-      items = items.filter((unit) =>
-        ['OUT_OF_RANGE', 'OVERDUE', 'DUE_SOON'].includes(unit.alertState),
-      )
-      break
     case 'OVERDUE':
       items = items.filter((unit) => unit.loggingStatus === 'OVERDUE')
       break
     case 'DUE_SOON':
       items = items.filter((unit) => unit.loggingStatus === 'DUE_SOON')
-      break
-    case 'FRIDGES':
-      items = items.filter((unit) => unit.type === 'FRIDGE')
-      break
-    case 'FREEZERS':
-      items = items.filter((unit) => unit.type === 'FREEZER')
       break
     default:
       break
@@ -130,13 +144,13 @@ const currentSaveResult = computed(() => {
   return latestSaveResult.value
 })
 
+const showSummary = computed(() => {
+  return !missingContextMessage.value && !isLoading.value && !errorMessage.value
+})
+
 const emptyStateMessage = computed(() => {
   if (searchQuery.value.trim()) {
     return 'No temperature units matched your search.'
-  }
-
-  if (activeFilter.value === 'ATTENTION') {
-    return 'No units need attention right now.'
   }
 
   if (activeFilter.value === 'OVERDUE') {
@@ -233,16 +247,6 @@ function getDueIndicatorTone(loggingStatus: TemperatureLoggingStatus): string {
   }
 }
 
-function getCurrentLoggerName(): string {
-  if (!authStore.user) {
-    return 'Current staff member'
-  }
-
-  const fullName = `${authStore.user.firstName} ${authStore.user.lastName}`.trim()
-
-  return fullName || authStore.user.email
-}
-
 function resetDraft(): void {
   draftTemperature.value = ''
   draftMeasuredAt.value = formatDateTimeInputValue(new Date())
@@ -316,6 +320,14 @@ function getSaveFeedback(unitId: string) {
 }
 
 async function saveTemperatureLog(unit: TemperatureUnitListItem): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    draftError.value = 'Temperature context is missing.'
+    return
+  }
+
   const parsedTemperature = Number.parseFloat(draftTemperature.value.replace(',', '.'))
 
   if (Number.isNaN(parsedTemperature)) {
@@ -340,42 +352,92 @@ async function saveTemperatureLog(unit: TemperatureUnitListItem): Promise<void> 
   draftError.value = null
   saveState.value = 'SAVING'
 
-  await new Promise((resolve) => window.setTimeout(resolve, 350))
-
   const measuredAtIso = measuredAt.toISOString()
-  const loggedByName = getCurrentLoggerName()
+  const normalizedNote = draftNote.value.trim() || null
 
-  units.value = units.value.map((existingUnit) => {
-    if (existingUnit.id !== unit.id) {
-      return existingUnit
+  try {
+    const createdLog = await createTemperatureLog({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      temperatureUnitId: unit.id,
+      temperatureCelsius: parsedTemperature,
+      measuredAt: measuredAtIso,
+      note: normalizedNote,
+    })
+
+    units.value = units.value.map((existingUnit) => {
+      if (existingUnit.id !== unit.id) {
+        return existingUnit
+      }
+
+      return {
+        ...existingUnit,
+        logs: prependLog(existingUnit.logs, createdLog),
+      }
+    })
+
+    latestSaveResult.value = {
+      unitId: unit.id,
+      measuredAt: createdLog.measuredAt,
+      loggedByName: createdLog.loggedByName,
+      temperatureCelsius: createdLog.temperatureCelsius,
+      note: createdLog.note,
+      isOutOfRange: requiresFollowUpNote,
     }
 
-    return {
-      ...existingUnit,
-      logs: [
-        {
-          id: `${unit.id}-${Date.now()}`,
-          measuredAt: measuredAtIso,
-          temperatureCelsius: parsedTemperature,
-          note: draftNote.value.trim() || null,
-          loggedByName,
-        },
-        ...existingUnit.logs,
-      ],
-    }
-  })
+    now.value = new Date()
+    closeEditor()
+  } catch (error) {
+    draftError.value =
+      error instanceof ApiError ? error.message : 'Could not save the temperature reading.'
+    saveState.value = 'IDLE'
+  }
+}
 
-  latestSaveResult.value = {
-    unitId: unit.id,
-    measuredAt: measuredAtIso,
-    loggedByName,
-    temperatureCelsius: parsedTemperature,
-    note: draftNote.value.trim() || null,
-    isOutOfRange: requiresFollowUpNote,
+function prependLog(logs: TemperatureLogEntry[], createdLog: TemperatureLogEntry): TemperatureLogEntry[] {
+  return [createdLog, ...logs.filter((logEntry) => logEntry.id !== createdLog.id)]
+}
+
+async function loadTemperatureUnits(): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+  const currentRequestId = ++requestSequence
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    units.value = []
+    errorMessage.value = null
+    isLoading.value = false
+    closeEditor()
+    return
   }
 
-  now.value = new Date()
-  closeEditor()
+  isLoading.value = true
+  errorMessage.value = null
+
+  try {
+    const nextUnits = await listTemperatureUnits({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+    })
+
+    if (currentRequestId !== requestSequence) {
+      return
+    }
+
+    units.value = nextUnits
+  } catch (error) {
+    if (currentRequestId !== requestSequence) {
+      return
+    }
+
+    units.value = []
+    errorMessage.value =
+      error instanceof ApiError ? error.message : 'Could not load temperature units.'
+  } finally {
+    if (currentRequestId === requestSequence) {
+      isLoading.value = false
+    }
+  }
 }
 
 onMounted(() => {
@@ -395,6 +457,10 @@ onBeforeUnmount(() => {
     window.clearInterval(nowRefreshTimer)
   }
 })
+
+watch([organizationId, establishmentId], () => {
+  void loadTemperatureUnits()
+}, { immediate: true })
 </script>
 
 <template>
@@ -409,7 +475,7 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <section class="summary-grid" aria-label="Temperature overview">
+    <section v-if="showSummary" class="summary-grid" aria-label="Temperature overview">
       <article class="summary-card summary-card-attention">
         <p class="summary-label">Needs attention</p>
         <p class="summary-value">{{ summary.needsAttentionCount }}</p>
@@ -486,7 +552,19 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <ul v-if="filteredUnits.length > 0" class="temperature-list">
+      <div v-if="missingContextMessage" class="empty-state">
+        <p>{{ missingContextMessage }}</p>
+      </div>
+
+      <div v-else-if="isLoading" class="empty-state">
+        <p>Loading temperature units...</p>
+      </div>
+
+      <div v-else-if="errorMessage" class="empty-state">
+        <p>{{ errorMessage }}</p>
+      </div>
+
+      <ul v-else-if="filteredUnits.length > 0" class="temperature-list">
         <li v-for="unit in filteredUnits" :key="unit.id" class="temperature-list-item">
           <article class="temperature-row">
             <div class="temperature-primary">

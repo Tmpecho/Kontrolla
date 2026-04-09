@@ -38,6 +38,9 @@ import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.domain.OrganizationRole;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.temperatures.domain.TemperatureUnit;
+import org.kontrolla.temperatures.domain.TemperatureUnitType;
+import org.kontrolla.temperatures.infrastructure.TemperatureUnitRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -88,6 +91,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private final ChecklistRunRepository checklistRunRepository;
 	private final ChecklistSchedulerService checklistSchedulerService;
 	private final DeviationRepository deviationRepository;
+	private final TemperatureUnitRepository temperatureUnitRepository;
 	private final AppSecurityProperties properties;
 	private final PasswordEncoder passwordEncoder;
 
@@ -100,6 +104,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			ChecklistRunRepository checklistRunRepository,
 			ChecklistSchedulerService checklistSchedulerService,
 			DeviationRepository deviationRepository,
+			TemperatureUnitRepository temperatureUnitRepository,
 			AppSecurityProperties properties,
 			PasswordEncoder passwordEncoder
 	) {
@@ -111,6 +116,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		this.checklistRunRepository = checklistRunRepository;
 		this.checklistSchedulerService = checklistSchedulerService;
 		this.deviationRepository = deviationRepository;
+		this.temperatureUnitRepository = temperatureUnitRepository;
 		this.properties = properties;
 		this.passwordEncoder = passwordEncoder;
 	}
@@ -217,6 +223,8 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			);
 		}
 		seedAdditionalMembers(seed, organization, organizationName, activeEstablishments);
+
+		bootstrapTemperatureUnits(organization, bootstrapEstablishments);
 
 		checklistActor.ifPresent(actor -> {
 			bootstrapChecklistRuns(organization, bootstrapEstablishments, actor);
@@ -684,6 +692,128 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 					seed
 			));
 		}
+	}
+
+	private void bootstrapTemperatureUnits(Organization organization, List<Establishment> establishments) {
+		for (Establishment establishment : establishments) {
+			if (establishment.getStatus() != EstablishmentStatus.ACTIVE) {
+				continue;
+			}
+
+			buildTemperatureUnitSeeds(establishment.getType()).forEach(seed ->
+					upsertTemperatureUnit(organization, establishment, seed)
+			);
+		}
+	}
+
+	private void upsertTemperatureUnit(
+			Organization organization,
+			Establishment establishment,
+			BootstrapTemperatureUnitSeed seed
+	) {
+		temperatureUnitRepository.findByEstablishmentIdAndOrganizationIdOrderByNameAsc(
+				establishment.getId(),
+				organization.getId()
+		).stream()
+				.filter(existing -> existing.getName().equalsIgnoreCase(seed.name()))
+				.findFirst()
+				.ifPresentOrElse(existing -> {
+					existing.setLocation(seed.location());
+					existing.setType(seed.type());
+					existing.setDueByTime(seed.dueByTime());
+					existing.setMinimumTemperature(seed.minimumTemperature());
+					existing.setMaximumTemperature(seed.maximumTemperature());
+				}, () -> {
+					TemperatureUnit created = new TemperatureUnit(
+							organization,
+							establishment,
+							seed.name(),
+							seed.location(),
+							seed.type(),
+							seed.dueByTime(),
+							seed.minimumTemperature(),
+							seed.maximumTemperature()
+					);
+					temperatureUnitRepository.save(created);
+					log.info("Created bootstrap temperature unit {} for {}", seed.name(), establishment.getName());
+				});
+	}
+
+	private List<BootstrapTemperatureUnitSeed> buildTemperatureUnitSeeds(EstablishmentType type) {
+		return switch (type) {
+			case CAFE -> List.of(
+					new BootstrapTemperatureUnitSeed(
+							"Milk fridge",
+							"Back counter dairy station",
+							TemperatureUnitType.FRIDGE,
+							LocalTime.of(7, 30),
+							new BigDecimal("0.00"),
+							new BigDecimal("4.00")
+					),
+					new BootstrapTemperatureUnitSeed(
+							"Pastry freezer",
+							"Back-of-house freezer",
+							TemperatureUnitType.FREEZER,
+							LocalTime.of(17, 30),
+							new BigDecimal("-24.00"),
+							new BigDecimal("-18.00")
+					)
+			);
+			case BAR -> List.of(
+					new BootstrapTemperatureUnitSeed(
+							"Garnish fridge",
+							"Front bar",
+							TemperatureUnitType.FRIDGE,
+							LocalTime.of(10, 15),
+							new BigDecimal("2.00"),
+							new BigDecimal("5.00")
+					),
+					new BootstrapTemperatureUnitSeed(
+							"Frozen storage",
+							"Back bar freezer room",
+							TemperatureUnitType.FREEZER,
+							LocalTime.of(18, 0),
+							new BigDecimal("-24.00"),
+							new BigDecimal("-18.00")
+					)
+			);
+			case OTHER -> List.of(
+					new BootstrapTemperatureUnitSeed(
+							"Main cold storage",
+							"Primary prep area",
+							TemperatureUnitType.FRIDGE,
+							LocalTime.of(8, 30),
+							new BigDecimal("0.00"),
+							new BigDecimal("4.00")
+					),
+					new BootstrapTemperatureUnitSeed(
+							"Main freezer",
+							"Primary storage room",
+							TemperatureUnitType.FREEZER,
+							LocalTime.of(16, 30),
+							new BigDecimal("-24.00"),
+							new BigDecimal("-18.00")
+					)
+			);
+			case RESTAURANT -> List.of(
+					new BootstrapTemperatureUnitSeed(
+							"Prep line fridge",
+							"Hot kitchen",
+							TemperatureUnitType.FRIDGE,
+							LocalTime.of(8, 30),
+							new BigDecimal("2.00"),
+							new BigDecimal("4.00")
+					),
+					new BootstrapTemperatureUnitSeed(
+							"Dessert freezer",
+							"Cold dessert station",
+							TemperatureUnitType.FREEZER,
+							LocalTime.of(20, 30),
+							new BigDecimal("-23.00"),
+							new BigDecimal("-18.00")
+					)
+			);
+		};
 	}
 
 	private void upsertChecklistDefinition(
@@ -1415,6 +1545,16 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			OrganizationRole role,
 			boolean accessAllEstablishments,
 			List<String> establishmentNames
+	) {
+	}
+
+	private record BootstrapTemperatureUnitSeed(
+			String name,
+			String location,
+			TemperatureUnitType type,
+			LocalTime dueByTime,
+			BigDecimal minimumTemperature,
+			BigDecimal maximumTemperature
 	) {
 	}
 }

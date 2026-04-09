@@ -13,6 +13,8 @@ import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.notifications.infrastructure.NotificationRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
+import org.kontrolla.temperatures.infrastructure.TemperatureLogRepository;
+import org.kontrolla.temperatures.infrastructure.TemperatureUnitRepository;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -25,6 +27,8 @@ public class TestDataCleaner {
   private final DeviationRepository deviationRepository;
   private final DocumentFileRepository documentFileRepository;
   private final DocumentRepository documentRepository;
+  private final TemperatureLogRepository temperatureLogRepository;
+  private final TemperatureUnitRepository temperatureUnitRepository;
   private final ChecklistRunRepository checklistRunRepository;
   private final ChecklistDefinitionRepository checklistDefinitionRepository;
   private final OrganizationMembershipRepository organizationMembershipRepository;
@@ -40,6 +44,8 @@ public class TestDataCleaner {
       DeviationRepository deviationRepository,
       DocumentFileRepository documentFileRepository,
       DocumentRepository documentRepository,
+      TemperatureLogRepository temperatureLogRepository,
+      TemperatureUnitRepository temperatureUnitRepository,
       ChecklistRunRepository checklistRunRepository,
       ChecklistDefinitionRepository checklistDefinitionRepository,
       OrganizationMembershipRepository organizationMembershipRepository,
@@ -54,6 +60,8 @@ public class TestDataCleaner {
     this.deviationRepository = deviationRepository;
     this.documentFileRepository = documentFileRepository;
     this.documentRepository = documentRepository;
+    this.temperatureLogRepository = temperatureLogRepository;
+    this.temperatureUnitRepository = temperatureUnitRepository;
     this.checklistRunRepository = checklistRunRepository;
     this.checklistDefinitionRepository = checklistDefinitionRepository;
     this.organizationMembershipRepository = organizationMembershipRepository;
@@ -70,6 +78,8 @@ public class TestDataCleaner {
     deviationRepository.deleteAll();
     documentFileRepository.deleteAll();
     documentRepository.deleteAll();
+    temperatureLogRepository.deleteAll();
+    temperatureUnitRepository.deleteAll();
     checklistRunRepository.deleteAll();
     checklistDefinitionRepository.deleteAll();
     organizationMembershipRepository.deleteAll();

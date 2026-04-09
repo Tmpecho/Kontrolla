@@ -5,9 +5,8 @@ import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import ImportantDocumentsTile from '@/ik-alkohol/components/ImportantDocumentsTile.vue'
+import TemperatureTile from '@/ik-mat/components/TemperatureTile.vue'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
-import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
-import { getTemperatureSummary } from '@/ik-mat/model/temperature.utils'
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 import DeviationsTile from '@/shared/components/DeviationsTile.vue'
@@ -16,7 +15,6 @@ const authStore = useAuthStore()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
-const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
 
 const resolvedChecklistContext = computed(() => {
   if (!authStore.isSessionReady) {
@@ -91,10 +89,6 @@ const inProgressRunsCount = computed(() => {
 const activeRunsLabel = computed(() => {
   return `${activeRunsCount.value} active ${activeRunsCount.value === 1 ? 'run' : 'runs'}`
 })
-
-function formatUnitSummary(count: number, label: string): string {
-  return `${count} ${count === 1 ? 'unit' : 'units'} ${label}`
-}
 
 async function loadChecklistRuns(): Promise<void> {
   const context = resolvedChecklistContext.value
@@ -193,15 +187,9 @@ watch(
       </section>
 
       <section class="dashboard-section">
-        <RouterLink :to="{ name: 'ik-mat-temperature' }" class="tile-link">
-          <div class="dashboard-tile dashboard-tile-link">
-            <h2>Temperature</h2>
-            <p>
-              {{ formatUnitSummary(temperatureSummary.needsAttentionCount, 'need attention') }} •
-              {{ formatUnitSummary(temperatureSummary.overdueNowCount, 'overdue now') }}
-            </p>
-          </div>
-        </RouterLink>
+        <div class="dashboard-tile">
+          <TemperatureTile :temperature-page-to="{ name: 'ik-mat-temperature' }" />
+        </div>
       </section>
     </div>
   </div>
