@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.common.exception.ApplicationException;
 import org.kontrolla.common.exception.ForbiddenException;
+import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
@@ -221,6 +222,147 @@ class TemperatureServiceIntegrationTest {
         currentUser(outsider)
     ))
         .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void adminCanCreateTemperatureUnit() {
+    User admin = createUser("temperature-admin@example.com", "Ada", "Larsen");
+    Organization organization = createOrganization("Kontrolla Temperature Admin");
+    Establishment establishment = createEstablishment(organization, "Prep Kitchen");
+    createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
+
+    TemperatureUnitView createdUnit = temperatureService.createTemperatureUnit(
+        organization.getId(),
+        establishment.getId(),
+        new CreateTemperatureUnitCommand(
+            " Prep fridge ",
+            " Main prep line ",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 15),
+            new BigDecimal("2.00"),
+            new BigDecimal("4.00")
+        ),
+        currentUser(admin)
+    );
+
+    assertThat(createdUnit.name()).isEqualTo("Prep fridge");
+    assertThat(createdUnit.location()).isEqualTo("Main prep line");
+    assertThat(createdUnit.type()).isEqualTo(TemperatureUnitType.FRIDGE);
+    assertThat(createdUnit.logs()).isEmpty();
+    assertThat(temperatureUnitRepository.findByEstablishmentIdAndOrganizationIdOrderByNameAsc(
+        establishment.getId(),
+        organization.getId()
+    )).hasSize(1);
+  }
+
+  @Test
+  void employeeCannotCreateTemperatureUnit() {
+    User employee = createUser("temperature-employee-create@example.com", "Mari", "Hagen");
+    Organization organization = createOrganization("Kontrolla Temperature Employee");
+    Establishment establishment = createEstablishment(organization, "Prep Kitchen");
+    createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
+
+    assertThatThrownBy(() -> temperatureService.createTemperatureUnit(
+        organization.getId(),
+        establishment.getId(),
+        new CreateTemperatureUnitCommand(
+            "Prep fridge",
+            "Main prep line",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 15),
+            new BigDecimal("2.00"),
+            new BigDecimal("4.00")
+        ),
+        currentUser(employee)
+    ))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void creatingDuplicateTemperatureUnitNameInSameEstablishmentIsRejected() {
+    User admin = createUser("temperature-admin-duplicate@example.com", "Ada", "Larsen");
+    Organization organization = createOrganization("Kontrolla Temperature Duplicate");
+    Establishment establishment = createEstablishment(organization, "Prep Kitchen");
+    createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
+
+    temperatureUnitRepository.saveAndFlush(createTemperatureUnit(
+        organization,
+        establishment,
+        "Prep fridge",
+        "Main prep line",
+        TemperatureUnitType.FRIDGE,
+        LocalTime.of(8, 15),
+        new BigDecimal("2.00"),
+        new BigDecimal("4.00")
+    ));
+
+    assertThatThrownBy(() -> temperatureService.createTemperatureUnit(
+        organization.getId(),
+        establishment.getId(),
+        new CreateTemperatureUnitCommand(
+            " prep fridge ",
+            "Cold room",
+            TemperatureUnitType.FREEZER,
+            LocalTime.of(9, 0),
+            new BigDecimal("-24.00"),
+            new BigDecimal("-18.00")
+        ),
+        currentUser(admin)
+    ))
+        .isInstanceOf(ConflictException.class)
+        .hasMessage("A temperature unit with that name already exists for this establishment");
+  }
+
+  @Test
+  void creatingTemperatureUnitWithInvalidRangeIsRejected() {
+    User admin = createUser("temperature-admin-range@example.com", "Ada", "Larsen");
+    Organization organization = createOrganization("Kontrolla Temperature Range");
+    Establishment establishment = createEstablishment(organization, "Prep Kitchen");
+    createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
+
+    assertThatThrownBy(() -> temperatureService.createTemperatureUnit(
+        organization.getId(),
+        establishment.getId(),
+        new CreateTemperatureUnitCommand(
+            "Prep fridge",
+            "Main prep line",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 15),
+            new BigDecimal("5.00"),
+            new BigDecimal("2.00")
+        ),
+        currentUser(admin)
+    ))
+        .isInstanceOf(ApplicationException.class)
+        .hasMessage("Maximum temperature cannot be below minimum temperature");
+  }
+
+  @Test
+  void adminCanDeleteTemperatureUnit() {
+    User admin = createUser("temperature-admin-delete@example.com", "Ada", "Larsen");
+    Organization organization = createOrganization("Kontrolla Temperature Delete");
+    Establishment establishment = createEstablishment(organization, "Prep Kitchen");
+    createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
+
+    TemperatureUnit unit = temperatureUnitRepository.saveAndFlush(createTemperatureUnit(
+        organization,
+        establishment,
+        "Prep fridge",
+        "Main prep line",
+        TemperatureUnitType.FRIDGE,
+        LocalTime.of(8, 15),
+        new BigDecimal("2.00"),
+        new BigDecimal("4.00")
+    ));
+
+    temperatureService.deleteTemperatureUnit(
+        organization.getId(),
+        establishment.getId(),
+        unit.getId(),
+        currentUser(admin)
+    );
+
+    assertThat(temperatureUnitRepository.findById(unit.getId())).isEmpty();
   }
 
   @Test
