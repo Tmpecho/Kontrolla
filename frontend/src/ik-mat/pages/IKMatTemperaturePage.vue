@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 import TemperatureSparkline from '@/ik-mat/components/TemperatureSparkline.vue'
 import { createTemperatureLog, listTemperatureUnits } from '@/ik-mat/api/temperature.api'
+import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
 import type {
   TemperatureAlertState,
   TemperatureLogEntry,
@@ -273,7 +274,7 @@ function updateViewportMode(): void {
 }
 
 function handleEscape(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && editingUnitId.value) {
+  if (event.key === 'Escape' && editingUnitId.value && !isMobileEditor.value) {
     closeEditor()
   }
 }
@@ -701,16 +702,13 @@ watch([organizationId, establishmentId], () => {
       </div>
     </section>
 
-    <Teleport to="body">
-      <div v-if="editingUnit && isMobileEditor" class="editor-sheet-layer">
-        <button
-          type="button"
-          class="editor-sheet-backdrop"
-          aria-label="Close temperature log editor"
-          @click="closeEditor"
-        />
-
-        <section class="editor-sheet" aria-label="Log temperature reading" role="dialog">
+    <AppOverlay
+      :open="Boolean(editingUnit) && isMobileEditor"
+      aria-label="Log temperature reading"
+      variant="sheet-bottom"
+      @close="closeEditor"
+    >
+      <section v-if="editingUnit" class="editor-sheet">
           <div class="editor-sheet-header">
             <div class="editor-sheet-copy">
               <h2>{{ editingUnit.name }}</h2>
@@ -775,9 +773,8 @@ watch([organizationId, establishmentId], () => {
             </button>
             <button type="button" class="editor-button" @click="closeEditor">Cancel</button>
           </div>
-        </section>
-      </div>
-    </Teleport>
+      </section>
+    </AppOverlay>
   </div>
 </template>
 
@@ -1235,24 +1232,7 @@ watch([organizationId, establishmentId], () => {
   color: var(--color-text-secondary);
 }
 
-.editor-sheet-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-}
-
-.editor-sheet-backdrop {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  background-color: rgba(15, 23, 42, 0.32);
-}
-
 .editor-sheet {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;

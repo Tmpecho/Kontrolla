@@ -2,6 +2,10 @@ package org.kontrolla.checklists.api;
 
 import jakarta.validation.Valid;
 import org.kontrolla.checklists.application.ChecklistDefinitionService;
+import org.kontrolla.checklists.application.ChecklistDefinitionScheduleInput;
+import org.kontrolla.checklists.application.ChecklistDefinitionTaskInput;
+import org.kontrolla.checklists.application.CreateChecklistDefinitionCommand;
+import org.kontrolla.checklists.application.UpdateChecklistDefinitionCommand;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.common.api.PageResponse;
 import org.kontrolla.iam.security.CurrentUser;
@@ -81,11 +85,7 @@ public class ChecklistDefinitionController {
 				checklistDefinitionService.createChecklistDefinition(
 						organizationId,
 						establishmentId,
-						request.serviceArea(),
-						request.title(),
-						request.description(),
-						toCreateChecklistTaskInputs(request.tasks()),
-						toCreateChecklistScheduleInputs(request.schedules()),
+						toCreateChecklistDefinitionCommand(request),
 						currentUser
 				)
 		);
@@ -104,22 +104,38 @@ public class ChecklistDefinitionController {
 						organizationId,
 						establishmentId,
 						checklistDefinitionId,
-						request.serviceArea(),
-						request.title(),
-						request.description(),
-						request.status(),
-						toUpdateChecklistTaskInputs(request.tasks()),
-						toUpdateChecklistScheduleInputs(request.schedules()),
+						toUpdateChecklistDefinitionCommand(request),
 						currentUser
 				)
 		);
 	}
 
-	private List<ChecklistDefinitionService.ChecklistTaskInput> toCreateChecklistTaskInputs(
+	private CreateChecklistDefinitionCommand toCreateChecklistDefinitionCommand(CreateChecklistDefinitionRequest request) {
+		return new CreateChecklistDefinitionCommand(
+				request.serviceArea(),
+				request.title(),
+				request.description(),
+				toCreateChecklistTaskInputs(request.tasks()),
+				toCreateChecklistScheduleInputs(request.schedules())
+		);
+	}
+
+	private UpdateChecklistDefinitionCommand toUpdateChecklistDefinitionCommand(UpdateChecklistDefinitionRequest request) {
+		return new UpdateChecklistDefinitionCommand(
+				request.serviceArea(),
+				request.title(),
+				request.description(),
+				request.status(),
+				toUpdateChecklistTaskInputs(request.tasks()),
+				toUpdateChecklistScheduleInputs(request.schedules())
+		);
+	}
+
+	private List<ChecklistDefinitionTaskInput> toCreateChecklistTaskInputs(
 			List<CreateChecklistDefinitionRequest.ChecklistTaskRequest> tasks
 	) {
 		return tasks.stream()
-				.map(task -> new ChecklistDefinitionService.ChecklistTaskInput(
+				.map(task -> new ChecklistDefinitionTaskInput(
 						task.title(),
 						task.details(),
 						task.taskKind(),
@@ -132,11 +148,11 @@ public class ChecklistDefinitionController {
 				.toList();
 	}
 
-	private List<ChecklistDefinitionService.ChecklistTaskInput> toUpdateChecklistTaskInputs(
+	private List<ChecklistDefinitionTaskInput> toUpdateChecklistTaskInputs(
 			List<UpdateChecklistDefinitionRequest.ChecklistTaskRequest> tasks
 	) {
 		return tasks.stream()
-				.map(task -> new ChecklistDefinitionService.ChecklistTaskInput(
+				.map(task -> new ChecklistDefinitionTaskInput(
 						task.title(),
 						task.details(),
 						task.taskKind(),
@@ -149,7 +165,7 @@ public class ChecklistDefinitionController {
 				.toList();
 	}
 
-	private List<ChecklistDefinitionService.ChecklistScheduleInput> toCreateChecklistScheduleInputs(
+	private List<ChecklistDefinitionScheduleInput> toCreateChecklistScheduleInputs(
 			List<CreateChecklistDefinitionRequest.ChecklistScheduleRequest> schedules
 	) {
 		if (schedules == null) {
@@ -157,7 +173,7 @@ public class ChecklistDefinitionController {
 		}
 
 		return schedules.stream()
-				.map(schedule -> new ChecklistDefinitionService.ChecklistScheduleInput(
+				.map(schedule -> new ChecklistDefinitionScheduleInput(
 						schedule.scheduleType(),
 						schedule.startDate(),
 						schedule.endDate(),
@@ -170,7 +186,7 @@ public class ChecklistDefinitionController {
 				.toList();
 	}
 
-	private List<ChecklistDefinitionService.ChecklistScheduleInput> toUpdateChecklistScheduleInputs(
+	private List<ChecklistDefinitionScheduleInput> toUpdateChecklistScheduleInputs(
 			List<UpdateChecklistDefinitionRequest.ChecklistScheduleRequest> schedules
 	) {
 		if (schedules == null) {
@@ -178,7 +194,7 @@ public class ChecklistDefinitionController {
 		}
 
 		return schedules.stream()
-				.map(schedule -> new ChecklistDefinitionService.ChecklistScheduleInput(
+				.map(schedule -> new ChecklistDefinitionScheduleInput(
 						schedule.scheduleType(),
 						schedule.startDate(),
 						schedule.endDate(),

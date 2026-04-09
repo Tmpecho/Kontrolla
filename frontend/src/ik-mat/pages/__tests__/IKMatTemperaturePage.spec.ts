@@ -170,5 +170,41 @@ describe('IKMatTemperaturePage', () => {
     })
     expect(wrapper.text()).toContain('Saved')
     expect(wrapper.text()).toContain('Logged by Maria Nilsen')
+
+describe('IKMatTemperaturePage mobile editor', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+    window.innerWidth = 1024
+  })
+
+  it('opens the shared mobile sheet and closes it on escape', async () => {
+    window.innerWidth = 700
+
+    const { default: IKMatTemperaturePage } = await import('@/ik-mat/pages/IKMatTemperaturePage.vue')
+    const wrapper = mount(IKMatTemperaturePage, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          RouterLink: {
+            template: '<a><slot /></a>',
+          },
+        },
+      },
+    })
+
+    const trigger = wrapper.find('button.row-action')
+    ;(trigger.element as HTMLButtonElement).focus()
+    await trigger.trigger('click')
+    await flushPromises()
+
+    const overlayPanel = document.body.querySelector('.app-overlay-panel')
+    expect(overlayPanel).not.toBeNull()
+    expect(overlayPanel?.getAttribute('aria-label')).toBe('Log temperature reading')
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
+    await flushPromises()
+
+    expect(document.body.querySelector('.app-overlay-panel')).toBeNull()
+    expect(document.activeElement).toBe(trigger.element)
   })
 })

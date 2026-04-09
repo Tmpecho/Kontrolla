@@ -19,6 +19,7 @@ import {
 import DeviationDetailPanel from '@/deviations/components/DeviationDetailPanel.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import { ApiError } from '@/shared/api/http'
+import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
 import { appEnv } from '@/shared/config/env'
 import type {
   DeviationListItem,
@@ -45,6 +46,8 @@ const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const isSaving = ref(false)
 const saveErrorMessage = ref<string | null>(null)
+const isMobileViewport = ref(false)
+const mobileBreakpoint = 960
 
 const filterOptions = [
   { value: 'ALL', label: 'All' },
@@ -472,8 +475,12 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
+function updateViewportMode() {
+  isMobileViewport.value = window.innerWidth <= mobileBreakpoint
+}
+
 function handleEscape(event: KeyboardEvent) {
-  if (event.key === 'Escape' && selectedDeviation.value) {
+  if (event.key === 'Escape' && selectedDeviation.value && !isMobileViewport.value) {
     void clearSelectedDeviation()
   }
 }
@@ -500,11 +507,14 @@ watch(selectedDeviationId, () => {
 })
 
 onMounted(() => {
+  updateViewportMode()
   document.addEventListener('keydown', handleEscape)
+  window.addEventListener('resize', updateViewportMode)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleEscape)
+  window.removeEventListener('resize', updateViewportMode)
 })
 </script>
 
@@ -643,7 +653,7 @@ onBeforeUnmount(() => {
         </section>
       </div>
 
-      <aside v-if="selectedDeviation" class="detail-panel-shell">
+      <aside v-if="selectedDeviation && !isMobileViewport" class="detail-panel-shell">
         <DeviationDetailPanel
           :deviation="selectedDeviation"
           :is-saving="isSaving"
@@ -657,30 +667,25 @@ onBeforeUnmount(() => {
       </aside>
     </div>
 
-    <div
-      v-if="selectedDeviation"
-      class="detail-drawer-backdrop"
-      aria-hidden="true"
-      @click="clearSelectedDeviation"
-    />
-
-    <aside
-      v-if="selectedDeviation"
-      class="detail-drawer"
+    <AppOverlay
+      :open="Boolean(selectedDeviation) && isMobileViewport"
       aria-label="Selected deviation details"
-      @click.stop
+      variant="drawer-right"
+      @close="clearSelectedDeviation"
     >
-      <DeviationDetailPanel
-        :deviation="selectedDeviation"
-        :is-saving="isSaving"
-        :member-options="selectedMemberOptions"
-        :save-error-message="saveErrorMessage"
-        :show-close-button="true"
-        @add-note="handleTimelineNoteAdd"
-        @close="clearSelectedDeviation"
-        @save="handleDeviationSave"
-      />
-    </aside>
+      <div v-if="selectedDeviation" class="detail-drawer-shell">
+        <DeviationDetailPanel
+          :deviation="selectedDeviation"
+          :is-saving="isSaving"
+          :member-options="selectedMemberOptions"
+          :save-error-message="saveErrorMessage"
+          :show-close-button="true"
+          @add-note="handleTimelineNoteAdd"
+          @close="clearSelectedDeviation"
+          @save="handleDeviationSave"
+        />
+      </div>
+    </AppOverlay>
   </div>
 </template>
 
@@ -991,9 +996,15 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
-.detail-drawer-backdrop,
-.detail-drawer {
-  display: none;
+.detail-drawer-shell {
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.detail-drawer-shell :deep(.detail-panel) {
+  min-height: 100%;
 }
 
 @media (max-width: 720px) {
@@ -1027,27 +1038,6 @@ onBeforeUnmount(() => {
     height: auto;
     min-height: initial;
     overflow: visible;
-  }
-
-  .detail-drawer-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    display: block;
-    background-color: rgba(15, 23, 42, 0.32);
-  }
-
-  .detail-drawer {
-    position: fixed;
-    top: 0;
-    right: 0;
-    z-index: 21;
-    display: block;
-    width: min(100%, 420px);
-    height: 100vh;
-    padding: 16px;
-    box-sizing: border-box;
-    overflow-y: auto;
   }
 }
 </style>

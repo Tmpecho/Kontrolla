@@ -2,7 +2,6 @@ package org.kontrolla.checklists.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kontrolla.checklists.api.UpdateChecklistTaskRequest;
 import org.kontrolla.checklists.domain.ChecklistDefinition;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -178,7 +177,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				run.getTaskExecutions().iterator().next().getId(),
-				new UpdateChecklistTaskRequest(
+				new UpdateChecklistTaskCommand(
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Completed inline",
 						null,
@@ -214,7 +213,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				run.getTaskExecutions().iterator().next().getId(),
-				new UpdateChecklistTaskRequest(
+				new UpdateChecklistTaskCommand(
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Attempted invalid inline update",
 						ChecklistVerificationResult.VERIFIED,
@@ -242,7 +241,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				run.getTaskExecutions().iterator().next().getId(),
-				new UpdateChecklistTaskRequest(
+				new UpdateChecklistTaskCommand(
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Completed before invalid update",
 						null,
@@ -257,7 +256,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				completedRun.getId(),
 				completedRun.getTaskExecutions().iterator().next().getId(),
-				new UpdateChecklistTaskRequest(
+				new UpdateChecklistTaskCommand(
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Attempted update after completion",
 						null,
@@ -288,7 +287,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				UUID.randomUUID(),
-				new UpdateChecklistTaskRequest(
+				new UpdateChecklistTaskCommand(
 						ChecklistTaskExecutionStatus.COMPLETED,
 						"Attempted update with missing task",
 						null,
@@ -338,7 +337,7 @@ class ChecklistRunServiceIntegrationTest {
 				establishment.getId(),
 				run.getId(),
 				taskId,
-				new UpdateChecklistTaskRequest(
+				new UpdateChecklistTaskCommand(
 						ChecklistTaskExecutionStatus.PENDING,
 						"Warming up",
 						null,

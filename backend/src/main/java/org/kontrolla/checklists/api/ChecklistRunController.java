@@ -1,7 +1,10 @@
 package org.kontrolla.checklists.api;
 
 import jakarta.validation.Valid;
+import org.kontrolla.checklists.application.ChecklistRunTaskExecutionInput;
 import org.kontrolla.checklists.application.ChecklistRunService;
+import org.kontrolla.checklists.application.SubmitChecklistRunCommand;
+import org.kontrolla.checklists.application.UpdateChecklistTaskCommand;
 import org.kontrolla.checklists.domain.ChecklistRunStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
 import org.kontrolla.common.api.PageResponse;
@@ -149,14 +152,13 @@ public class ChecklistRunController {
 						organizationId,
 						establishmentId,
 						checklistRunId,
-						toChecklistTaskExecutionInputs(request.tasks()),
+						toSubmitChecklistRunCommand(request),
 						currentUser
 				)
 		);
 	}
 
-
-    @PutMapping("/{checklistRunId}/tasks/{taskId}")
+	@PutMapping("/{checklistRunId}/tasks/{taskId}")
 	public ChecklistRunResponse updateChecklistTask(
 			@PathVariable UUID organizationId,
 			@PathVariable UUID establishmentId,
@@ -171,7 +173,7 @@ public class ChecklistRunController {
 						establishmentId,
 						checklistRunId,
 						taskId,
-						request,
+						toUpdateChecklistTaskCommand(request),
 						currentUser
 				)
 		);
@@ -228,11 +230,25 @@ public class ChecklistRunController {
 		);
 	}
 
-	private List<ChecklistRunService.ChecklistTaskExecutionInput> toChecklistTaskExecutionInputs(
+	private SubmitChecklistRunCommand toSubmitChecklistRunCommand(SubmitChecklistRunRequest request) {
+		return new SubmitChecklistRunCommand(toChecklistTaskExecutionInputs(request.tasks()));
+	}
+
+	private UpdateChecklistTaskCommand toUpdateChecklistTaskCommand(UpdateChecklistTaskRequest request) {
+		return new UpdateChecklistTaskCommand(
+				request.executionStatus(),
+				request.comment(),
+				request.verificationResult(),
+				request.measuredValue(),
+				request.enteredText()
+		);
+	}
+
+	private List<ChecklistRunTaskExecutionInput> toChecklistTaskExecutionInputs(
 			List<SubmitChecklistRunRequest.ChecklistTaskExecutionRequest> tasks
 	) {
 		return tasks.stream()
-				.map(task -> new ChecklistRunService.ChecklistTaskExecutionInput(
+				.map(task -> new ChecklistRunTaskExecutionInput(
 						task.checklistTaskExecutionId(),
 						task.executionStatus(),
 						task.comment(),
