@@ -341,7 +341,7 @@ class ChecklistDefinitionVersioningIntegrationTest {
 		assertThat(runsAtDueTime).hasSize(2);
 		assertThat(runsAtDueTime)
 				.extracting(ChecklistRun::getStatus)
-				.containsExactlyInAnyOrder(ChecklistRunStatus.CANCELLED, ChecklistRunStatus.PENDING);
+				.containsExactlyInAnyOrder(ChecklistRunStatus.CANCELLED, ChecklistRunStatus.OVERDUE);
 		assertThat(runsAtDueTime)
 				.filteredOn(run -> run.getStatus() == ChecklistRunStatus.CANCELLED)
 				.singleElement()

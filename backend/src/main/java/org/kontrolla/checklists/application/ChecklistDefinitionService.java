@@ -252,6 +252,12 @@ public class ChecklistDefinitionService {
 				now.plus(GENERATION_LOOKAHEAD_DAYS, ChronoUnit.DAYS),
 				actor.getId()
 		);
+		checklistRunService.markOverdueRuns(
+				establishment.getOrganization().getId(),
+				establishment.getId(),
+				now,
+				actor.getId()
+		);
 	}
 
 	private ChecklistDefinitionStatus resolveDefinitionStatusForNewVersion(ChecklistDefinitionStatus status) {

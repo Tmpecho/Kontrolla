@@ -381,7 +381,7 @@ const groupedChecklistRuns = computed(() => {
     })
   }
 
-  return [...groups.values()]
+  return [...groups.values()].sort((left, right) => left.key.localeCompare(right.key))
 })
 
 watch(hasSearchQuery, (isSearching) => {
