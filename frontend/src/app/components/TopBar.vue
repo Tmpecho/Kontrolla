@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
@@ -23,12 +23,9 @@ const emit = defineEmits<{
 }>()
 
 const activePopup = ref<null | 'notifications' | 'profile'>(null)
-const popupArea = ref<HTMLElement | null>(null)
 const mobileNavButton = ref<HTMLButtonElement | null>(null)
 const notificationsButton = ref<HTMLButtonElement | null>(null)
 const profileButton = ref<HTMLButtonElement | null>(null)
-const notificationsPopup = ref<InstanceType<typeof NotificationsPopup> | null>(null)
-const profilePopup = ref<InstanceType<typeof ProfilePopup> | null>(null)
 const authStore = useAuthStore()
 const route = useRoute()
 const canManageMembers = computed(() => {
@@ -78,63 +75,18 @@ function isServiceActive(section: 'admin' | 'ik-mat' | 'ik-alkohol') {
   return routeName.startsWith(`${section}-`)
 }
 
-async function togglePopup(type: 'notifications' | 'profile') {
+function togglePopup(type: 'notifications' | 'profile') {
   if (activePopup.value === type) {
     closePopup()
     return
   }
 
   activePopup.value = type
-  await nextTick()
-
-  if (type === 'notifications') {
-    notificationsPopup.value?.focusPopup()
-    return
-  }
-
-  profilePopup.value?.focusFirstAction()
 }
 
 function closePopup() {
   activePopup.value = null
 }
-
-function focusMobileNavTrigger() {
-  mobileNavButton.value?.focus()
-}
-
-function handleClickOutside(event: MouseEvent) {
-  if (!popupArea.value) return
-
-  const target = event.target as Node
-  if (!popupArea.value.contains(target)) {
-    closePopup()
-  }
-}
-
-function handleEscape(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    if (activePopup.value === 'notifications') {
-      notificationsButton.value?.focus()
-    }
-
-    if (activePopup.value === 'profile') {
-      profileButton.value?.focus()
-    }
-
-    closePopup()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleEscape)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleEscape)
-})
 
 watch(
   () => route.fullPath,
@@ -142,10 +94,6 @@ watch(
     closePopup()
   },
 )
-
-defineExpose({
-  focusMobileNavTrigger,
-})
 </script>
 
 <template>
@@ -241,7 +189,7 @@ defineExpose({
     <OrganizationSwitcher class="mobile-organization-switcher" variant="panel" />
     <EstablishmentSwitcher class="mobile-establishment-switcher" variant="panel" />
 
-    <div ref="popupArea" class="right-container icons-container">
+    <div class="right-container icons-container">
       <OrganizationSwitcher class="desktop-organization-switcher" />
       <EstablishmentSwitcher class="desktop-establishment-switcher" />
 
@@ -264,7 +212,8 @@ defineExpose({
         </button>
         <NotificationsPopup
           v-if="activePopup === 'notifications'"
-          ref="notificationsPopup"
+          :anchor-el="notificationsButton"
+          :open="activePopup === 'notifications'"
           @close="closePopup"
         />
       </div>
@@ -283,7 +232,12 @@ defineExpose({
         >
           <img alt="" class="top-bar-img" src="@/assets/icons/profile.png" />
         </button>
-        <ProfilePopup v-if="activePopup === 'profile'" ref="profilePopup" @close="closePopup" />
+        <ProfilePopup
+          v-if="activePopup === 'profile'"
+          :anchor-el="profileButton"
+          :open="activePopup === 'profile'"
+          @close="closePopup"
+        />
       </div>
     </div>
   </div>
@@ -350,13 +304,8 @@ defineExpose({
 }
 
 .icon-wrapper {
-  position: relative;
   display: flex;
   align-items: center;
-}
-
-.icon-wrapper-profile {
-  z-index: 1;
 }
 
 .mobile-menu-button,

@@ -1,9 +1,14 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-import AppPopupShell from '@/app/components/AppPopupShell.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
+import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
+
+defineProps<{
+  open: boolean
+  anchorEl?: HTMLElement | null
+}>()
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -11,7 +16,6 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore()
 const router = useRouter()
-const firstActionButton = ref<HTMLButtonElement | null>(null)
 
 const fullName = computed(() => {
   if (!authStore.user) {
@@ -35,22 +39,16 @@ async function onLogout() {
   await authStore.logout()
   await router.push({ name: 'login' })
 }
-
-function focusFirstAction() {
-  firstActionButton.value?.focus()
-}
-
-defineExpose({
-  focusFirstAction,
-})
-
-onMounted(() => {
-  focusFirstAction()
-})
 </script>
 
 <template>
-  <AppPopupShell id="profile-popup" min-width="280px" role="dialog" aria-label="User menu">
+  <AppOverlay
+    :anchor-el="anchorEl"
+    :open="open"
+    aria-label="User menu"
+    variant="popover"
+    @close="emit('close')"
+  >
     <div class="profile-container">
       <div class="identity-section">
         <p class="user-name">{{ fullName }}</p>
@@ -76,12 +74,7 @@ onMounted(() => {
         </div>
       </div>
       <div class="actions-section">
-        <button
-          ref="firstActionButton"
-          type="button"
-          class="menu-action"
-          @click="navigateTo('my-profile')"
-        >
+        <button type="button" class="menu-action" @click="navigateTo('my-profile')">
           <span class="menu-action-icon" aria-hidden="true">
             <svg viewBox="0 0 20 20">
               <path
@@ -184,13 +177,14 @@ onMounted(() => {
         </button>
       </div>
     </div>
-  </AppPopupShell>
+  </AppOverlay>
 </template>
 
 <style scoped>
 .profile-container {
   display: flex;
   flex-direction: column;
+  min-width: 280px;
 }
 
 .identity-section,

@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import AppPopupShell from '@/app/components/AppPopupShell.vue'
 import { listNotifications, markNotificationRead } from '@/notifications/api/notifications.api'
 import { useNotificationsStore } from '@/notifications/model/notifications.store'
 import type { NotificationItem } from '@/notifications/model/notification.types'
@@ -10,12 +9,17 @@ import {
   formatNotificationTypeLabel,
   toNotificationRoute,
 } from '@/notifications/model/notification.utils'
+import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
+
+defineProps<{
+  open: boolean
+  anchorEl?: HTMLElement | null
+}>()
 
 const notificationDateTimeFormatter = new Intl.DateTimeFormat('nb-NO', {
   dateStyle: 'short',
   timeStyle: 'short',
 })
-const popupRef = ref<InstanceType<typeof AppPopupShell> | null>(null)
 const notifications = ref<NotificationItem[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -26,11 +30,6 @@ const router = useRouter()
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
-
-function focusPopup() {
-  const popupElement = popupRef.value?.$el as HTMLElement | undefined
-  popupElement?.focus()
-}
 
 async function loadRecentNotifications() {
   isLoading.value = true
@@ -84,23 +83,19 @@ function formatDateTime(createdAt: string): string {
   return notificationDateTimeFormatter.format(new Date(createdAt))
 }
 
-defineExpose({
-  focusPopup,
-})
-
 onMounted(() => {
-  focusPopup()
   void loadRecentNotifications()
   void notificationsStore.refreshUnreadCount().catch(() => undefined)
 })
 </script>
 
 <template>
-  <AppPopupShell
-    id="notifications-popup"
-    ref="popupRef"
+  <AppOverlay
+    :anchor-el="anchorEl"
+    :open="open"
     aria-label="Notifications"
-    role="dialog"
+    variant="popover"
+    @close="closePopup"
   >
     <div class="notifications-container">
       <p v-if="isLoading" class="notifications-state">Loading notifications...</p>
@@ -151,7 +146,7 @@ onMounted(() => {
       </template>
       <p v-else class="notifications-state">No notifications</p>
     </div>
-  </AppPopupShell>
+  </AppOverlay>
 </template>
 
 <style scoped>
