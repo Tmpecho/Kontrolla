@@ -559,14 +559,6 @@ const definitionCountLabel = computed(() => {
   return `${definitions.value.length} ${definitions.value.length === 1 ? 'active setup' : 'active setups'}`
 })
 
-const activeDefinition = computed(() => {
-  if (!editingDefinitionId.value) {
-    return null
-  }
-
-  return definitions.value.find((definition) => definition.id === editingDefinitionId.value) ?? null
-})
-
 const editorTitle = computed(() => {
   return editorMode.value === 'create' ? 'Create checklist setup' : 'Edit checklist setup'
 })
