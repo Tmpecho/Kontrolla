@@ -2,7 +2,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { createDeviation } from '@/deviations/api/deviations.api'
 import type { DeviationCategory, DeviationSeverity, DeviationServiceArea } from '@/deviations/model/deviation.types'
@@ -15,7 +14,6 @@ import { ApiError } from '@/shared/api/http'
 import BaseInput from '@/shared/components/BaseInput.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
-const authStore = useAuthStore()
 const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()

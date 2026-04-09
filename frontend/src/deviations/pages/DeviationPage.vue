@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import {
   addDeviationTimelineNote,
@@ -33,7 +32,6 @@ import {
   toDeviationCategoryValue,
 } from '@/deviations/model/deviation.types'
 
-const authStore = useAuthStore()
 const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()

@@ -4,14 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { listOrganizationMembers } from '@/account/api/organization-members.api'
 import type { OrganizationMembership } from '@/account/model/organization-members.types'
-import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { createDocument } from '@/documents/api/documents.api'
 import type { DocumentServiceArea } from '@/documents/model/document.types'
 import { ApiError } from '@/shared/api/http'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
-const authStore = useAuthStore()
 const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()
