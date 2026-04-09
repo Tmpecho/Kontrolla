@@ -151,7 +151,7 @@ public class ChecklistDefinitionService {
 				currentDefinition.getDefinitionGroupId(),
 				now.minus(GENERATION_LOOKBACK_DAYS, ChronoUnit.DAYS),
 				actor.getId(),
-				status == ChecklistDefinitionStatus.ARCHIVED ? "definition_archived" : "definition_updated"
+				"definition_updated"
 		);
 
 		currentDefinition.supersede(now, actor);
