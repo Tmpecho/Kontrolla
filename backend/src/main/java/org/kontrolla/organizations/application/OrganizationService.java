@@ -115,7 +115,7 @@ public class OrganizationService {
 
 		org.kontrolla.iam.domain.User user = userAdministrationService.createInvitedUser(email, firstName, lastName);
 		OrganizationMembership membership = membershipRepository.save(new OrganizationMembership(organization, user, role, active));
-		UserInviteService.IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
+		org.kontrolla.iam.application.IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
 		return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
 	}
 
@@ -141,10 +141,4 @@ public class OrganizationService {
 		return membership;
 	}
 
-	public record ManagedMembershipProvision(
-			OrganizationMembership membership,
-			java.time.Instant inviteExpiresAt,
-			String inviteUrl
-	) {
-	}
 }

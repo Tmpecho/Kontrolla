@@ -117,7 +117,7 @@ public class AuthService {
 	}
 
 	@Transactional(readOnly = true)
-	public UserInviteService.InviteDetails getInviteDetails(String token) {
+	public InviteDetails getInviteDetails(String token) {
 		return userInviteService.getInviteDetails(token);
 	}
 
