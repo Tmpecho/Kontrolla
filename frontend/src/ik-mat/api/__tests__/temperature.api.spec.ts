@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
-import { createTemperatureLog, listTemperatureUnits } from '@/ik-mat/api/temperature.api'
+import {
+  createTemperatureLog,
+  createTemperatureUnit,
+  deleteTemperatureUnit,
+  listTemperatureUnits,
+} from '@/ik-mat/api/temperature.api'
 import { clearCsrfToken } from '@/shared/api/csrf'
 
 vi.mock('@/auth/model/auth.store', () => ({
@@ -107,5 +112,101 @@ describe('temperature.api', () => {
       measuredAt: '2026-04-09T06:10:00Z',
       note: 'Opening check completed.',
     }))
+  })
+
+  it('posts temperature units as json', async () => {
+    const fetchMock = fetch as Mock
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        token: 'csrf-token',
+        headerName: 'X-XSRF-TOKEN',
+        parameterName: '_csrf',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        id: 'unit-1',
+        name: 'Prep fridge',
+        location: 'Main prep line',
+        type: 'FRIDGE',
+        dueByTime: '08:15:00',
+        minimumTemperature: 2,
+        maximumTemperature: 4,
+        logs: [],
+      }), {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+
+    await createTemperatureUnit({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      name: 'Prep fridge',
+      location: 'Main prep line',
+      type: 'FRIDGE',
+      dueByTime: '08:15:00',
+      minimumTemperature: 2,
+      maximumTemperature: 4,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    const [requestUrl, requestInit] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(requestUrl).toBe(
+      'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/temperature-units',
+    )
+    expect(requestInit.method).toBe('POST')
+    expect(new Headers(requestInit.headers).get('Content-Type')).toBe('application/json')
+    expect(requestInit.body).toBe(JSON.stringify({
+      name: 'Prep fridge',
+      location: 'Main prep line',
+      type: 'FRIDGE',
+      dueByTime: '08:15:00',
+      minimumTemperature: 2,
+      maximumTemperature: 4,
+    }))
+  })
+
+  it('deletes temperature units with the delete endpoint', async () => {
+    const fetchMock = fetch as Mock
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        token: 'csrf-token',
+        headerName: 'X-XSRF-TOKEN',
+        parameterName: '_csrf',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, {
+        status: 204,
+      }),
+    )
+
+    await deleteTemperatureUnit({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      temperatureUnitId: 'unit-1',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    const [requestUrl, requestInit] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(requestUrl).toBe(
+      'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/temperature-units/unit-1',
+    )
+    expect(requestInit.method).toBe('DELETE')
   })
 })
