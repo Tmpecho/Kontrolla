@@ -253,7 +253,7 @@ class ChecklistDefinitionVersioningIntegrationTest {
 
 		ZoneId zoneId = ZoneId.of("Europe/Oslo");
 		Instant now = Instant.now();
-		LocalDate scheduleDate = LocalDate.ofInstant(now, zoneId);
+		LocalDate scheduleDate = LocalDate.ofInstant(now, zoneId).minusDays(1);
 		LocalTime dueTime = LocalTime.ofInstant(now.minusSeconds(3600), zoneId).withSecond(0).withNano(0);
 
 		ChecklistDefinition definition = checklistDefinitionService.createChecklistDefinition(
