@@ -48,6 +48,10 @@ public class ChecklistRunService {
 			ChecklistRunStatus.PENDING,
 			ChecklistRunStatus.IN_PROGRESS
 	);
+	private static final List<ChecklistRunStatus> REGENERATABLE_STATUSES = List.of(
+			ChecklistRunStatus.PENDING,
+			ChecklistRunStatus.OVERDUE
+	);
 
 	private final ChecklistRunRepository checklistRunRepository;
 	private final ChecklistRunAssignmentRepository checklistRunAssignmentRepository;
@@ -433,7 +437,7 @@ public class ChecklistRunService {
 	}
 
 	@Transactional
-	public int cancelFuturePendingRunsForDefinitionGroup(
+	public int cancelRegeneratableRunsForDefinitionGroup(
 			UUID establishmentId,
 			UUID definitionGroupId,
 			Instant fromDueAt,
@@ -441,10 +445,10 @@ public class ChecklistRunService {
 			String reason
 	) {
 		List<ChecklistRun> pendingRuns = checklistRunRepository
-				.findByEstablishmentIdAndDefinitionGroupIdAndStatusAndDueAtGreaterThanEqualOrderByDueAtAsc(
+				.findByEstablishmentIdAndDefinitionGroupIdAndStatusInAndDueAtGreaterThanEqualOrderByDueAtAsc(
 						establishmentId,
 						definitionGroupId,
-						ChecklistRunStatus.PENDING,
+						REGENERATABLE_STATUSES,
 						fromDueAt
 				);
 

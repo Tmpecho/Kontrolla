@@ -146,10 +146,10 @@ public class ChecklistDefinitionService {
 		);
 		User actor = getUserOrThrow(currentUser.userId());
 		Instant now = Instant.now();
-		checklistRunService.cancelFuturePendingRunsForDefinitionGroup(
+		checklistRunService.cancelRegeneratableRunsForDefinitionGroup(
 				establishmentId,
 				currentDefinition.getDefinitionGroupId(),
-				now,
+				now.minus(GENERATION_LOOKBACK_DAYS, ChronoUnit.DAYS),
 				actor.getId(),
 				status == ChecklistDefinitionStatus.ARCHIVED ? "definition_archived" : "definition_updated"
 		);
