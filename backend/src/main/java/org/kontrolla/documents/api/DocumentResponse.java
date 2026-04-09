@@ -7,6 +7,7 @@ import org.kontrolla.documents.domain.DocumentStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record DocumentResponse(
@@ -23,6 +24,7 @@ public record DocumentResponse(
     String contentType,
     long fileSizeBytes,
     DocumentStatus status,
+    List<DocumentAuditAssignmentResponse> auditAssignments,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -42,6 +44,9 @@ public record DocumentResponse(
         document.getContentType(),
         document.getFileSizeBytes(),
         document.getStatus(LocalDate.now(clock)),
+        document.getAuditAssignments().stream()
+            .map(DocumentAuditAssignmentResponse::from)
+            .toList(),
         document.getCreatedAt(),
         document.getUpdatedAt()
     );
