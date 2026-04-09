@@ -31,7 +31,6 @@ const {
   acknowledgeDocumentReadMock,
   deleteDocumentMock,
   authStoreMock,
-  appEnvMock,
   routeState,
   routerPushMock,
 } = vi.hoisted(() => ({
@@ -40,24 +39,21 @@ const {
   acknowledgeDocumentReadMock: vi.fn(),
   deleteDocumentMock: vi.fn(),
   authStoreMock: {
+    isStartupPending: false,
+    requiresEstablishmentSelection: false,
     appContext: {
       organizationId: 'org-1',
       establishmentId: 'est-1',
       organizationRole: 'ORG_MANAGER',
-    },
+    } as {
+      organizationId: string | null
+      establishmentId: string | null
+      organizationRole: string | null
+    } | null,
     user: {
       id: 'user-99',
       globalRoles: [],
     },
-  },
-  appEnvMock: {
-    mode: 'test',
-    isDevelopment: true,
-    isProduction: false,
-    apiBaseUrl: 'http://localhost:8080',
-    defaultOrganizationId: undefined as string | undefined,
-    defaultEstablishmentId: undefined as string | undefined,
-    showDevLoginHint: false,
   },
   routeState: {
     name: 'ik-alkohol-documents',
@@ -76,9 +72,33 @@ vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  appEnv: appEnvMock,
-}))
+vi.mock('@/auth/model/workspace-context', async () => {
+  const { computed } = await import('vue')
+
+  return {
+    useProtectedWorkspaceContext: () => ({
+      organizationId: computed(() => authStoreMock.appContext?.organizationId ?? null),
+      establishmentId: computed(() => authStoreMock.appContext?.establishmentId ?? null),
+      availableEstablishmentIds: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        return selectedEstablishmentId ? [selectedEstablishmentId] : []
+      }),
+      isStartupPending: computed(() => authStoreMock.isStartupPending),
+      requiresEstablishmentSelection: computed(() => authStoreMock.requiresEstablishmentSelection),
+      hasOrganizationContext: computed(() => Boolean(authStoreMock.appContext?.organizationId)),
+      hasEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+      hasAccessibleEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+    }),
+  }
+})
 
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
@@ -115,10 +135,8 @@ describe('DocumentsPage', () => {
       id: 'user-99',
       globalRoles: [],
     }
-    appEnvMock.isDevelopment = true
-    appEnvMock.isProduction = false
-    appEnvMock.defaultOrganizationId = undefined
-    appEnvMock.defaultEstablishmentId = undefined
+    authStoreMock.isStartupPending = false
+    authStoreMock.requiresEstablishmentSelection = false
     routeState.name = 'ik-alkohol-documents'
   })
 
@@ -265,5 +283,20 @@ describe('DocumentsPage', () => {
     expect(wrapper.text()).not.toContain('I have read')
     expect(wrapper.text()).toContain('2/2 confirmed')
     expect(wrapper.text()).toContain('You have confirmed this document.')
+  })
+
+  it('shows a neutral context message when an establishment must be selected', async () => {
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: null,
+      organizationRole: 'ORG_MANAGER',
+    }
+    authStoreMock.requiresEstablishmentSelection = true
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Choose an establishment to load documents.')
+    expect(wrapper.text()).not.toContain('VITE_DEFAULT_ORGANIZATION_ID')
   })
 })
