@@ -6,6 +6,11 @@ import { defineComponent } from 'vue'
 const { authStoreMock, notificationsStoreMock } = vi.hoisted(() => ({
   authStoreMock: {
     isAuthenticated: true,
+    isStartupPending: false,
+    startupStatus: 'ready',
+    startupError: null,
+    startupStartedAt: null,
+    retryWorkspaceStartup: vi.fn(),
   },
   notificationsStoreMock: {
     startPolling: vi.fn(),
