@@ -84,13 +84,15 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="settings-page">
-    <header class="page-header">
-      <h1>Settings</h1>
-      <p>Account security settings for your signed-in profile.</p>
+  <div class="settings-page app-page">
+    <header class="page-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">Settings</h1>
+        <p class="app-page-subtitle">Account security settings for your signed-in profile.</p>
+      </div>
     </header>
 
-    <section class="settings-panel">
+    <section class="settings-panel app-panel">
       <div class="panel-header">
         <h2>Password</h2>
         <p>
@@ -143,12 +145,6 @@ async function onSubmit() {
 </template>
 
 <style scoped>
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .page-header,
 .settings-panel,
 .settings-form,
@@ -174,9 +170,6 @@ async function onSubmit() {
   gap: 20px;
   max-width: 720px;
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .panel-header p {
@@ -190,7 +183,7 @@ async function onSubmit() {
 .feedback-message {
   padding: 12px 14px;
   border: 1px solid var(--color-critical);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--color-critical);
   font-size: 0.9375rem;
 }

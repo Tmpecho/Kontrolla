@@ -335,10 +335,12 @@ watch(
 </script>
 
 <template>
-  <div class="workspace-page">
-    <section class="workspace-header">
-      <h1>Workspace</h1>
-      <p>Jump into the right service quickly and keep track of the small set of items that need attention now.</p>
+  <div class="workspace-page app-page">
+    <section class="workspace-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">Workspace</h1>
+        <p class="app-page-subtitle">Jump into the right service quickly and keep track of the small set of items that need attention now.</p>
+      </div>
     </section>
 
     <section class="workspace-section">
@@ -452,7 +454,6 @@ watch(
   gap: 12px;
 }
 
-.workspace-header h1,
 .workspace-header p,
 .section-header h2,
 .section-subtitle,
@@ -477,15 +478,6 @@ watch(
   color: var(--color-text-secondary);
 }
 
-.workspace-header {
-  gap: 8px;
-}
-
-.workspace-header h1 {
-  font-size: 2rem;
-  line-height: 1.05;
-}
-
 .workspace-header p {
   max-width: 62ch;
 }
@@ -503,7 +495,7 @@ watch(
   gap: 14px;
   padding: 20px 22px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: var(--radius-fluid-md);
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
   color: inherit;
@@ -631,7 +623,7 @@ watch(
 
 .attention-surface {
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: var(--radius-fluid-md);
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
   overflow: hidden;
@@ -715,7 +707,7 @@ watch(
 
 .quick-actions-surface {
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: var(--radius-fluid-md);
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
   overflow: hidden;

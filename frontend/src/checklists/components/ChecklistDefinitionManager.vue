@@ -1182,9 +1182,9 @@ watch(definitions, maybeOpenRequestedDefinition)
 .manager-shell {
   gap: 12px;
   padding: 12px;
-  border: 1px solid #bfd1e6;
-  border-radius: 0;
-  background: #edf3fa;
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--radius-sharp);
+  background: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-container));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   font-size: 0.9375rem;
 }
@@ -1203,8 +1203,8 @@ watch(definitions, maybeOpenRequestedDefinition)
 .manager-header-toggle {
   cursor: pointer;
   padding: 14px;
-  border: 1px solid #c7d7ea;
-  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--color-info-border) 88%, var(--color-border-muted));
+  border-radius: var(--radius-sharp);
   background: rgba(255, 255, 255, 0.62);
 }
 
@@ -1297,17 +1297,17 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-panel {
   padding: 16px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0;
+  border-radius: var(--radius-sharp);
   background: var(--color-container);
 }
 
 .feedback-success {
-  border-color: #b8e2ca;
+  border-color: var(--color-success-border);
   color: var(--color-success);
 }
 
 .feedback-error {
-  border-color: #f0b8b8;
+  border-color: var(--color-critical-border);
   color: var(--color-critical);
 }
 
@@ -1337,9 +1337,9 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .definition-list {
   padding: 12px;
-  border: 1px solid #d5dde8;
-  border-radius: 0;
-  background: #f8fafc;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sharp);
+  background: var(--color-surface);
 }
 
 .definition-row:hover,
@@ -1349,7 +1349,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .definition-row[data-active='true'] {
-  background: #edf5ff;
+  background: color-mix(in srgb, var(--color-primary-soft) 78%, var(--color-container));
 }
 
 .definition-row-copy {
@@ -1394,9 +1394,9 @@ watch(definitions, maybeOpenRequestedDefinition)
   align-items: center;
   min-height: 1.5rem;
   padding: 0.15rem 0.45rem;
-  border: 1px solid #b6d3ff;
-  border-radius: 999px;
-  background: #eff6ff;
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-info-soft);
   color: var(--color-primary);
   font-size: 0.6875rem;
   font-weight: 600;
@@ -1407,7 +1407,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0;
+  border-radius: var(--radius-sharp);
   font-weight: 700;
 }
 
@@ -1422,7 +1422,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 .section-count-badge {
   min-height: 1.1rem;
   padding: 0 0.45rem;
-  background: #d9e8fb;
+  background: color-mix(in srgb, var(--color-primary-soft) 68%, var(--color-container));
   color: var(--color-primary);
   font-size: 0.6rem;
   text-transform: uppercase;
@@ -1471,41 +1471,41 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .editor-form-submenu .editor-panel:first-child {
-  border-color: #d6dee8;
-  background: #ffffff;
+  border-color: var(--color-border-muted);
+  background: var(--color-white);
 }
 
 .editor-form-submenu .editor-panel:first-child .editor-header {
   padding-bottom: 8px;
-  border-bottom: 1px solid #e0e6ee;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 88%, var(--color-white));
 }
 
 .editor-form:not(.editor-form-submenu) {
   padding: 12px;
-  border: 1px solid #d6dee8;
-  border-radius: 0;
-  background: #f8fafc;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sharp);
+  background: var(--color-surface);
 }
 
 .editor-panel-overview {
   order: 1;
-  border-color: #d4dde8;
-  background: #ffffff;
+  border-color: var(--color-border-muted);
+  background: var(--color-white);
 }
 
 .editor-panel-schedules {
   order: 2;
   padding: 16px;
-  border-color: #d4dde8;
-  background: #fbfcfe;
+  border-color: var(--color-border-muted);
+  background: color-mix(in srgb, var(--color-white) 80%, var(--color-surface) 20%);
 }
 
 .editor-panel-tasks {
   order: 3;
   margin-top: 28px;
   padding: 18px 16px 16px;
-  border-color: #d7dfe8;
-  background: #fdfefe;
+  border-color: var(--color-border-muted);
+  background: color-mix(in srgb, var(--color-white) 86%, var(--color-surface) 14%);
   box-shadow: none;
 }
 
@@ -1513,7 +1513,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   content: '';
   display: block;
   margin: -8px 0 10px;
-  border-top: 1px solid #cfd8e3;
+  border-top: 1px solid color-mix(in srgb, var(--color-border-muted) 92%, var(--color-white));
 }
 
 .field-block {
@@ -1537,9 +1537,9 @@ watch(definitions, maybeOpenRequestedDefinition)
   min-height: 38px;
   padding: 0.68rem 0.7rem 0.58rem;
   border: none;
-  border-bottom: 1px solid #8d8d8d;
-  border-radius: 0;
-  background: #f4f4f4;
+  border-bottom: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sharp);
+  background: var(--color-surface-muted);
   color: var(--color-text-primary);
   font: inherit;
   box-sizing: border-box;
@@ -1569,7 +1569,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   border-bottom-color: var(--color-primary);
-  background: #ffffff;
+  background: var(--color-white);
 }
 
 .checkbox-row {
@@ -1589,16 +1589,16 @@ watch(definitions, maybeOpenRequestedDefinition)
 .builder-card {
   gap: 12px;
   padding: 14px;
-  border: 1px solid #dde3ea;
-  border-radius: 0;
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--color-border-muted) 88%, var(--color-white));
+  border-radius: var(--radius-sharp);
+  background: var(--color-white);
   box-shadow: none;
 }
 
 .builder-card-header {
   gap: 10px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #e8edf3;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 84%, var(--color-white));
 }
 
 .builder-card-header strong {
@@ -1619,7 +1619,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   width: 0.7rem;
   height: 0.7rem;
   border: 2px solid var(--color-primary);
-  background: #dceafe;
+  background: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-container));
   box-sizing: border-box;
 }
 
@@ -1633,13 +1633,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .editor-form-submenu .builder-card {
-  border-color: #d2dfef;
-  background: #f9fbfe;
+  border-color: color-mix(in srgb, var(--color-info-border) 70%, var(--color-border-muted));
+  background: color-mix(in srgb, var(--color-white) 75%, var(--color-primary-soft) 25%);
 }
 
 .editor-form-submenu .section-header {
   padding-bottom: 14px;
-  border-bottom: 1px solid #d6dee8;
+  border-bottom: 1px solid var(--color-border-muted);
 }
 
 .section-header .btn {
@@ -1649,13 +1649,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-panel-schedules .section-header {
   margin-bottom: 4px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #d6dee8;
+  border-bottom: 1px solid var(--color-border-muted);
 }
 
 .editor-panel-tasks .section-header {
   margin-bottom: 6px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #d6dee8;
+  border-bottom: 1px solid var(--color-border-muted);
 }
 
 .section-header h3 {
@@ -1677,13 +1677,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .editor-panel-schedules .builder-card {
-  border-color: #dce4ee;
-  background: #ffffff;
+  border-color: color-mix(in srgb, var(--color-border-muted) 82%, var(--color-white));
+  background: var(--color-white);
 }
 
 .editor-panel-tasks .builder-card {
-  border-color: #dce4ee;
-  background: #ffffff;
+  border-color: color-mix(in srgb, var(--color-border-muted) 82%, var(--color-white));
+  background: var(--color-white);
 }
 
 .btn,
@@ -1697,7 +1697,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   min-height: 2.5rem;
   padding: 0.55rem 0.9rem;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: var(--radius-sharp);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -1724,12 +1724,12 @@ watch(definitions, maybeOpenRequestedDefinition)
 .btn-secondary {
   background: transparent;
   color: var(--color-text-primary);
-  border-color: #8d8d8d;
+  border-color: var(--color-border-strong);
   font-size: 0.6875rem;
 }
 
 .btn-secondary:hover {
-  background: #f4f4f4;
+  background: var(--color-surface-muted);
 }
 
 .btn-danger-ghost,
@@ -1743,7 +1743,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .btn-danger-ghost:hover,
 .text-button-danger:hover {
-  background: #fef2f2;
+  background: var(--color-critical-soft);
 }
 
 .text-button {
@@ -1766,15 +1766,15 @@ watch(definitions, maybeOpenRequestedDefinition)
   width: 1.8rem;
   height: 1.8rem;
   padding: 0;
-  border: 1px solid #c6ced8;
-  border-radius: 0;
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--color-border-muted) 78%, var(--color-border));
+  border-radius: var(--radius-sharp);
+  background: var(--color-white);
   color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .icon-button:hover {
-  background: #f4f4f4;
+  background: var(--color-surface-muted);
   color: var(--color-primary);
 }
 
@@ -1783,7 +1783,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .icon-button-danger:hover {
-  background: #fef2f2;
+  background: var(--color-critical-soft);
   color: var(--color-critical);
 }
 
@@ -1799,9 +1799,9 @@ watch(definitions, maybeOpenRequestedDefinition)
   gap: 6px;
   min-height: 58px;
   padding: 0.45rem 0.3rem;
-  border: 1px solid #c6ced8;
-  border-radius: 0;
-  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--color-border-muted) 78%, var(--color-border));
+  border-radius: var(--radius-sharp);
+  background: var(--color-white);
   color: var(--color-text-secondary);
   cursor: pointer;
 }
@@ -1811,12 +1811,12 @@ watch(definitions, maybeOpenRequestedDefinition)
   width: 16px;
   height: 16px;
   border: 2px solid currentColor;
-  border-radius: 0;
+  border-radius: var(--radius-sharp);
 }
 
 .weekday-square[data-active='true'] {
   border-color: var(--color-primary);
-  background: #edf5ff;
+  background: color-mix(in srgb, var(--color-primary-soft) 78%, var(--color-container));
   color: var(--color-primary);
 }
 

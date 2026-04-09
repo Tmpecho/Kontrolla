@@ -587,7 +587,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .run-card {
   background: var(--color-container);
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -670,7 +670,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   color: var(--color-critical);
 }
 .run-title {
-  font-size: 1rem;
+  font-size: var(--font-size-heading-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
@@ -737,7 +737,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .progress-step-icon {
   width: 1rem;
   height: 1rem;
-  color: #c6c6c6;
+  color: var(--color-border-strong);
   flex-shrink: 0;
 }
 .progress-step-copy {
@@ -752,7 +752,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   color: var(--color-text-primary);
 }
 .progress-step-complete .progress-step-icon {
-  color: #24a148;
+  color: var(--color-success);
 }
 .progress-step-current .progress-step-icon {
   color: var(--color-primary);
@@ -809,7 +809,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   padding: 1rem 0.95rem 1.05rem;
   border-top: 1px solid var(--color-border-muted);
   border-bottom: 1px solid var(--color-border-muted);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: color-mix(in srgb, var(--color-surface) 36%, white);
 }
 
@@ -837,7 +837,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   min-height: 2rem;
   padding: 0.28rem 0.35rem 0.28rem 0.65rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: var(--color-container);
   font-size: 0.75rem;
   color: var(--color-text-primary);
@@ -851,15 +851,15 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   height: 1.7rem;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: transparent;
   color: var(--color-critical);
   cursor: pointer;
 }
 
 .assignment-chip-remove:hover {
-  background: #fef2f2;
-  border-color: #f0b8b8;
+  background: var(--color-critical-soft);
+  border-color: var(--color-critical-border);
 }
 
 .assignment-empty {
@@ -894,8 +894,8 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   padding: 0.65rem 0.8rem 0.58rem;
   border: none;
   border-bottom: 1px solid #8d8d8d;
-  border-radius: 0.5cqh;
-  background: #f4f4f4;
+  border-radius: var(--radius-fluid-sm);
+  background: var(--color-surface-muted);
   color: var(--color-text-primary);
   font: inherit;
 }
@@ -904,7 +904,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   border-bottom-color: var(--color-primary);
-  background: #fff;
+  background: var(--color-white);
 }
 
 .assignment-error {
@@ -936,7 +936,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 
 .status-badge {
   padding: 0.18rem 0.45rem;
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   white-space: nowrap;
   border: 1px solid transparent;
 }
@@ -946,19 +946,19 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   border-color: var(--color-border-muted);
 }
 .status-primary {
-  background: #eff6ff;
+  background: var(--color-info-soft);
   color: var(--color-primary);
-  border-color: #b6d3ff;
+  border-color: var(--color-info-border);
 }
 .status-success {
-  background: #ecfdf5;
+  background: var(--color-success-soft);
   color: var(--color-success);
-  border-color: #b8e2ca;
+  border-color: var(--color-success-border);
 }
 .status-critical {
-  background: #fef2f2;
+  background: var(--color-critical-soft);
   color: var(--color-critical);
-  border-color: #f0b8b8;
+  border-color: var(--color-critical-border);
 }
 
 .tasks-list {
@@ -983,7 +983,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .btn {
   font: 600 0.75rem var(--font-sans, inherit);
   padding: 0.42rem 0.7rem;
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   border: 1px solid transparent;
   cursor: pointer;
   transition: 0.15s;
@@ -1004,13 +1004,13 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 }
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-white);
 }
 .btn-primary:hover {
-  background: #004a94;
+  background: var(--color-primary-strong);
 }
 .btn-secondary {
-  background: #fff;
+  background: var(--color-white);
   color: var(--color-text-primary);
   border-color: var(--color-border-muted);
 }
@@ -1022,7 +1022,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
   color: var(--color-critical);
 }
 .btn-danger-ghost:hover {
-  background: #fef2f2;
+  background: var(--color-critical-soft);
 }
 
 .auto-save-text {
