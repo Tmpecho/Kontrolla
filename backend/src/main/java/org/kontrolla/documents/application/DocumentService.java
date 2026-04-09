@@ -1,8 +1,10 @@
 package org.kontrolla.documents.application;
 
 import org.kontrolla.common.exception.ApplicationException;
+import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.documents.domain.Document;
+import org.kontrolla.documents.domain.DocumentAuditAssignment;
 import org.kontrolla.documents.domain.DocumentFile;
 import org.kontrolla.documents.domain.DocumentServiceArea;
 import org.kontrolla.documents.infrastructure.DocumentFileRepository;
@@ -13,7 +15,9 @@ import org.kontrolla.iam.application.UserAccessService;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.application.OrganizationAccessService;
+import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.domain.Organization;
+import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -21,7 +25,11 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,19 +42,25 @@ public class DocumentService {
   private final OrganizationAccessService organizationAccessService;
   private final EstablishmentService establishmentService;
   private final UserAccessService userAccessService;
+  private final OrganizationMembershipRepository organizationMembershipRepository;
+  private final Clock clock;
 
   public DocumentService(
       DocumentRepository documentRepository,
       DocumentFileRepository documentFileRepository,
       OrganizationAccessService organizationAccessService,
       EstablishmentService establishmentService,
-      UserAccessService userAccessService
+      UserAccessService userAccessService,
+      OrganizationMembershipRepository organizationMembershipRepository,
+      Clock clock
   ) {
     this.documentRepository = documentRepository;
     this.documentFileRepository = documentFileRepository;
     this.organizationAccessService = organizationAccessService;
     this.establishmentService = establishmentService;
     this.userAccessService = userAccessService;
+    this.organizationMembershipRepository = organizationMembershipRepository;
+    this.clock = clock;
   }
 
   @Transactional(readOnly = true)
@@ -105,6 +119,7 @@ public class DocumentService {
       String holderName,
       LocalDate issueDate,
       LocalDate renewalDate,
+      List<UUID> auditUserIds,
       String fileName,
       String contentType,
       byte[] fileContent,
@@ -114,6 +129,7 @@ public class DocumentService {
     organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
     Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     User createdByUser = userAccessService.getCurrentUserOrThrow(currentUser);
+    List<User> auditUsers = resolveAuditUsers(organizationId, establishmentId, auditUserIds);
     validateDateRange(issueDate, renewalDate);
     validatePdfFile(contentType, fileContent);
 
@@ -130,6 +146,7 @@ public class DocumentService {
         PDF_CONTENT_TYPE,
         fileContent.length
     );
+    document.replaceAuditAssignments(auditUsers);
 
     Document savedDocument = documentRepository.save(document);
     documentFileRepository.save(new DocumentFile(savedDocument.getId(), fileContent));
@@ -146,10 +163,12 @@ public class DocumentService {
       String holderName,
       LocalDate issueDate,
       LocalDate renewalDate,
+      List<UUID> auditUserIds,
       CurrentUser currentUser
   ) {
     organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+    List<User> auditUsers = resolveAuditUsers(organizationId, establishmentId, auditUserIds);
     validateDateRange(issueDate, renewalDate);
 
     Document document = findDocumentOrThrow(organizationId, establishmentId, documentId);
@@ -158,6 +177,7 @@ public class DocumentService {
     document.setHolderName(normalizeRequiredText(holderName));
     document.setIssueDate(issueDate);
     document.setRenewalDate(renewalDate);
+    document.replaceAuditAssignments(auditUsers);
 
     return documentRepository.save(document);
   }
@@ -207,6 +227,27 @@ public class DocumentService {
     documentRepository.delete(document);
   }
 
+  @Transactional
+  public Document acknowledgeDocumentAudit(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID documentId,
+      CurrentUser currentUser
+  ) {
+    establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+
+    Document document = findDocumentOrThrow(organizationId, establishmentId, documentId);
+    User actor = userAccessService.getCurrentUserOrThrow(currentUser);
+    DocumentAuditAssignment assignment = document.findAuditAssignment(actor.getId())
+        .orElseThrow(() -> new ForbiddenException(
+            "document_audit_acknowledgement_forbidden",
+            "You are not assigned to acknowledge this document"
+        ));
+
+    assignment.acknowledge(Instant.now(clock));
+    return documentRepository.save(document);
+  }
+
   private Document findDocumentOrThrow(UUID organizationId, UUID establishmentId, UUID documentId) {
     return documentRepository.findByIdAndEstablishmentIdAndOrganizationId(documentId, establishmentId, organizationId)
         .orElseThrow(() -> new ResourceNotFoundException("document_not_found", "Document not found"));
@@ -242,6 +283,34 @@ public class DocumentService {
 
   private String normalizeRequiredText(String value) {
     return value.strip();
+  }
+
+  private List<User> resolveAuditUsers(UUID organizationId, UUID establishmentId, List<UUID> auditUserIds) {
+    if (auditUserIds == null || auditUserIds.isEmpty()) {
+      return List.of();
+    }
+
+    LinkedHashSet<UUID> uniqueUserIds = new LinkedHashSet<>(auditUserIds);
+    return uniqueUserIds.stream()
+        .map(userId -> getAuditUserOrThrow(organizationId, establishmentId, userId))
+        .toList();
+  }
+
+  private User getAuditUserOrThrow(UUID organizationId, UUID establishmentId, UUID userId) {
+    User user = userAccessService.getUserOrThrow(userId);
+    boolean hasActiveMembership = organizationMembershipRepository.findByOrganizationIdAndUserId(organizationId, userId)
+        .filter(OrganizationMembership::isActive)
+        .filter(membership -> membership.hasEstablishmentAccess(establishmentId))
+        .isPresent();
+
+    if (!user.isActive() || !hasActiveMembership) {
+      throw new ForbiddenException(
+          "document_audit_user_forbidden",
+          "Documents can only be assigned for audit acknowledgement to active members with access to the establishment"
+      );
+    }
+
+    return user;
   }
 
   private String normalizeFileName(String fileName) {

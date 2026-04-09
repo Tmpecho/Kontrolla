@@ -12,7 +12,13 @@ import java.util.UUID;
 
 public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
-  @EntityGraph(attributePaths = {"organization", "establishment", "createdByUser"})
+  @EntityGraph(attributePaths = {
+      "organization",
+      "establishment",
+      "createdByUser",
+      "auditAssignments",
+      "auditAssignments.user"
+  })
   Page<Document> findByEstablishmentIdAndOrganizationIdAndServiceArea(
       UUID establishmentId,
       UUID organizationId,
@@ -20,7 +26,13 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
       Pageable pageable
   );
 
-  @EntityGraph(attributePaths = {"organization", "establishment", "createdByUser"})
+  @EntityGraph(attributePaths = {
+      "organization",
+      "establishment",
+      "createdByUser",
+      "auditAssignments",
+      "auditAssignments.user"
+  })
   Optional<Document> findByIdAndEstablishmentIdAndOrganizationId(
       UUID id,
       UUID establishmentId,
