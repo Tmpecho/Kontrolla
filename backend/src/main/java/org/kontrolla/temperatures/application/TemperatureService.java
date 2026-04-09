@@ -1,11 +1,15 @@
 package org.kontrolla.temperatures.application;
 
 import org.kontrolla.common.exception.ApplicationException;
+import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.establishments.application.EstablishmentService;
+import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.application.UserAccessService;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.CurrentUser;
+import org.kontrolla.organizations.application.OrganizationAccessService;
+import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.temperatures.domain.TemperatureLog;
 import org.kontrolla.temperatures.domain.TemperatureUnit;
 import org.kontrolla.temperatures.infrastructure.TemperatureLogRepository;
@@ -22,17 +26,20 @@ public class TemperatureService {
 
   private final TemperatureUnitRepository temperatureUnitRepository;
   private final TemperatureLogRepository temperatureLogRepository;
+  private final OrganizationAccessService organizationAccessService;
   private final EstablishmentService establishmentService;
   private final UserAccessService userAccessService;
 
   public TemperatureService(
       TemperatureUnitRepository temperatureUnitRepository,
       TemperatureLogRepository temperatureLogRepository,
+      OrganizationAccessService organizationAccessService,
       EstablishmentService establishmentService,
       UserAccessService userAccessService
   ) {
     this.temperatureUnitRepository = temperatureUnitRepository;
     this.temperatureLogRepository = temperatureLogRepository;
+    this.organizationAccessService = organizationAccessService;
     this.establishmentService = establishmentService;
     this.userAccessService = userAccessService;
   }
@@ -50,6 +57,46 @@ public class TemperatureService {
         ).stream()
         .map(TemperatureUnitView::from)
         .toList();
+  }
+
+  @Transactional
+  public TemperatureUnitView createTemperatureUnit(
+      UUID organizationId,
+      UUID establishmentId,
+      CreateTemperatureUnitCommand command,
+      CurrentUser currentUser
+  ) {
+    organizationAccessService.requireMembershipManagement(currentUser, organizationId);
+    Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
+    Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+    validateCreateUnitCommand(command);
+
+    String normalizedName = normalizeRequiredText(command.name());
+    String normalizedLocation = normalizeRequiredText(command.location());
+
+    boolean duplicateExists = temperatureUnitRepository
+        .findByEstablishmentIdAndOrganizationIdOrderByNameAsc(establishmentId, organizationId)
+        .stream()
+        .anyMatch(unit -> unit.getName().equalsIgnoreCase(normalizedName));
+    if (duplicateExists) {
+      throw new ConflictException(
+          "temperature_unit_already_exists",
+          "A temperature unit with that name already exists for this establishment"
+      );
+    }
+
+    TemperatureUnit unit = new TemperatureUnit(
+        organization,
+        establishment,
+        normalizedName,
+        normalizedLocation,
+        command.type(),
+        command.dueByTime(),
+        command.minimumTemperature(),
+        command.maximumTemperature()
+    );
+
+    return TemperatureUnitView.from(temperatureUnitRepository.save(unit));
   }
 
   @Transactional
@@ -86,6 +133,26 @@ public class TemperatureService {
     return TemperatureLogEntryView.from(persistedTemperatureLog);
   }
 
+  @Transactional
+  public void deleteTemperatureUnit(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID temperatureUnitId,
+      CurrentUser currentUser
+  ) {
+    organizationAccessService.requireMembershipManagement(currentUser, organizationId);
+    establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+
+    TemperatureUnit temperatureUnit = temperatureUnitRepository
+        .findByIdAndEstablishmentIdAndOrganizationId(temperatureUnitId, establishmentId, organizationId)
+        .orElseThrow(() -> new ResourceNotFoundException(
+            "temperature_unit_not_found",
+            "Temperature unit not found"
+        ));
+
+    temperatureUnitRepository.delete(temperatureUnit);
+  }
+
   private void validateCreateCommand(CreateTemperatureLogCommand command) {
     if (command == null) {
       throw new ApplicationException(
@@ -112,6 +179,48 @@ public class TemperatureService {
     }
   }
 
+  private void validateCreateUnitCommand(CreateTemperatureUnitCommand command) {
+    if (command == null) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "temperature_unit_required",
+          "Temperature unit payload is required"
+      );
+    }
+
+    if (command.type() == null) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "temperature_unit_type_required",
+          "Temperature unit type is required"
+      );
+    }
+
+    if (command.dueByTime() == null) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "temperature_due_time_required",
+          "Due time is required"
+      );
+    }
+
+    if (command.minimumTemperature() == null || command.maximumTemperature() == null) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "temperature_range_required",
+          "Minimum and maximum temperatures are required"
+      );
+    }
+
+    if (command.maximumTemperature().compareTo(command.minimumTemperature()) < 0) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "invalid_temperature_range",
+          "Maximum temperature cannot be below minimum temperature"
+      );
+    }
+  }
+
   private void validateOutOfRangeNote(
       TemperatureUnit temperatureUnit,
       CreateTemperatureLogCommand command,
@@ -133,5 +242,26 @@ public class TemperatureService {
 
     String normalized = value.trim();
     return normalized.isEmpty() ? null : normalized;
+  }
+
+  private String normalizeRequiredText(String value) {
+    if (value == null) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "temperature_unit_field_required",
+          "Required text fields must be provided"
+      );
+    }
+
+    String normalized = value.trim();
+    if (normalized.isEmpty()) {
+      throw new ApplicationException(
+          HttpStatus.BAD_REQUEST,
+          "temperature_unit_field_required",
+          "Required text fields must not be blank"
+      );
+    }
+
+    return normalized;
   }
 }

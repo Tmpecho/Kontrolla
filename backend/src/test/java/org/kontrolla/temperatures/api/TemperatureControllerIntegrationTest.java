@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -216,6 +217,102 @@ class TemperatureControllerIntegrationTest {
                 null
             ))))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void adminCanCreateTemperatureUnit() throws Exception {
+    User admin = createUser("temperature-api-admin@example.com", "Ada", "Larsen");
+    Organization organization = createOrganization("Kontrolla Temperature Create API");
+    Establishment establishment = createEstablishment(organization, "Kitchen");
+    createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
+
+    String token = issueAccessToken(admin);
+
+    mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/temperature-units".formatted(
+            organization.getId(), establishment.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(new CreateTemperatureUnitRequest(
+                " Prep fridge ",
+                " Main prep line ",
+                TemperatureUnitType.FRIDGE,
+                LocalTime.of(8, 15),
+                new BigDecimal("2.00"),
+                new BigDecimal("4.00")
+            ))))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.name").value("Prep fridge"))
+        .andExpect(jsonPath("$.location").value("Main prep line"))
+        .andExpect(jsonPath("$.type").value("FRIDGE"))
+        .andExpect(jsonPath("$.dueByTime").value("08:15:00"))
+        .andExpect(jsonPath("$.minimumTemperature").value(2.0))
+        .andExpect(jsonPath("$.maximumTemperature").value(4.0))
+        .andExpect(jsonPath("$.logs.length()").value(0));
+  }
+
+  @Test
+  void employeeCannotCreateTemperatureUnit() throws Exception {
+    User employee = createUser("temperature-api-employee-create@example.com", "Mari", "Hagen");
+    Organization organization = createOrganization("Kontrolla Temperature Create Forbidden");
+    Establishment establishment = createEstablishment(organization, "Kitchen");
+    createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
+
+    String token = issueAccessToken(employee);
+
+    mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/temperature-units".formatted(
+            organization.getId(), establishment.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(new CreateTemperatureUnitRequest(
+                "Prep fridge",
+                "Main prep line",
+                TemperatureUnitType.FRIDGE,
+                LocalTime.of(8, 15),
+                new BigDecimal("2.00"),
+                new BigDecimal("4.00")
+            ))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void adminCanDeleteTemperatureUnit() throws Exception {
+    User admin = createUser("temperature-api-admin-delete@example.com", "Ada", "Larsen");
+    Organization organization = createOrganization("Kontrolla Temperature Delete API");
+    Establishment establishment = createEstablishment(organization, "Kitchen");
+    createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
+
+    TemperatureUnit unit = temperatureUnitRepository.saveAndFlush(createTemperatureUnit(
+        organization,
+        establishment,
+        "Prep fridge",
+        "Main prep line",
+        TemperatureUnitType.FRIDGE,
+        LocalTime.of(8, 15),
+        new BigDecimal("2.00"),
+        new BigDecimal("4.00")
+    ));
+
+    String token = issueAccessToken(admin);
+
+    mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/temperature-units".formatted(
+            organization.getId(), establishment.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(new CreateTemperatureUnitRequest(
+                "Spare freezer",
+                "Cold room",
+                TemperatureUnitType.FREEZER,
+                LocalTime.of(9, 30),
+                new BigDecimal("-24.00"),
+                new BigDecimal("-18.00")
+            ))))
+        .andExpect(status().isCreated());
+
+    mockMvc.perform(delete(
+            "/api/v1/organizations/%s/establishments/%s/temperature-units/%s".formatted(
+                organization.getId(), establishment.getId(), unit.getId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isNoContent());
   }
 
   private User createUser(String email, String firstName, String lastName) {
