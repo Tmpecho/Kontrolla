@@ -5,12 +5,14 @@ import DocumentUploadPage from '@/documents/pages/DocumentUploadPage.vue'
 
 const {
   createDocumentMock,
+  listOrganizationMembersMock,
   authStoreMock,
   appEnvMock,
   routeState,
   routerPushMock,
 } = vi.hoisted(() => ({
   createDocumentMock: vi.fn(),
+  listOrganizationMembersMock: vi.fn(),
   authStoreMock: {
     appContext: {
       organizationId: 'org-1',
@@ -36,6 +38,10 @@ vi.mock('@/documents/api/documents.api', () => ({
   createDocument: createDocumentMock,
 }))
 
+vi.mock('@/account/api/organization-members.api', () => ({
+  listOrganizationMembers: listOrganizationMembersMock,
+}))
+
 vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
@@ -54,6 +60,7 @@ vi.mock('vue-router', () => ({
 describe('DocumentUploadPage', () => {
   afterEach(() => {
     createDocumentMock.mockReset()
+    listOrganizationMembersMock.mockReset()
     routerPushMock.mockReset()
     authStoreMock.appContext = {
       organizationId: 'org-1',
@@ -67,6 +74,40 @@ describe('DocumentUploadPage', () => {
   })
 
   it('submits the upload form and routes back to the documents page', async () => {
+    listOrganizationMembersMock.mockResolvedValue({
+      items: [
+        {
+          id: 'membership-1',
+          userId: 'user-2',
+          userEmail: 'reader@example.com',
+          userFirstName: 'Reader',
+          userLastName: 'One',
+          role: 'ORG_EMPLOYEE',
+          active: true,
+          allEstablishments: true,
+          establishments: [],
+          createdAt: '2026-01-01T08:00:00Z',
+          updatedAt: '2026-01-01T08:00:00Z',
+        },
+        {
+          id: 'membership-2',
+          userId: 'user-3',
+          userEmail: 'reader-two@example.com',
+          userFirstName: 'Reader',
+          userLastName: 'Two',
+          role: 'ORG_EMPLOYEE',
+          active: true,
+          allEstablishments: true,
+          establishments: [],
+          createdAt: '2026-01-01T08:00:00Z',
+          updatedAt: '2026-01-01T08:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 2,
+      totalPages: 1,
+    })
     createDocumentMock.mockResolvedValue({
       id: 'doc-1',
     })
@@ -88,6 +129,9 @@ describe('DocumentUploadPage', () => {
     const dateInputs = wrapper.findAll('input[type="date"]')
     await dateInputs[0]?.setValue('2026-01-01')
     await dateInputs[1]?.setValue('2026-10-01')
+    await flushPromises()
+
+    await wrapper.get('.audit-select-all').trigger('click')
 
     const fileInput = wrapper.get('input[type="file"]')
     const file = new File(['%PDF-1.7'], 'alcohol-service-licence.pdf', {
@@ -110,12 +154,20 @@ describe('DocumentUploadPage', () => {
       holderName: 'Oslo Municipality',
       issueDate: '2026-01-01',
       renewalDate: '2026-10-01',
+      auditUserIds: ['user-2', 'user-3'],
       file,
     })
     expect(routerPushMock).toHaveBeenCalledWith({ name: 'ik-alkohol-documents' })
   })
 
   it('shows a validation message when no file is selected', async () => {
+    listOrganizationMembersMock.mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+      totalPages: 0,
+    })
     const wrapper = mount(DocumentUploadPage, {
       global: {
         stubs: {
@@ -142,6 +194,13 @@ describe('DocumentUploadPage', () => {
   })
 
   it('prevents duplicate submissions while an upload is already in flight', async () => {
+    listOrganizationMembersMock.mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+      totalPages: 0,
+    })
     let resolveUpload: ((value: { id: string }) => void) | undefined
     createDocumentMock.mockImplementation(
       () =>

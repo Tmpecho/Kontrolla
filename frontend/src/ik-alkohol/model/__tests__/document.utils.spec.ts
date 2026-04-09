@@ -16,6 +16,7 @@ function createDocumentRecord(id: string, renewalDate: string): ImportantDocumen
     holderName: `${id} holder`,
     issueDate: '2026-01-01',
     renewalDate,
+    auditAssignments: [],
   }
 }
 

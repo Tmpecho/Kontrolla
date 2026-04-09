@@ -18,6 +18,7 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
     contentType: 'application/pdf',
     fileSizeBytes: 2048,
     status: 'VALID',
+    auditAssignments: [],
     createdAt: '2026-01-01T08:00:00Z',
     updatedAt: '2026-01-01T08:00:00Z',
     ...overrides,
@@ -27,6 +28,7 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
 const {
   listAllEstablishmentDocumentsMock,
   downloadDocumentFileMock,
+  acknowledgeDocumentReadMock,
   deleteDocumentMock,
   authStoreMock,
   appEnvMock,
@@ -35,6 +37,7 @@ const {
 } = vi.hoisted(() => ({
   listAllEstablishmentDocumentsMock: vi.fn(),
   downloadDocumentFileMock: vi.fn(),
+  acknowledgeDocumentReadMock: vi.fn(),
   deleteDocumentMock: vi.fn(),
   authStoreMock: {
     appContext: {
@@ -43,6 +46,7 @@ const {
       organizationRole: 'ORG_MANAGER',
     },
     user: {
+      id: 'user-99',
       globalRoles: [],
     },
   },
@@ -62,6 +66,7 @@ const {
 }))
 
 vi.mock('@/documents/api/documents.api', () => ({
+  acknowledgeDocumentRead: acknowledgeDocumentReadMock,
   deleteDocument: deleteDocumentMock,
   downloadDocumentFile: downloadDocumentFileMock,
   listAllEstablishmentDocuments: listAllEstablishmentDocumentsMock,
@@ -98,6 +103,7 @@ describe('DocumentsPage', () => {
   afterEach(() => {
     listAllEstablishmentDocumentsMock.mockReset()
     downloadDocumentFileMock.mockReset()
+    acknowledgeDocumentReadMock.mockReset()
     deleteDocumentMock.mockReset()
     routerPushMock.mockReset()
     authStoreMock.appContext = {
@@ -106,6 +112,7 @@ describe('DocumentsPage', () => {
       organizationRole: 'ORG_MANAGER',
     }
     authStoreMock.user = {
+      id: 'user-99',
       globalRoles: [],
     }
     appEnvMock.isDevelopment = true
@@ -195,5 +202,68 @@ describe('DocumentsPage', () => {
     expect(confirmMock).toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('Alcohol service licence')
     confirmMock.mockRestore()
+  })
+
+  it('shows and handles the I have read action for an assigned user', async () => {
+    listAllEstablishmentDocumentsMock.mockResolvedValue([
+      createDocument({
+        auditAssignments: [
+          {
+            userId: 'user-99',
+            userEmail: 'reader@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'One',
+            acknowledgedAt: null,
+          },
+          {
+            userId: 'user-100',
+            userEmail: 'reader-two@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'Two',
+            acknowledgedAt: '2026-04-09T09:00:00Z',
+          },
+        ],
+      }),
+    ])
+    acknowledgeDocumentReadMock.mockResolvedValue(
+      createDocument({
+        auditAssignments: [
+          {
+            userId: 'user-99',
+            userEmail: 'reader@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'One',
+            acknowledgedAt: '2026-04-09T10:15:00Z',
+          },
+          {
+            userId: 'user-100',
+            userEmail: 'reader-two@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'Two',
+            acknowledgedAt: '2026-04-09T09:00:00Z',
+          },
+        ],
+      }),
+    )
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('I have read')
+    expect(wrapper.text()).toContain('1/2 confirmed')
+    expect(wrapper.text()).toContain('1 document')
+    expect(wrapper.text()).toContain('Awaiting your acknowledgement.')
+
+    await wrapper.get('.document-action-button-acknowledge').trigger('click')
+    await flushPromises()
+
+    expect(acknowledgeDocumentReadMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      documentId: 'doc-1',
+    })
+    expect(wrapper.text()).not.toContain('I have read')
+    expect(wrapper.text()).toContain('2/2 confirmed')
+    expect(wrapper.text()).toContain('You have confirmed this document.')
   })
 })

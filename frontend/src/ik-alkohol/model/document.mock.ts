@@ -33,6 +33,7 @@ function createDocument(
     holderName,
     issueDate: toDateString(shiftDate(issueOffsetDays)),
     renewalDate: toDateString(shiftDate(renewalOffsetDays)),
+    auditAssignments: [],
   }
 }
 

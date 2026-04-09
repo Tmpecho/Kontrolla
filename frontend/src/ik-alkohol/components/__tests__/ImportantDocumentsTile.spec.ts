@@ -18,6 +18,7 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
     contentType: 'application/pdf',
     fileSizeBytes: 1024,
     status: 'EXPIRING',
+    auditAssignments: [],
     createdAt: '2026-01-01T08:00:00Z',
     updatedAt: '2026-01-01T08:00:00Z',
     ...overrides,
@@ -34,6 +35,9 @@ const {
     appContext: {
       organizationId: 'org-1',
       establishmentId: 'est-1',
+    },
+    user: {
+      id: 'user-99',
     },
   },
   appEnvMock: {
@@ -66,6 +70,9 @@ describe('ImportantDocumentsTile', () => {
       organizationId: 'org-1',
       establishmentId: 'est-1',
     }
+    authStoreMock.user = {
+      id: 'user-99',
+    }
   })
 
   it('loads alcohol documents from the api and shows the next renewal summary', async () => {
@@ -75,6 +82,15 @@ describe('ImportantDocumentsTile', () => {
           title: 'Responsible service certificate',
           renewalDate: '2026-05-01',
           status: 'EXPIRING',
+          auditAssignments: [
+            {
+              userId: 'user-99',
+              userEmail: 'reader@example.com',
+              userFirstName: 'Reader',
+              userLastName: 'One',
+              acknowledgedAt: null,
+            },
+          ],
         }),
         createDocument({
           id: 'doc-2',
@@ -106,5 +122,7 @@ describe('ImportantDocumentsTile', () => {
     expect(wrapper.text()).toContain('Responsible service certificate')
     expect(wrapper.text()).toContain('0 expired')
     expect(wrapper.text()).toContain('1 expiring within 30 days')
+    expect(wrapper.text()).toContain('Needs your audit')
+    expect(wrapper.text()).toContain('1 document')
   })
 })

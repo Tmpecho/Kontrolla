@@ -138,6 +138,7 @@ const serviceSummaries = computed(() => [
   buildIKAlkoholServiceSummary({
     documents: importantDocuments,
     deviations: deviationsByService.value.IK_ALKOHOL,
+    currentUserId: authStore.user?.id ?? null,
     note: deviationNote.value,
   }),
 ])

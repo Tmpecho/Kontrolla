@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import {
+  acknowledgeDocumentRead,
   deleteDocument,
   downloadDocumentFile,
   listAllEstablishmentDocuments,
@@ -14,8 +15,11 @@ import type {
   EstablishmentDocument,
 } from '@/documents/model/document.types'
 import {
+  documentNeedsAuditForUser,
   expiryWarningDays,
   formatDocumentStatus,
+  getDocumentAuditAcknowledgedCount,
+  isDocumentAuditAssignmentAcknowledged,
   parseLocalDate,
   sortDocumentsByRenewalDate,
 } from '@/documents/model/document.utils'
@@ -34,6 +38,7 @@ const errorMessage = ref<string | null>(null)
 const actionErrorMessage = ref<string | null>(null)
 const activeDownloadDocumentId = ref<string | null>(null)
 const activeDeleteDocumentId = ref<string | null>(null)
+const activeAcknowledgeDocumentId = ref<string | null>(null)
 
 const filterOptions = [
   { value: 'ALL', label: 'All' },
@@ -120,6 +125,8 @@ const canManageDocuments = computed(() => {
   )
 })
 
+const currentUserId = computed(() => authStore.user?.id ?? null)
+
 const documentsWithStatus = computed(() => sortDocumentsByRenewalDate(documents.value))
 
 const filteredDocuments = computed(() => {
@@ -153,16 +160,9 @@ const expiringCount = computed(() => {
 
 const criticalCount = computed(() => expiredCount.value + expiringCount.value)
 
-const readyForAuditCount = computed(() => {
-  return documentsWithStatus.value.filter((documentRecord) => documentRecord.status !== 'EXPIRED').length
-})
-
-const readinessPercentage = computed(() => {
-  if (documentsWithStatus.value.length === 0) {
-    return 0
-  }
-
-  return Math.round((readyForAuditCount.value / documentsWithStatus.value.length) * 100)
+const documentsNeedingCurrentUserAuditCount = computed(() => {
+  return documentsWithStatus.value.filter((documentRecord) =>
+    documentNeedsAuditForUser(documentRecord, currentUserId.value)).length
 })
 
 const showSummary = computed(() => {
@@ -216,6 +216,32 @@ function isDownloadingDocument(documentId: string) {
 
 function isDeletingDocument(documentId: string) {
   return activeDeleteDocumentId.value === documentId
+}
+
+function isAcknowledgingDocument(documentId: string) {
+  return activeAcknowledgeDocumentId.value === documentId
+}
+
+function getAuditSummary(documentRecord: EstablishmentDocument) {
+  if (documentRecord.auditAssignments.length === 0) {
+    return 'No audit readers selected'
+  }
+
+  const acknowledgedCount = getDocumentAuditAcknowledgedCount(documentRecord.auditAssignments)
+  return `${acknowledgedCount}/${documentRecord.auditAssignments.length} confirmed`
+}
+
+function currentUserNeedsAuditAcknowledgement(documentRecord: EstablishmentDocument) {
+  return documentNeedsAuditForUser(documentRecord, currentUserId.value)
+}
+
+function currentUserHasAcknowledgedAudit(documentRecord: EstablishmentDocument) {
+  if (!currentUserId.value) {
+    return false
+  }
+
+  return documentRecord.auditAssignments.some((assignment) =>
+    assignment.userId === currentUserId.value && isDocumentAuditAssignmentAcknowledged(assignment))
 }
 
 async function handleDownloadDocument(documentRecord: EstablishmentDocument): Promise<void> {
@@ -278,6 +304,41 @@ async function handleDeleteDocument(documentRecord: EstablishmentDocument): Prom
   } finally {
     if (activeDeleteDocumentId.value === documentRecord.id) {
       activeDeleteDocumentId.value = null
+    }
+  }
+}
+
+async function handleAcknowledgeDocument(documentRecord: EstablishmentDocument): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (
+    !resolvedOrganizationId ||
+    !resolvedEstablishmentId ||
+    !currentUserNeedsAuditAcknowledgement(documentRecord)
+  ) {
+    return
+  }
+
+  actionErrorMessage.value = null
+  activeAcknowledgeDocumentId.value = documentRecord.id
+
+  try {
+    const updatedDocument = await acknowledgeDocumentRead({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      documentId: documentRecord.id,
+    })
+
+    documents.value = documents.value.map((existingDocument) =>
+      existingDocument.id === updatedDocument.id ? updatedDocument : existingDocument,
+    )
+  } catch (error) {
+    actionErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to acknowledge the document.'
+  } finally {
+    if (activeAcknowledgeDocumentId.value === documentRecord.id) {
+      activeAcknowledgeDocumentId.value = null
     }
   }
 }
@@ -368,13 +429,13 @@ async function loadDocuments(): Promise<void> {
       </article>
 
       <article class="summary-card summary-card-readiness">
-        <p class="summary-label">Audit readiness</p>
-        <p class="summary-value">{{ readinessPercentage }}%</p>
-        <div aria-hidden="true" class="readiness-bar">
-          <span :style="{ width: `${readinessPercentage}%` }"></span>
-        </div>
+        <p class="summary-label">Needs your audit</p>
+        <p class="summary-value">
+          {{ documentsNeedingCurrentUserAuditCount }}
+          {{ documentsNeedingCurrentUserAuditCount === 1 ? 'document' : 'documents' }}
+        </p>
         <p class="summary-support">
-          {{ readyForAuditCount }}/{{ documentsWithStatus.length }} documents ready for audit.
+          Documents assigned to you and awaiting acknowledgement.
         </p>
       </article>
     </section>
@@ -433,6 +494,7 @@ async function loadDocuments(): Promise<void> {
             <th scope="col">Issue date</th>
             <th scope="col">Renewal date</th>
             <th scope="col">Status</th>
+            <th scope="col">Audit</th>
             <th scope="col" class="actions-column">Actions</th>
           </tr>
         </thead>
@@ -464,6 +526,30 @@ async function loadDocuments(): Promise<void> {
               <span class="status-badge" :data-status="documentRecord.status">
                 {{ formatDocumentStatus(documentRecord.status) }}
               </span>
+            </td>
+
+            <td class="document-cell">
+              <span class="document-cell-label">Audit</span>
+              <span
+                :class="documentRecord.auditAssignments.length === 0 ? 'document-secondary' : 'document-primary'"
+              >
+                {{ getAuditSummary(documentRecord) }}
+              </span>
+              <span v-if="currentUserNeedsAuditAcknowledgement(documentRecord)" class="audit-callout">
+                Awaiting your acknowledgement.
+              </span>
+              <span v-else-if="currentUserHasAcknowledgedAudit(documentRecord)" class="audit-callout">
+                You have confirmed this document.
+              </span>
+              <button
+                v-if="currentUserNeedsAuditAcknowledgement(documentRecord)"
+                type="button"
+                class="document-action-button document-action-button-acknowledge"
+                :disabled="isAcknowledgingDocument(documentRecord.id) || isDownloadingDocument(documentRecord.id) || isDeletingDocument(documentRecord.id)"
+                @click="handleAcknowledgeDocument(documentRecord)"
+              >
+                {{ isAcknowledgingDocument(documentRecord.id) ? 'Saving...' : 'I have read' }}
+              </button>
             </td>
 
             <td class="document-cell document-cell-actions">
@@ -594,21 +680,6 @@ async function loadDocuments(): Promise<void> {
   font-size: 0.875rem;
 }
 
-.readiness-bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  background-color: rgba(29, 78, 216, 0.14);
-  overflow: hidden;
-}
-
-.readiness-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background-color: #2563eb;
-}
-
 .documents-panel {
   display: flex;
   flex-direction: column;
@@ -694,15 +765,16 @@ async function loadDocuments(): Promise<void> {
   table-layout: fixed;
 }
 
-.documents-table-header tr,
-.documents-list-item {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 2.1fr)
-    minmax(0, 1.3fr)
-    minmax(0, 1fr)
-    minmax(0, 1fr)
+  .documents-table-header tr,
+  .documents-list-item {
+    display: grid;
+    grid-template-columns:
+    minmax(0, 1.9fr)
+    minmax(0, 1.2fr)
     minmax(0, 0.9fr)
+    minmax(0, 0.9fr)
+    minmax(0, 0.8fr)
+    minmax(0, 1.2fr)
     minmax(176px, 1.2fr);
   column-gap: 16px;
 }
@@ -761,9 +833,21 @@ async function loadDocuments(): Promise<void> {
   overflow-wrap: anywhere;
 }
 
+.document-secondary {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
 .document-cell span:not(.document-cell-label):not(.status-badge) {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.audit-callout {
+  color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 .status-badge {
@@ -829,6 +913,15 @@ async function loadDocuments(): Promise<void> {
 .document-action-button-delete {
   border-color: #fecaca;
   color: #b91c1c;
+}
+
+.document-action-button-acknowledge {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.document-action-button-acknowledge:hover:not(:disabled) {
+  border-color: #2563eb;
 }
 
 .document-action-button-delete:hover:not(:disabled) {

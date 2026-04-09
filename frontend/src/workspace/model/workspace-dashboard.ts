@@ -1,5 +1,6 @@
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import type { DeviationListItem, DeviationServiceArea, DeviationSeverity, DeviationStatus } from '@/deviations/model/deviation.types'
+import { documentNeedsAuditForUser } from '@/documents/model/document.utils'
 import type { ImportantDocumentRecord } from '@/ik-alkohol/model/document.types'
 import { expiryWarningDays, getDocumentsWithStatus, parseLocalDate } from '@/ik-alkohol/model/document.utils'
 import type { TemperatureAlertState, TemperatureUnit } from '@/ik-mat/model/temperature.types'
@@ -57,6 +58,7 @@ type BuildIKMatServiceSummaryOptions = {
 type BuildIKAlkoholServiceSummaryOptions = {
   documents: ImportantDocumentRecord[]
   deviations: DeviationListItem[]
+  currentUserId?: string | null
   note?: string | null
 }
 
@@ -197,14 +199,14 @@ export function buildIKMatServiceSummary({
 export function buildIKAlkoholServiceSummary({
   documents,
   deviations,
+  currentUserId = null,
   note = null,
 }: BuildIKAlkoholServiceSummaryOptions): WorkspaceServiceSummary {
   const documentList = getDocumentsWithStatus(documents, expiryWarningDays)
   const documentsNeedingAttention = documentList.filter((documentItem) => documentItem.status !== 'VALID').length
   const openDeviationCount = deviations.filter((deviation) => isOpenDeviation(deviation.status)).length
-  const readyDocumentCount = documentList.filter((documentItem) => documentItem.status !== 'EXPIRED').length
-  const readinessPercentage =
-    documentList.length === 0 ? 0 : Math.round((readyDocumentCount / documentList.length) * 100)
+  const documentsNeedingCurrentUserAudit = documentList.filter((documentItem) =>
+    documentNeedsAuditForUser(documentItem, currentUserId)).length
 
   return {
     key: 'ik-alkohol',
@@ -226,9 +228,9 @@ export function buildIKAlkoholServiceSummary({
         tone: documentsNeedingAttention > 0 ? 'warning' : 'neutral',
       },
       {
-        label: 'Audit readiness',
-        value: `${readinessPercentage}%`,
-        tone: readinessPercentage < 100 ? 'primary' : 'neutral',
+        label: 'Needs your audit',
+        value: formatCount(documentsNeedingCurrentUserAudit, 'document'),
+        tone: documentsNeedingCurrentUserAudit > 0 ? 'primary' : 'neutral',
       },
     ],
     note,

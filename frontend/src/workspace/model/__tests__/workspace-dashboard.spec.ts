@@ -104,6 +104,7 @@ function createDocumentRecord(id: string, renewalDate: string): ImportantDocumen
     holderName: `${id} holder`,
     issueDate: '2026-01-01',
     renewalDate,
+    auditAssignments: [],
   }
 }
 
@@ -178,20 +179,37 @@ describe('workspace-dashboard', () => {
 
     expect(
       buildIKAlkoholServiceSummary({
-        documents,
+        documents: [
+          createDocumentRecord('expired', '2026-04-04'),
+          createDocumentRecord('expiring', '2026-04-15'),
+          {
+            ...createDocumentRecord('valid', '2026-06-20'),
+            auditAssignments: [
+              {
+                userId: 'user-1',
+                userEmail: 'reader@example.com',
+                userFirstName: 'Reader',
+                userLastName: 'One',
+                acknowledgedAt: null,
+              },
+            ],
+          },
+        ],
         deviations: ikAlkoholDeviations,
+        currentUserId: 'user-1',
         note: 'Deviation overview is temporarily unavailable.',
       }).metrics,
     ).toEqual([
       { label: 'Open alcohol deviations', value: '1 item', tone: 'critical' },
       { label: 'Documents needing attention', value: '2 documents', tone: 'warning' },
-      { label: 'Audit readiness', value: '67%', tone: 'primary' },
+      { label: 'Needs your audit', value: '1 document', tone: 'primary' },
     ])
 
     expect(
       buildIKAlkoholServiceSummary({
         documents,
         deviations: ikAlkoholDeviations,
+        currentUserId: 'user-1',
         note: 'Deviation overview is temporarily unavailable.',
       }).note,
     ).toBe('Deviation overview is temporarily unavailable.')
