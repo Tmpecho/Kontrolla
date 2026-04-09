@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Trash2 } from 'lucide-vue-next'
 
 import {
   createChecklistDefinition,
@@ -81,6 +82,7 @@ const statusMessage = ref<string | null>(null)
 const editorMode = ref<'create' | 'edit'>('create')
 const editingDefinitionId = ref<string | null>(null)
 const isEditorOpen = ref(false)
+const isManagerCollapsed = ref(true)
 const lastHandledRequestedDefinitionGroupId = ref<string | null>(null)
 
 const form = reactive<DefinitionDraft>({
@@ -148,7 +150,7 @@ function weekdayMaskFromSelection(selection: boolean[]): number | null {
 }
 
 function selectionFromWeekdayMask(mask: number | null): boolean[] {
-  return Array.from({ length: 7 }, (_, index) => Boolean(mask && (mask & (1 << index))))
+  return Array.from({ length: 7 }, (_, index) => Boolean(mask && mask & (1 << index)))
 }
 
 function toTaskDrafts(definition: ChecklistDefinition): TaskDraft[] {
@@ -159,10 +161,8 @@ function toTaskDrafts(definition: ChecklistDefinition): TaskDraft[] {
     taskKind: task.taskKind,
     required: task.required,
     measurementUnit: task.measurementUnit ?? '',
-    minimumAllowedValue:
-      task.minimumAllowedValue === null ? '' : String(task.minimumAllowedValue),
-    maximumAllowedValue:
-      task.maximumAllowedValue === null ? '' : String(task.maximumAllowedValue),
+    minimumAllowedValue: task.minimumAllowedValue === null ? '' : String(task.minimumAllowedValue),
+    maximumAllowedValue: task.maximumAllowedValue === null ? '' : String(task.maximumAllowedValue),
   }))
 }
 
@@ -183,6 +183,7 @@ function toScheduleDrafts(definition: ChecklistDefinition): ScheduleDraft[] {
 function openCreateEditor(): void {
   editorMode.value = 'create'
   editingDefinitionId.value = null
+  isManagerCollapsed.value = false
   statusMessage.value = null
   errorMessage.value = null
   resetForm()
@@ -201,6 +202,7 @@ function openEditEditor(definition: ChecklistDefinition): void {
 
   editorMode.value = 'edit'
   editingDefinitionId.value = definition.id
+  isManagerCollapsed.value = false
   statusMessage.value = null
   errorMessage.value = null
   form.title = definition.title
@@ -213,6 +215,10 @@ function openEditEditor(definition: ChecklistDefinition): void {
 function closeEditor(): void {
   isEditorOpen.value = false
   editingDefinitionId.value = null
+}
+
+function toggleManagerCollapsed(): void {
+  isManagerCollapsed.value = !isManagerCollapsed.value
 }
 
 function addTask(): void {
@@ -514,7 +520,7 @@ function scheduleSummary(schedule: ScheduleDraft | ChecklistDefinitionSchedule):
           : schedule.weekdayMask
 
       const labels = WEEKDAY_SUMMARY_LABELS.filter((_, index) =>
-        Boolean(weekdayMask && (weekdayMask & (1 << index))),
+        Boolean(weekdayMask && weekdayMask & (1 << index)),
       )
       return labels.length > 0 ? `Weekly · ${labels.join(', ')}` : 'Weekly'
     }
@@ -544,6 +550,7 @@ function maybeOpenRequestedDefinition(): void {
   }
 
   openEditEditor(matchingDefinition)
+  isManagerCollapsed.value = false
   lastHandledRequestedDefinitionGroupId.value = definitionGroupId
   emit('requestHandled')
 }
@@ -578,454 +585,561 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 <template>
   <section class="manager-shell">
-    <header class="manager-header">
+    <header
+      class="manager-header manager-header-toggle"
+      role="button"
+      tabindex="0"
+      :aria-expanded="!isManagerCollapsed"
+      aria-label="Toggle checklist setups"
+      @click="toggleManagerCollapsed"
+      @keydown.enter.prevent="toggleManagerCollapsed"
+      @keydown.space.prevent="toggleManagerCollapsed"
+    >
       <div class="manager-copy">
-        <h2>Checklist setups</h2>
-        <p>Create one-off and recurring setups for this establishment. Active setups generate runs automatically.</p>
+        <div class="manager-title-row">
+          <component :is="isManagerCollapsed ? ChevronDown : ChevronUp" :size="16" />
+          <h2>Checklist setups</h2>
+        </div>
+        <p>
+          Create one-off and recurring setups for this establishment. Active setups generate runs
+          automatically.
+        </p>
       </div>
 
       <div class="manager-actions">
-        <button type="button" class="btn btn-secondary" @click="openCreateEditor">
+        <button type="button" class="btn btn-secondary" @click.stop="openCreateEditor">
           New setup
         </button>
-        <button v-if="isEditorOpen" type="button" class="btn btn-secondary" @click="closeEditor">
+        <button
+          v-if="isEditorOpen"
+          type="button"
+          class="btn btn-secondary"
+          @click.stop="closeEditor"
+        >
           Close editor
         </button>
       </div>
     </header>
 
-    <p v-if="statusMessage" class="feedback-message feedback-success">{{ statusMessage }}</p>
-    <p v-if="errorMessage" class="feedback-message feedback-error">{{ errorMessage }}</p>
+    <p v-if="isManagerCollapsed" class="manager-collapsed-summary">
+      {{ definitionCountLabel }}. Expand to manage checklist setups.
+    </p>
 
-    <div v-if="isLoading" class="manager-state-card">
-      <p>Loading checklist setups...</p>
-    </div>
+    <template v-else>
+      <p v-if="statusMessage" class="feedback-message feedback-success">{{ statusMessage }}</p>
+      <p v-if="errorMessage" class="feedback-message feedback-error">{{ errorMessage }}</p>
 
-    <div v-else-if="definitions.length === 0" class="manager-state-card">
-      <p>No checklist setups yet. Create the first one-off or recurring setup here.</p>
-    </div>
+      <div v-if="isLoading" class="manager-state-card">
+        <p>Loading checklist setups...</p>
+      </div>
 
-    <div v-else class="definition-list">
-      <template v-for="definition in definitions" :key="definition.id">
-        <article
-          class="definition-row"
-          :data-active="editingDefinitionId === definition.id"
-          @click="openEditEditor(definition)"
-        >
-          <div class="definition-row-copy">
-            <p class="definition-row-meta">
-              {{ definition.tasks.length }} tasks · {{ definition.schedules.length }} schedules
-            </p>
-            <h3>{{ definition.title }}</h3>
-            <p class="definition-row-description">
-              {{ definition.description || 'No description added.' }}
-            </p>
-            <div class="definition-chip-row">
-              <span v-for="schedule in definition.schedules" :key="schedule.id" class="definition-chip">
-                {{ scheduleSummary(schedule) }}
-              </span>
-            </div>
-          </div>
+      <div v-else-if="definitions.length === 0" class="manager-state-card">
+        <p>No checklist setups yet. Create the first one-off or recurring setup here.</p>
+      </div>
 
-          <div class="definition-row-actions">
-            <button
-              type="button"
-              class="btn btn-danger-ghost"
-              :disabled="isSaving"
-              @click.stop="archiveDefinition(definition)"
-            >
-              Delete
-            </button>
-          </div>
-        </article>
-
-        <form
-          v-if="isEditorOpen && editorMode === 'edit' && editingDefinitionId === definition.id"
-          class="editor-form editor-form-submenu"
-          @submit.prevent="submitDefinition"
-        >
-          <section class="editor-panel">
-            <header class="editor-header">
-              <div>
-                <p class="section-kicker">selected setup submenu</p>
-                <h3>{{ editorTitle }}</h3>
-                <p class="editor-parent-label">
-                  Editing tasks and schedule for <strong>{{ definition.title }}</strong>
-                </p>
+      <div v-else class="definition-list">
+        <template v-for="definition in definitions" :key="definition.id">
+          <article
+            class="definition-row"
+            :data-active="editingDefinitionId === definition.id"
+            @click="openEditEditor(definition)"
+          >
+            <div class="definition-row-copy">
+              <p class="definition-row-meta">
+                {{ definition.tasks.length }} tasks · {{ definition.schedules.length }} schedules
+              </p>
+              <h3>{{ definition.title }}</h3>
+              <p class="definition-row-description">
+                {{ definition.description || 'No description added.' }}
+              </p>
+              <div class="definition-chip-row">
+                <span
+                  v-for="schedule in definition.schedules"
+                  :key="schedule.id"
+                  class="definition-chip"
+                >
+                  {{ scheduleSummary(schedule) }}
+                </span>
               </div>
-              <p class="editor-summary">{{ definitionCountLabel }}</p>
-            </header>
-
-            <div class="form-grid">
-              <label class="field-block field-block-wide">
-                <span>Title</span>
-                <input v-model="form.title" type="text" maxlength="255" />
-              </label>
-
-              <label class="field-block field-block-wide">
-                <span>Description</span>
-                <textarea v-model="form.description" rows="3" maxlength="2000" />
-              </label>
-            </div>
-          </section>
-
-          <section class="editor-panel">
-            <div class="section-header">
-              <div>
-                <p class="section-kicker">Checklist tasks</p>
-                <h3>Tasks in this checklist</h3>
-              </div>
-              <button type="button" class="btn btn-secondary" @click="addTask">Add task</button>
             </div>
 
-            <div class="builder-list">
-              <article v-for="(task, taskIndex) in form.tasks" :key="task.id" class="builder-card">
-                <header class="builder-card-header">
-                  <strong>Task {{ taskIndex + 1 }}</strong>
-                  <div class="builder-card-actions">
-                    <button type="button" class="text-button" @click="moveTask(task.id, -1)">Move up</button>
-                    <button type="button" class="text-button" @click="moveTask(task.id, 1)">Move down</button>
-                    <button type="button" class="text-button text-button-danger" @click="removeTask(task.id)">
-                      Remove
-                    </button>
-                  </div>
-                </header>
+            <div class="definition-row-actions">
+              <button
+                type="button"
+                class="btn btn-danger-ghost"
+                :disabled="isSaving"
+                @click.stop="archiveDefinition(definition)"
+              >
+                Delete
+              </button>
+            </div>
+          </article>
 
-                <div class="form-grid">
-                  <label class="field-block">
-                    <span>Task title</span>
-                    <input v-model="task.title" type="text" maxlength="500" />
-                  </label>
-
-                  <label class="field-block">
-                    <span>Task kind</span>
-                    <select v-model="task.taskKind">
-                      <option value="ACTION">Action</option>
-                      <option value="VERIFICATION">Verification</option>
-                      <option value="MEASUREMENT">Measurement</option>
-                      <option value="TEXT_ENTRY">Text entry</option>
-                    </select>
-                  </label>
-
-                  <label class="field-block field-block-wide">
-                    <span>Details</span>
-                    <textarea v-model="task.details" rows="3" maxlength="1000" />
-                  </label>
-
-                  <label class="checkbox-row">
-                    <input v-model="task.required" type="checkbox" />
-                    <span>Required task</span>
-                  </label>
-
-                  <template v-if="task.taskKind === 'MEASUREMENT'">
-                    <label class="field-block">
-                      <span>Unit</span>
-                      <input v-model="task.measurementUnit" type="text" maxlength="32" placeholder="C" />
-                    </label>
-
-                    <label class="field-block">
-                      <span>Minimum value</span>
-                      <input v-model="task.minimumAllowedValue" type="number" step="0.01" />
-                    </label>
-
-                    <label class="field-block">
-                      <span>Maximum value</span>
-                      <input v-model="task.maximumAllowedValue" type="number" step="0.01" />
-                    </label>
-                  </template>
+          <form
+            v-if="isEditorOpen && editorMode === 'edit' && editingDefinitionId === definition.id"
+            class="editor-form editor-form-submenu"
+            @submit.prevent="submitDefinition"
+          >
+            <section class="editor-panel">
+              <header class="editor-header">
+                <div>
+                  <p class="section-kicker">selected setup submenu</p>
+                  <h3>{{ editorTitle }}</h3>
+                  <p class="editor-parent-label">
+                    Editing tasks and schedule for <strong>{{ definition.title }}</strong>
+                  </p>
                 </div>
-              </article>
-            </div>
-          </section>
+                <p class="editor-summary">{{ definitionCountLabel }}</p>
+              </header>
 
-          <section class="editor-panel">
-            <div class="section-header">
-              <div>
-                <p class="section-kicker">Checklist schedule</p>
-                <h3>Schedules in this checklist</h3>
+              <div class="form-grid">
+                <label class="field-block field-block-wide">
+                  <span>Title</span>
+                  <input v-model="form.title" type="text" maxlength="255" />
+                </label>
+
+                <label class="field-block field-block-wide">
+                  <span>Description</span>
+                  <textarea v-model="form.description" rows="3" maxlength="2000" />
+                </label>
               </div>
-              <button type="button" class="btn btn-secondary" @click="addSchedule">Add schedule</button>
+            </section>
+
+            <section class="editor-panel">
+              <div class="section-header">
+                <div>
+                  <p class="section-kicker">Checklist tasks</p>
+                  <h3>Tasks in this checklist</h3>
+                </div>
+                <button type="button" class="btn btn-secondary" @click="addTask">Add task</button>
+              </div>
+
+              <div class="builder-list">
+                <article
+                  v-for="(task, taskIndex) in form.tasks"
+                  :key="task.id"
+                  class="builder-card"
+                >
+                  <header class="builder-card-header">
+                    <strong>Task {{ taskIndex + 1 }}</strong>
+                    <div class="builder-card-actions">
+                      <button
+                        type="button"
+                        class="icon-button"
+                        aria-label="Move task up"
+                        @click="moveTask(task.id, -1)"
+                      >
+                        <ArrowUp :size="14" />
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-button"
+                        aria-label="Move task down"
+                        @click="moveTask(task.id, 1)"
+                      >
+                        <ArrowDown :size="14" />
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-button icon-button-danger"
+                        aria-label="Remove task"
+                        @click="removeTask(task.id)"
+                      >
+                        <Trash2 :size="14" />
+                      </button>
+                    </div>
+                  </header>
+
+                  <div class="form-grid">
+                    <label class="field-block">
+                      <span>Task title</span>
+                      <input v-model="task.title" type="text" maxlength="500" />
+                    </label>
+
+                    <label class="field-block">
+                      <span>Task kind</span>
+                      <select v-model="task.taskKind">
+                        <option value="ACTION">Action</option>
+                        <option value="VERIFICATION">Verification</option>
+                        <option value="MEASUREMENT">Measurement</option>
+                        <option value="TEXT_ENTRY">Text entry</option>
+                      </select>
+                    </label>
+
+                    <label class="field-block field-block-wide">
+                      <span>Details</span>
+                      <textarea v-model="task.details" rows="3" maxlength="1000" />
+                    </label>
+
+                    <label class="checkbox-row">
+                      <input v-model="task.required" type="checkbox" />
+                      <span>Required task</span>
+                    </label>
+
+                    <template v-if="task.taskKind === 'MEASUREMENT'">
+                      <label class="field-block">
+                        <span>Unit</span>
+                        <input
+                          v-model="task.measurementUnit"
+                          type="text"
+                          maxlength="32"
+                          placeholder="C"
+                        />
+                      </label>
+
+                      <label class="field-block">
+                        <span>Minimum value</span>
+                        <input v-model="task.minimumAllowedValue" type="number" step="0.01" />
+                      </label>
+
+                      <label class="field-block">
+                        <span>Maximum value</span>
+                        <input v-model="task.maximumAllowedValue" type="number" step="0.01" />
+                      </label>
+                    </template>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="editor-panel">
+              <div class="section-header">
+                <div>
+                  <p class="section-kicker">Checklist schedule</p>
+                  <h3>Schedules in this checklist</h3>
+                </div>
+                <button type="button" class="btn btn-secondary" @click="addSchedule">
+                  Add schedule
+                </button>
+              </div>
+
+              <div class="builder-list">
+                <article
+                  v-for="(schedule, scheduleIndex) in form.schedules"
+                  :key="schedule.id"
+                  class="builder-card"
+                >
+                  <header class="builder-card-header">
+                    <strong>Schedule {{ scheduleIndex + 1 }}</strong>
+                    <button
+                      type="button"
+                      class="icon-button icon-button-danger"
+                      aria-label="Remove schedule"
+                      @click="removeSchedule(schedule.id)"
+                    >
+                      <Trash2 :size="14" />
+                    </button>
+                  </header>
+
+                  <div class="form-grid">
+                    <label class="field-block">
+                      <span>Pattern</span>
+                      <select v-model="schedule.scheduleType">
+                        <option value="ONE_OFF">One-off</option>
+                        <option value="DAILY">Daily</option>
+                        <option value="WEEKLY">Weekly</option>
+                        <option value="MONTHLY">Monthly</option>
+                      </select>
+                    </label>
+
+                    <label class="field-block">
+                      <span>Due time</span>
+                      <input v-model="schedule.dueTime" type="time" />
+                    </label>
+
+                    <label class="field-block">
+                      <span>Start date</span>
+                      <input v-model="schedule.startDate" type="date" />
+                    </label>
+
+                    <label v-if="schedule.scheduleType !== 'ONE_OFF'" class="field-block">
+                      <span>End date</span>
+                      <input v-model="schedule.endDate" type="date" />
+                    </label>
+
+                    <label class="field-block">
+                      <span>Timezone</span>
+                      <input
+                        v-model="schedule.timezone"
+                        type="text"
+                        maxlength="64"
+                        list="checklist-timezone-options"
+                        placeholder="Select or type timezone"
+                      />
+                    </label>
+
+                    <label v-if="schedule.scheduleType === 'MONTHLY'" class="field-block">
+                      <span>Day of month</span>
+                      <input v-model="schedule.dayOfMonth" type="number" min="1" max="31" />
+                    </label>
+
+                    <div
+                      v-if="schedule.scheduleType === 'WEEKLY'"
+                      class="field-block field-block-wide"
+                    >
+                      <span>Days</span>
+                      <div class="weekday-grid">
+                        <button
+                          v-for="(label, weekdayIndex) in WEEKDAY_LABELS"
+                          :key="label"
+                          type="button"
+                          class="weekday-square"
+                          :data-active="schedule.weekdaySelection[weekdayIndex]"
+                          @click="toggleWeekday(schedule, weekdayIndex)"
+                        >
+                          <span class="weekday-square-box"></span>
+                          <span>{{ label }}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <label class="checkbox-row">
+                      <input v-model="schedule.active" type="checkbox" />
+                      <span>Schedule is active</span>
+                    </label>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <footer class="editor-actions">
+              <button type="button" class="btn btn-secondary" @click="closeEditor">Cancel</button>
+              <button type="submit" class="btn btn-primary" :disabled="isSaving">
+                {{ isSaving ? 'Saving...' : 'Save changes' }}
+              </button>
+            </footer>
+          </form>
+        </template>
+      </div>
+
+      <form
+        v-if="isEditorOpen && editorMode === 'create'"
+        class="editor-form"
+        @submit.prevent="submitDefinition"
+      >
+        <section class="editor-panel">
+          <header class="editor-header">
+            <div>
+              <p class="section-kicker">new setup</p>
+              <h3>{{ editorTitle }}</h3>
             </div>
+            <p class="editor-summary">{{ definitionCountLabel }}</p>
+          </header>
 
-            <div class="builder-list">
-              <article v-for="(schedule, scheduleIndex) in form.schedules" :key="schedule.id" class="builder-card">
-                <header class="builder-card-header">
-                  <strong>Schedule {{ scheduleIndex + 1 }}</strong>
-                  <button type="button" class="text-button text-button-danger" @click="removeSchedule(schedule.id)">
-                    Remove
+          <div class="form-grid">
+            <label class="field-block field-block-wide">
+              <span>Title</span>
+              <input v-model="form.title" type="text" maxlength="255" />
+            </label>
+
+            <label class="field-block field-block-wide">
+              <span>Description</span>
+              <textarea v-model="form.description" rows="3" maxlength="2000" />
+            </label>
+          </div>
+        </section>
+
+        <section class="editor-panel">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Checklist tasks</p>
+              <h3>Tasks in this checklist</h3>
+            </div>
+            <button type="button" class="btn btn-secondary" @click="addTask">Add task</button>
+          </div>
+
+          <div class="builder-list">
+            <article v-for="(task, taskIndex) in form.tasks" :key="task.id" class="builder-card">
+              <header class="builder-card-header">
+                <strong>Task {{ taskIndex + 1 }}</strong>
+                <div class="builder-card-actions">
+                  <button
+                    type="button"
+                    class="icon-button"
+                    aria-label="Move task up"
+                    @click="moveTask(task.id, -1)"
+                  >
+                    <ArrowUp :size="14" />
                   </button>
-                </header>
+                  <button
+                    type="button"
+                    class="icon-button"
+                    aria-label="Move task down"
+                    @click="moveTask(task.id, 1)"
+                  >
+                    <ArrowDown :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-button icon-button-danger"
+                    aria-label="Remove task"
+                    @click="removeTask(task.id)"
+                  >
+                    <Trash2 :size="14" />
+                  </button>
+                </div>
+              </header>
 
-                <div class="form-grid">
+              <div class="form-grid">
+                <label class="field-block">
+                  <span>Task title</span>
+                  <input v-model="task.title" type="text" maxlength="500" />
+                </label>
+
+                <label class="field-block">
+                  <span>Task kind</span>
+                  <select v-model="task.taskKind">
+                    <option value="ACTION">Action</option>
+                    <option value="VERIFICATION">Verification</option>
+                    <option value="MEASUREMENT">Measurement</option>
+                    <option value="TEXT_ENTRY">Text entry</option>
+                  </select>
+                </label>
+
+                <label class="field-block field-block-wide">
+                  <span>Details</span>
+                  <textarea v-model="task.details" rows="3" maxlength="1000" />
+                </label>
+
+                <label class="checkbox-row">
+                  <input v-model="task.required" type="checkbox" />
+                  <span>Required task</span>
+                </label>
+
+                <template v-if="task.taskKind === 'MEASUREMENT'">
                   <label class="field-block">
-                    <span>Pattern</span>
-                    <select v-model="schedule.scheduleType">
-                      <option value="ONE_OFF">One-off</option>
-                      <option value="DAILY">Daily</option>
-                      <option value="WEEKLY">Weekly</option>
-                      <option value="MONTHLY">Monthly</option>
-                    </select>
-                  </label>
-
-                  <label class="field-block">
-                    <span>Due time</span>
-                    <input v-model="schedule.dueTime" type="time" />
-                  </label>
-
-                  <label class="field-block">
-                    <span>Start date</span>
-                    <input v-model="schedule.startDate" type="date" />
-                  </label>
-
-                  <label v-if="schedule.scheduleType !== 'ONE_OFF'" class="field-block">
-                    <span>End date</span>
-                    <input v-model="schedule.endDate" type="date" />
-                  </label>
-
-                  <label class="field-block">
-                    <span>Timezone</span>
+                    <span>Unit</span>
                     <input
-                      v-model="schedule.timezone"
+                      v-model="task.measurementUnit"
                       type="text"
-                      maxlength="64"
-                      list="checklist-timezone-options"
-                      placeholder="Select or type timezone"
+                      maxlength="32"
+                      placeholder="C"
                     />
                   </label>
 
-                  <label v-if="schedule.scheduleType === 'MONTHLY'" class="field-block">
-                    <span>Day of month</span>
-                    <input v-model="schedule.dayOfMonth" type="number" min="1" max="31" />
+                  <label class="field-block">
+                    <span>Minimum value</span>
+                    <input v-model="task.minimumAllowedValue" type="number" step="0.01" />
                   </label>
 
-                  <div v-if="schedule.scheduleType === 'WEEKLY'" class="field-block field-block-wide">
-                    <span>Days</span>
-                    <div class="weekday-grid">
-                      <button
-                        v-for="(label, weekdayIndex) in WEEKDAY_LABELS"
-                        :key="label"
-                        type="button"
-                        class="weekday-square"
-                        :data-active="schedule.weekdaySelection[weekdayIndex]"
-                        @click="toggleWeekday(schedule, weekdayIndex)"
-                      >
-                        <span class="weekday-square-box"></span>
-                        <span>{{ label }}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <label class="checkbox-row">
-                    <input v-model="schedule.active" type="checkbox" />
-                    <span>Schedule is active</span>
+                  <label class="field-block">
+                    <span>Maximum value</span>
+                    <input v-model="task.maximumAllowedValue" type="number" step="0.01" />
                   </label>
-                </div>
-              </article>
+                </template>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="editor-panel">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Checklist schedule</p>
+              <h3>Schedules in this checklist</h3>
             </div>
-          </section>
-
-          <footer class="editor-actions">
-            <button type="button" class="btn btn-secondary" @click="closeEditor">Cancel</button>
-            <button type="submit" class="btn btn-primary" :disabled="isSaving">
-              {{ isSaving ? 'Saving...' : 'Save changes' }}
+            <button type="button" class="btn btn-secondary" @click="addSchedule">
+              Add schedule
             </button>
-          </footer>
-        </form>
-      </template>
-    </div>
-
-    <form
-      v-if="isEditorOpen && editorMode === 'create'"
-      class="editor-form"
-      @submit.prevent="submitDefinition"
-    >
-      <section class="editor-panel">
-        <header class="editor-header">
-          <div>
-            <p class="section-kicker">new setup</p>
-            <h3>{{ editorTitle }}</h3>
           </div>
-          <p class="editor-summary">{{ definitionCountLabel }}</p>
-        </header>
 
-        <div class="form-grid">
-          <label class="field-block field-block-wide">
-            <span>Title</span>
-            <input v-model="form.title" type="text" maxlength="255" />
-          </label>
-
-          <label class="field-block field-block-wide">
-            <span>Description</span>
-            <textarea v-model="form.description" rows="3" maxlength="2000" />
-          </label>
-        </div>
-      </section>
-
-      <section class="editor-panel">
-        <div class="section-header">
-          <div>
-            <p class="section-kicker">Checklist tasks</p>
-            <h3>Tasks in this checklist</h3>
-          </div>
-          <button type="button" class="btn btn-secondary" @click="addTask">Add task</button>
-        </div>
-
-        <div class="builder-list">
-          <article v-for="(task, taskIndex) in form.tasks" :key="task.id" class="builder-card">
-            <header class="builder-card-header">
-              <strong>Task {{ taskIndex + 1 }}</strong>
-              <div class="builder-card-actions">
-                <button type="button" class="text-button" @click="moveTask(task.id, -1)">Move up</button>
-                <button type="button" class="text-button" @click="moveTask(task.id, 1)">Move down</button>
-                <button type="button" class="text-button text-button-danger" @click="removeTask(task.id)">
-                  Remove
+          <div class="builder-list">
+            <article
+              v-for="(schedule, scheduleIndex) in form.schedules"
+              :key="schedule.id"
+              class="builder-card"
+            >
+              <header class="builder-card-header">
+                <strong>Schedule {{ scheduleIndex + 1 }}</strong>
+                <button
+                  type="button"
+                  class="icon-button icon-button-danger"
+                  aria-label="Remove schedule"
+                  @click="removeSchedule(schedule.id)"
+                >
+                  <Trash2 :size="14" />
                 </button>
-              </div>
-            </header>
+              </header>
 
-            <div class="form-grid">
-              <label class="field-block">
-                <span>Task title</span>
-                <input v-model="task.title" type="text" maxlength="500" />
-              </label>
-
-              <label class="field-block">
-                <span>Task kind</span>
-                <select v-model="task.taskKind">
-                  <option value="ACTION">Action</option>
-                  <option value="VERIFICATION">Verification</option>
-                  <option value="MEASUREMENT">Measurement</option>
-                  <option value="TEXT_ENTRY">Text entry</option>
-                </select>
-              </label>
-
-              <label class="field-block field-block-wide">
-                <span>Details</span>
-                <textarea v-model="task.details" rows="3" maxlength="1000" />
-              </label>
-
-              <label class="checkbox-row">
-                <input v-model="task.required" type="checkbox" />
-                <span>Required task</span>
-              </label>
-
-              <template v-if="task.taskKind === 'MEASUREMENT'">
+              <div class="form-grid">
                 <label class="field-block">
-                  <span>Unit</span>
-                  <input v-model="task.measurementUnit" type="text" maxlength="32" placeholder="C" />
+                  <span>Pattern</span>
+                  <select v-model="schedule.scheduleType">
+                    <option value="ONE_OFF">One-off</option>
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                  </select>
                 </label>
 
                 <label class="field-block">
-                  <span>Minimum value</span>
-                  <input v-model="task.minimumAllowedValue" type="number" step="0.01" />
+                  <span>Due time</span>
+                  <input v-model="schedule.dueTime" type="time" />
                 </label>
 
                 <label class="field-block">
-                  <span>Maximum value</span>
-                  <input v-model="task.maximumAllowedValue" type="number" step="0.01" />
+                  <span>Start date</span>
+                  <input v-model="schedule.startDate" type="date" />
                 </label>
-              </template>
-            </div>
-          </article>
-        </div>
-      </section>
 
-      <section class="editor-panel">
-        <div class="section-header">
-          <div>
-            <p class="section-kicker">Checklist schedule</p>
-            <h3>Schedules in this checklist</h3>
-          </div>
-          <button type="button" class="btn btn-secondary" @click="addSchedule">Add schedule</button>
-        </div>
+                <label v-if="schedule.scheduleType !== 'ONE_OFF'" class="field-block">
+                  <span>End date</span>
+                  <input v-model="schedule.endDate" type="date" />
+                </label>
 
-        <div class="builder-list">
-          <article v-for="(schedule, scheduleIndex) in form.schedules" :key="schedule.id" class="builder-card">
-            <header class="builder-card-header">
-              <strong>Schedule {{ scheduleIndex + 1 }}</strong>
-              <button type="button" class="text-button text-button-danger" @click="removeSchedule(schedule.id)">
-                Remove
-              </button>
-            </header>
+                <label class="field-block">
+                  <span>Timezone</span>
+                  <input
+                    v-model="schedule.timezone"
+                    type="text"
+                    maxlength="64"
+                    list="checklist-timezone-options"
+                    placeholder="Select or type timezone"
+                  />
+                </label>
 
-            <div class="form-grid">
-              <label class="field-block">
-                <span>Pattern</span>
-                <select v-model="schedule.scheduleType">
-                  <option value="ONE_OFF">One-off</option>
-                  <option value="DAILY">Daily</option>
-                  <option value="WEEKLY">Weekly</option>
-                  <option value="MONTHLY">Monthly</option>
-                </select>
-              </label>
+                <label v-if="schedule.scheduleType === 'MONTHLY'" class="field-block">
+                  <span>Day of month</span>
+                  <input v-model="schedule.dayOfMonth" type="number" min="1" max="31" />
+                </label>
 
-              <label class="field-block">
-                <span>Due time</span>
-                <input v-model="schedule.dueTime" type="time" />
-              </label>
-
-              <label class="field-block">
-                <span>Start date</span>
-                <input v-model="schedule.startDate" type="date" />
-              </label>
-
-              <label v-if="schedule.scheduleType !== 'ONE_OFF'" class="field-block">
-                <span>End date</span>
-                <input v-model="schedule.endDate" type="date" />
-              </label>
-
-              <label class="field-block">
-                <span>Timezone</span>
-                <input
-                  v-model="schedule.timezone"
-                  type="text"
-                  maxlength="64"
-                  list="checklist-timezone-options"
-                  placeholder="Select or type timezone"
-                />
-              </label>
-
-              <label v-if="schedule.scheduleType === 'MONTHLY'" class="field-block">
-                <span>Day of month</span>
-                <input v-model="schedule.dayOfMonth" type="number" min="1" max="31" />
-              </label>
-
-              <div v-if="schedule.scheduleType === 'WEEKLY'" class="field-block field-block-wide">
-                <span>Days</span>
-                <div class="weekday-grid">
-                  <button
-                    v-for="(label, weekdayIndex) in WEEKDAY_LABELS"
-                    :key="label"
-                    type="button"
-                    class="weekday-square"
-                    :data-active="schedule.weekdaySelection[weekdayIndex]"
-                    @click="toggleWeekday(schedule, weekdayIndex)"
-                  >
-                    <span class="weekday-square-box"></span>
-                    <span>{{ label }}</span>
-                  </button>
+                <div v-if="schedule.scheduleType === 'WEEKLY'" class="field-block field-block-wide">
+                  <span>Days</span>
+                  <div class="weekday-grid">
+                    <button
+                      v-for="(label, weekdayIndex) in WEEKDAY_LABELS"
+                      :key="label"
+                      type="button"
+                      class="weekday-square"
+                      :data-active="schedule.weekdaySelection[weekdayIndex]"
+                      @click="toggleWeekday(schedule, weekdayIndex)"
+                    >
+                      <span class="weekday-square-box"></span>
+                      <span>{{ label }}</span>
+                    </button>
+                  </div>
                 </div>
+
+                <label class="checkbox-row">
+                  <input v-model="schedule.active" type="checkbox" />
+                  <span>Schedule is active</span>
+                </label>
               </div>
+            </article>
+          </div>
+        </section>
 
-              <label class="checkbox-row">
-                <input v-model="schedule.active" type="checkbox" />
-                <span>Schedule is active</span>
-              </label>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <footer class="editor-actions">
-        <button type="button" class="btn btn-secondary" @click="closeEditor">Cancel</button>
-        <button type="submit" class="btn btn-primary" :disabled="isSaving">
-          {{ isSaving ? 'Saving...' : 'Create setup' }}
-        </button>
-      </footer>
-    </form>
-    <datalist id="checklist-timezone-options">
-      <option v-for="timezone in TIMEZONE_OPTIONS" :key="timezone" :value="timezone" />
-    </datalist>
+        <footer class="editor-actions">
+          <button type="button" class="btn btn-secondary" @click="closeEditor">Cancel</button>
+          <button type="submit" class="btn btn-primary" :disabled="isSaving">
+            {{ isSaving ? 'Saving...' : 'Create setup' }}
+          </button>
+        </footer>
+      </form>
+      <datalist id="checklist-timezone-options">
+        <option v-for="timezone in TIMEZONE_OPTIONS" :key="timezone" :value="timezone" />
+      </datalist>
+    </template>
   </section>
 </template>
 
@@ -1056,7 +1170,11 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .manager-shell {
-  gap: 16px;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-container) 96%, #f5f9ff);
 }
 
 .manager-header,
@@ -1066,8 +1184,12 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-actions {
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.manager-header-toggle {
+  cursor: pointer;
 }
 
 .manager-copy h2,
@@ -1086,7 +1208,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .manager-copy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+}
+
+.manager-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .manager-copy p,
@@ -1104,11 +1232,29 @@ watch(definitions, maybeOpenRequestedDefinition)
   gap: 8px;
 }
 
+.manager-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.manager-header-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.manager-collapsed-summary {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
 .feedback-message,
 .manager-state-card,
 .definition-row,
 .editor-panel {
-  padding: 16px;
+  padding: 12px;
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background: var(--color-container);
@@ -1127,7 +1273,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 .definition-list,
 .builder-list {
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .editor-panel:first-child .form-grid {
@@ -1135,7 +1281,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .definition-row {
-  gap: 16px;
+  gap: 12px;
   justify-content: space-between;
   cursor: pointer;
   transition:
@@ -1156,7 +1302,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .definition-row-copy {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -1174,37 +1320,37 @@ watch(definitions, maybeOpenRequestedDefinition)
 .definition-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .definition-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 1.75rem;
-  padding: 0.2rem 0.55rem;
+  min-height: 1.5rem;
+  padding: 0.15rem 0.45rem;
   border: 1px solid #b6d3ff;
   border-radius: 999px;
   background: #eff6ff;
   color: var(--color-primary);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px 12px;
 }
 
 .builder-card .form-grid {
-  gap: 10px 14px;
+  gap: 8px 10px;
 }
 
 .editor-form-submenu {
   position: relative;
-  gap: 10px;
-  margin-left: 24px;
-  padding-left: 20px;
+  gap: 8px;
+  margin-left: 18px;
+  padding-left: 14px;
 }
 
 .editor-form-submenu::before {
@@ -1221,15 +1367,15 @@ watch(definitions, maybeOpenRequestedDefinition)
   content: '';
   position: absolute;
   left: 0;
-  top: 20px;
-  width: 16px;
+  top: 16px;
+  width: 12px;
   height: 2px;
   background: color-mix(in srgb, var(--color-primary) 40%, white);
 }
 
 .field-block {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .builder-card .field-block,
@@ -1245,8 +1391,8 @@ watch(definitions, maybeOpenRequestedDefinition)
 .field-block textarea,
 .field-block select {
   width: 100%;
-  min-height: 44px;
-  padding: 0.875rem 0.5rem;
+  min-height: 34px;
+  padding: 0.5rem 0.45rem;
   border: none;
   border-bottom: 1px solid var(--color-border-muted);
   border-radius: 4px 4px 0 0;
@@ -1257,21 +1403,21 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .field-block textarea {
-  min-height: 108px;
+  min-height: 64px;
   resize: vertical;
 }
 
 .builder-card input,
 .builder-card select {
-  min-height: 38px;
-  padding-top: 0.6rem;
-  padding-bottom: 0.6rem;
+  min-height: 32px;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
 }
 
 .builder-card textarea {
-  min-height: 72px;
-  padding-top: 0.6rem;
-  padding-bottom: 0.6rem;
+  min-height: 56px;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
 }
 
 .field-block input:focus,
@@ -1285,18 +1431,18 @@ watch(definitions, maybeOpenRequestedDefinition)
 .checkbox-row {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .checkbox-row input {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   accent-color: var(--color-primary);
 }
 
 .builder-card {
-  gap: 14px;
-  padding: 16px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background: color-mix(in srgb, var(--color-container) 94%, white);
@@ -1307,16 +1453,16 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .builder-card-header strong {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .builder-card-actions {
-  gap: 6px;
+  gap: 4px;
 }
 
 .editor-panel .builder-card {
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
 }
 
 .editor-form-submenu .editor-panel {
@@ -1325,13 +1471,14 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .btn,
 .text-button,
+.icon-button,
 .weekday-square {
   font: 600 0.75rem var(--font-sans, inherit);
 }
 
 .btn {
-  min-height: 2.5rem;
-  padding: 0.45rem 0.75rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
   border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
@@ -1342,7 +1489,8 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .btn:disabled,
-.text-button:disabled {
+.text-button:disabled,
+.icon-button:disabled {
   opacity: 0.6;
   pointer-events: none;
 }
@@ -1386,25 +1534,53 @@ watch(definitions, maybeOpenRequestedDefinition)
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
 }
 
 .text-button:hover {
   color: var(--color-primary);
 }
 
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.icon-button-danger {
+  color: var(--color-critical);
+}
+
+.icon-button-danger:hover {
+  background: #fef2f2;
+  color: var(--color-critical);
+}
+
 .weekday-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .weekday-square {
   display: grid;
   justify-items: center;
-  gap: 8px;
-  min-height: 72px;
-  padding: 0.7rem 0.4rem;
+  gap: 6px;
+  min-height: 58px;
+  padding: 0.45rem 0.3rem;
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background: var(--color-container);
@@ -1414,8 +1590,8 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .weekday-square-box {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: 2px solid currentColor;
   border-radius: 3px;
 }
@@ -1434,13 +1610,13 @@ watch(definitions, maybeOpenRequestedDefinition)
 .weekday-square[data-active='true'] .weekday-square-box::after {
   content: '';
   position: absolute;
-  top: 2px;
-  left: 5px;
-  width: 5px;
-  height: 10px;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 8px;
   border-right: 2px solid var(--color-white);
   border-bottom: 2px solid var(--color-white);
-  transform: rotate(45deg);
+  transform: translate(-50%, -60%) rotate(45deg);
 }
 
 @media (max-width: 900px) {
