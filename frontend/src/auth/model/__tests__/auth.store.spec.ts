@@ -761,6 +761,31 @@ describe('auth.store', () => {
     expect(authStore.startupStatus).toBe('waiting-for-backend')
   })
 
+  it('cancels a pending startup poll cleanly when logging out', async () => {
+    vi.useFakeTimers()
+    loginMock.mockResolvedValue(createSession())
+    logoutRequestMock.mockResolvedValue(undefined)
+    getStartupStatusMock.mockResolvedValue({
+      status: 'STARTING',
+      ready: false,
+    })
+
+    const authStore = useAuthStore()
+    await authStore.login({ email: 'user@example.com', password: 'password123' })
+
+    expect(authStore.startupStatus).toBe('waiting-for-backend')
+    expect(getStartupStatusMock).toHaveBeenCalledTimes(1)
+
+    await authStore.logout()
+    await flushAsyncWork()
+    await vi.advanceTimersByTimeAsync(2_000)
+    await flushAsyncWork()
+
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(authStore.startupStatus).toBe('idle')
+    expect(getStartupStatusMock).toHaveBeenCalledTimes(1)
+  })
+
   it('moves from backend readiness polling into workspace hydration and becomes ready', async () => {
     vi.useFakeTimers()
     loginMock.mockResolvedValue(createSession())

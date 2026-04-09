@@ -107,6 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
   let establishmentHydrationRequestId = 0
   let startupRequestId = 0
   let startupPollTimeoutId: number | null = null
+  let startupPollResolve: (() => void) | null = null
 
   const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
   const isPlatformAdmin = computed(() => user.value?.globalRoles.includes('PLATFORM_ADMIN') ?? false)
@@ -140,12 +141,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function clearStartupPolling() {
-    if (typeof window === 'undefined' || startupPollTimeoutId === null) {
-      return
+    if (typeof window !== 'undefined' && startupPollTimeoutId !== null) {
+      window.clearTimeout(startupPollTimeoutId)
     }
 
-    window.clearTimeout(startupPollTimeoutId)
     startupPollTimeoutId = null
+    startupPollResolve?.()
+    startupPollResolve = null
   }
 
   function resetStartupState() {
@@ -431,9 +433,14 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
 
-      startupPollTimeoutId = window.setTimeout(() => {
+      startupPollResolve = () => {
         startupPollTimeoutId = null
+        startupPollResolve = null
         resolve()
+      }
+
+      startupPollTimeoutId = window.setTimeout(() => {
+        startupPollResolve?.()
       }, STARTUP_POLL_INTERVAL_MS)
     })
   }
