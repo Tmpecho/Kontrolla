@@ -134,6 +134,19 @@ describe('DeviationFormPage', () => {
     })
   })
 
+  it('returns to the matching deviation overview when the back button is clicked', async () => {
+    routeState.name = 'ik-alkohol-deviation-form'
+
+    const wrapper = mount(DeviationFormPage)
+    await flushPromises()
+
+    await wrapper.get('.back-button').trigger('click')
+
+    expect(routerPushMock).toHaveBeenCalledWith({
+      name: 'ik-alkohol-deviation',
+    })
+  })
+
   it('shows the API error message when deviation creation fails', async () => {
     createDeviationMock.mockRejectedValue(new ApiError('Creation failed.', 400))
 

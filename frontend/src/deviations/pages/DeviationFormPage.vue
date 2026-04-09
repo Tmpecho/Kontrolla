@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { createDeviation } from '@/deviations/api/deviations.api'
@@ -128,6 +129,12 @@ function syncFormFromQuery(): void {
   form.description = typeof route.query.description === 'string' ? route.query.description : ''
 }
 
+function goBack(): void {
+  void router.push({
+    name: currentServiceArea.value === 'IK_ALKOHOL' ? 'ik-alkohol-deviation' : 'ik-mat-deviation',
+  })
+}
+
 async function onSubmit() {
   const resolvedOrganizationId = organizationId.value
   const resolvedEstablishmentId = establishmentId.value
@@ -174,7 +181,12 @@ watch(
 
 <template>
   <div class="page-container">
-    <div>
+    <div class="page-header">
+      <button type="button" class="back-button" @click="goBack">
+        <ArrowLeft :size="16" aria-hidden="true" />
+        <span>Back to deviations</span>
+      </button>
+
       <h2>Deviation Form</h2>
       <p class="page-subtitle">{{ pageSubtitle }}</p>
     </div>
@@ -237,9 +249,43 @@ watch(
   gap: 1.5rem;
 }
 
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
 .page-subtitle {
-  margin: 0.5rem 0 0;
+  margin: 0;
   color: var(--color-text-secondary);
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  color: color-mix(in srgb, var(--color-primary) 84%, black);
+}
+
+.back-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
 }
 
 .form-wrapper {
@@ -258,6 +304,13 @@ watch(
 .input-group {
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 720px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 .input-label {
