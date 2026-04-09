@@ -67,6 +67,7 @@ const savingMembershipId = ref<string | null>(null)
 const isCreateComposerOpen = ref(false)
 const latestInvite = ref<ManagedOrganizationMemberProvision | null>(null)
 const showInactiveMembers = ref(false)
+const attemptedCreateSubmit = ref(false)
 const createDraft = ref<MemberProvisionDraft>({
   mode: 'existing_user',
   existingUserId: '',
@@ -118,6 +119,38 @@ const canSubmitNewMember = computed(() => {
     createDraft.value.lastName.trim().length > 0 &&
     createDraft.value.email.trim().length > 0
   )
+})
+
+const existingUserIdError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'existing_user') {
+    return null
+  }
+
+  return createDraft.value.existingUserId.trim() ? null : 'Enter an existing user ID.'
+})
+
+const inviteFirstNameError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'new_member') {
+    return null
+  }
+
+  return createDraft.value.firstName.trim() ? null : 'Enter the first name.'
+})
+
+const inviteLastNameError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'new_member') {
+    return null
+  }
+
+  return createDraft.value.lastName.trim() ? null : 'Enter the last name.'
+})
+
+const inviteEmailError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'new_member') {
+    return null
+  }
+
+  return createDraft.value.email.trim() ? null : 'Enter the email address.'
 })
 
 function toEditableMembership(member: OrganizationMembership): EditableMembership {
@@ -176,6 +209,7 @@ async function loadMembers(): Promise<void> {
 }
 
 function resetCreateDraft(): void {
+  attemptedCreateSubmit.value = false
   createDraft.value = {
     mode: 'existing_user',
     existingUserId: '',
@@ -200,6 +234,7 @@ async function handleCreateMember(): Promise<void> {
   const organizationId = resolvedOrganizationId.value
 
   if (!organizationId || !canSubmitNewMember.value) {
+    attemptedCreateSubmit.value = true
     return
   }
 
@@ -303,6 +338,13 @@ watch(showInactiveMembers, () => {
 watch(resolvedEstablishmentId, () => {
   void loadMembers()
 })
+
+watch(
+  () => createDraft.value.mode,
+  () => {
+    attemptedCreateSubmit.value = false
+  },
+)
 </script>
 
 <template>
@@ -381,7 +423,7 @@ watch(resolvedEstablishmentId, () => {
           </header>
 
           <p v-if="isLoading" class="state-message">Loading members...</p>
-          <p v-else-if="members.length === 0" class="state-message">
+          <p v-else-if="members.length === 0 && !isCreateComposerOpen" class="state-message">
             {{
               showInactiveMembers
                 ? 'No members found for this organization yet.'
@@ -415,7 +457,11 @@ watch(resolvedEstablishmentId, () => {
               <div class="cell composer-fields" role="cell">
                 <label class="form-field">
                   <span class="field-label">Provision mode</span>
-                  <select v-model="createDraft.mode" class="field-input field-input-table">
+                  <select
+                    v-model="createDraft.mode"
+                    class="field-input field-input-table"
+                    @change="attemptedCreateSubmit = false"
+                  >
                     <option value="existing_user">Existing user</option>
                     <option value="new_member">Invite new member</option>
                   </select>
@@ -426,9 +472,13 @@ watch(resolvedEstablishmentId, () => {
                   <input
                     v-model="createDraft.existingUserId"
                     class="field-input field-input-table"
+                    :class="{ 'field-input-error': Boolean(existingUserIdError) }"
+                    :aria-invalid="Boolean(existingUserIdError)"
                     type="text"
                     placeholder="Paste the user's UUID"
+                    @input="attemptedCreateSubmit = false"
                   />
+                  <span v-if="existingUserIdError" class="field-error">{{ existingUserIdError }}</span>
                 </label>
 
                 <template v-else>
@@ -437,27 +487,39 @@ watch(resolvedEstablishmentId, () => {
                     <input
                       v-model="createDraft.firstName"
                       class="field-input field-input-table"
+                      :class="{ 'field-input-error': Boolean(inviteFirstNameError) }"
+                      :aria-invalid="Boolean(inviteFirstNameError)"
                       type="text"
                       placeholder="First name"
+                      @input="attemptedCreateSubmit = false"
                     />
+                    <span v-if="inviteFirstNameError" class="field-error">{{ inviteFirstNameError }}</span>
                   </label>
                   <label class="form-field">
                     <span class="field-label">Last name</span>
                     <input
                       v-model="createDraft.lastName"
                       class="field-input field-input-table"
+                      :class="{ 'field-input-error': Boolean(inviteLastNameError) }"
+                      :aria-invalid="Boolean(inviteLastNameError)"
                       type="text"
                       placeholder="Last name"
+                      @input="attemptedCreateSubmit = false"
                     />
+                    <span v-if="inviteLastNameError" class="field-error">{{ inviteLastNameError }}</span>
                   </label>
                   <label class="form-field">
                     <span class="field-label">Email</span>
                     <input
                       v-model="createDraft.email"
                       class="field-input field-input-table"
+                      :class="{ 'field-input-error': Boolean(inviteEmailError) }"
+                      :aria-invalid="Boolean(inviteEmailError)"
                       type="email"
                       placeholder="name@company.com"
+                      @input="attemptedCreateSubmit = false"
                     />
+                    <span v-if="inviteEmailError" class="field-error">{{ inviteEmailError }}</span>
                   </label>
                 </template>
               </div>
@@ -494,7 +556,7 @@ watch(resolvedEstablishmentId, () => {
                 <button
                   type="submit"
                   class="primary-button"
-                  :disabled="!canSubmitNewMember || isCreatingMember"
+                  :disabled="isCreatingMember"
                 >
                   {{ isCreatingMember ? 'Provisioning...' : 'Create member' }}
                 </button>
@@ -612,9 +674,9 @@ watch(resolvedEstablishmentId, () => {
 .panel-kicker,
 .field-label {
   color: var(--color-text-secondary);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  letter-spacing: var(--field-label-letter-spacing);
   text-transform: uppercase;
 }
 
@@ -630,7 +692,7 @@ watch(resolvedEstablishmentId, () => {
 
 .page-copy {
   color: var(--color-text-secondary);
-  font-size: 1.05rem;
+  font-size: var(--font-size-body);
   line-height: 1.45;
 }
 
@@ -649,9 +711,8 @@ watch(resolvedEstablishmentId, () => {
 }
 
 .directory-header h2 {
-  font-size: 1.75rem;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
 }
 
 .form-field {
@@ -674,6 +735,21 @@ watch(resolvedEstablishmentId, () => {
 .field-input:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+}
+
+.field-input-error {
+  border-color: var(--color-critical);
+}
+
+.field-input-error:focus {
+  outline: none;
+  border-color: var(--color-critical);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-critical) 18%, transparent);
+}
+
+.field-error {
+  color: var(--color-critical);
+  font-size: var(--font-size-body-sm);
 }
 
 .field-hint,

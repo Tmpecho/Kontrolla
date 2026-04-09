@@ -231,6 +231,11 @@ async function onSubmit() {
   font-size: 0.9375rem;
 }
 
+.panel-header h2 {
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
+}
+
 .actions-row {
   max-width: 260px;
 }

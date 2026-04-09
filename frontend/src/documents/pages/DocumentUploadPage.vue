@@ -21,9 +21,9 @@ const form = reactive({
 })
 
 const selectedFile = ref<File | null>(null)
-const validationMessage = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
 const isSubmitting = ref(false)
+const attemptedSubmit = ref(false)
 
 const isAlcoholPage = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
@@ -84,35 +84,41 @@ const backLinkLabel = computed(() => {
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   selectedFile.value = input.files?.[0] ?? null
-  validationMessage.value = null
 }
 
-function validateForm() {
-  if (
-    !form.title.trim() ||
-    !form.holderName.trim() ||
-    !form.issueDate ||
-    !form.renewalDate
-  ) {
-    validationMessage.value = 'Complete all fields before uploading.'
-    return false
+const titleError = computed(() =>
+  attemptedSubmit.value && !form.title.trim() ? 'Enter a document title.' : null,
+)
+const holderNameError = computed(() =>
+  attemptedSubmit.value && !form.holderName.trim() ? 'Enter the holder name.' : null,
+)
+const issueDateError = computed(() =>
+  attemptedSubmit.value && !form.issueDate ? 'Choose an issue date.' : null,
+)
+const renewalDateError = computed(() =>
+  attemptedSubmit.value && !form.renewalDate ? 'Choose a renewal date.' : null,
+)
+const fileError = computed(() => {
+  if (!attemptedSubmit.value) {
+    return null
   }
 
   if (!selectedFile.value) {
-    validationMessage.value = 'Choose a PDF file to upload.'
-    return false
+    return 'Choose a PDF file to upload.'
   }
 
   const fileName = selectedFile.value.name.toLowerCase()
   const contentType = selectedFile.value.type.toLowerCase()
 
   if (contentType !== 'application/pdf' && !fileName.endsWith('.pdf')) {
-    validationMessage.value = 'Only PDF files are supported.'
-    return false
+    return 'Only PDF files are supported.'
   }
 
-  validationMessage.value = null
-  return true
+  return null
+})
+
+function clearFieldFeedback(): void {
+  errorMessage.value = null
 }
 
 async function submitForm() {
@@ -120,7 +126,15 @@ async function submitForm() {
     return
   }
 
-  if (!validateForm()) {
+  attemptedSubmit.value = true
+
+  if (
+    titleError.value ||
+    holderNameError.value ||
+    issueDateError.value ||
+    renewalDateError.value ||
+    fileError.value
+  ) {
     return
   }
 
@@ -182,9 +196,13 @@ async function submitForm() {
           <input
             v-model="form.title"
             class="field-input"
+            :class="{ 'field-input-error': Boolean(titleError) }"
+            :aria-invalid="Boolean(titleError)"
             type="text"
             maxlength="255"
+            @input="clearFieldFeedback"
           />
+          <span v-if="titleError" class="field-error">{{ titleError }}</span>
         </label>
 
         <label class="field">
@@ -192,38 +210,57 @@ async function submitForm() {
           <input
             v-model="form.holderName"
             class="field-input"
+            :class="{ 'field-input-error': Boolean(holderNameError) }"
+            :aria-invalid="Boolean(holderNameError)"
             type="text"
             maxlength="255"
+            @input="clearFieldFeedback"
           />
+          <span v-if="holderNameError" class="field-error">{{ holderNameError }}</span>
         </label>
 
         <label class="field">
           <span class="field-label">Issue date</span>
-          <input v-model="form.issueDate" class="field-input" type="date" />
+          <input
+            v-model="form.issueDate"
+            class="field-input"
+            :class="{ 'field-input-error': Boolean(issueDateError) }"
+            :aria-invalid="Boolean(issueDateError)"
+            type="date"
+            @input="clearFieldFeedback"
+          />
+          <span v-if="issueDateError" class="field-error">{{ issueDateError }}</span>
         </label>
 
         <label class="field">
           <span class="field-label">Renewal date</span>
-          <input v-model="form.renewalDate" class="field-input" type="date" />
+          <input
+            v-model="form.renewalDate"
+            class="field-input"
+            :class="{ 'field-input-error': Boolean(renewalDateError) }"
+            :aria-invalid="Boolean(renewalDateError)"
+            type="date"
+            @input="clearFieldFeedback"
+          />
+          <span v-if="renewalDateError" class="field-error">{{ renewalDateError }}</span>
         </label>
 
         <label class="field field-file">
           <span class="field-label">PDF file</span>
           <input
             class="field-input field-input-file"
+            :class="{ 'field-input-error': Boolean(fileError) }"
+            :aria-invalid="Boolean(fileError)"
             type="file"
             accept="application/pdf,.pdf"
             @change="onFileChange"
           />
+          <span v-if="fileError" class="field-error">{{ fileError }}</span>
           <span class="field-help">
             {{ selectedFile ? selectedFile.name : 'Select a PDF file to upload.' }}
           </span>
         </label>
       </div>
-
-      <p v-if="validationMessage" class="feedback-message feedback-message-error">
-        {{ validationMessage }}
-      </p>
       <p v-if="errorMessage" class="feedback-message feedback-message-error">
         {{ errorMessage }}
       </p>
@@ -267,6 +304,11 @@ async function submitForm() {
 .page-subtitle {
   color: var(--color-text-secondary);
   max-width: 64ch;
+}
+
+.placeholder-panel h2 {
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
 }
 
 .placeholder-panel {
@@ -315,12 +357,26 @@ async function submitForm() {
   box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 
+.field-input-error {
+  border-color: var(--color-critical);
+}
+
+.field-input-error:focus {
+  border-color: var(--color-critical);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-critical) 18%, transparent);
+}
+
 .field-input-file {
   padding: 0.75rem var(--field-padding-x);
 }
 
 .field-help {
   color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+}
+
+.field-error {
+  color: var(--color-critical);
   font-size: var(--font-size-body-sm);
 }
 

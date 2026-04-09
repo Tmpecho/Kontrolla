@@ -306,7 +306,8 @@ async function onSubmit() {
 }
 
 .panel-header h2 {
-  font-size: 1rem;
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
 }
 
 .panel-header p {
