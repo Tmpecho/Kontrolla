@@ -139,6 +139,7 @@ class ChecklistSchedulerServiceIntegrationTest {
 						false
 				)
 		);
+		checklistRunRepository.deleteAll();
 
 		Instant windowStart = atOslo(dueDate, LocalTime.MIN);
 		Instant windowEnd = atOslo(dueDate, LocalTime.of(23, 59));
@@ -201,6 +202,7 @@ class ChecklistSchedulerServiceIntegrationTest {
 						true
 				)
 		);
+		checklistRunRepository.deleteAll();
 
 		int createdRuns = checklistSchedulerService.generateRunsForWindow(
 				organization.getId(),
