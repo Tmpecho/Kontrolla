@@ -72,7 +72,9 @@ watch(
   () => {
     if (
       selectedAssigneeId.value &&
-      props.run.assignments.some((assignment) => assignment.assignedUserId === selectedAssigneeId.value)
+      props.run.assignments.some(
+        (assignment) => assignment.assignedUserId === selectedAssigneeId.value,
+      )
     ) {
       selectedAssigneeId.value = ''
     }
@@ -113,19 +115,19 @@ const currentUserId = computed(() => authStore.user?.id ?? null)
 
 const canAssignRuns = computed(() => props.canManageAssignments === true)
 
-const assignedUserIds = computed(() =>
-  new Set(props.run.assignments.map((assignment) => assignment.assignedUserId)),
+const assignedUserIds = computed(
+  () => new Set(props.run.assignments.map((assignment) => assignment.assignedUserId)),
 )
 
 const availableAssignmentMembers = computed(() =>
   assignmentMembers.value.filter((member) => !assignedUserIds.value.has(member.userId)),
 )
 
-const currentUserAssignmentOption = computed(
-  () =>
-    currentUserId.value
-      ? availableAssignmentMembers.value.find((member) => member.userId === currentUserId.value) ?? null
-      : null,
+const currentUserAssignmentOption = computed(() =>
+  currentUserId.value
+    ? (availableAssignmentMembers.value.find((member) => member.userId === currentUserId.value) ??
+      null)
+    : null,
 )
 
 const STATUS_CLASSES: Record<string, string> = {
@@ -204,11 +206,6 @@ const baseParams = computed(() => ({
   checklistRunId: props.run.id,
 }))
 
-const assignmentParams = computed(() => ({
-  organizationId: props.organizationId,
-  establishmentId: props.run.establishmentId || props.establishmentId,
-}))
-
 const withLoading = (apiAction: () => Promise<ChecklistRun>) => async () => {
   isSaving.value = true
   try {
@@ -236,7 +233,11 @@ const formatMemberName = (member: OrganizationMembership) => {
 }
 
 async function loadAssignmentMembers(): Promise<void> {
-  if (!canAssignRuns.value || isLoadingAssignmentMembers.value || assignmentMembers.value.length > 0) {
+  if (
+    !canAssignRuns.value ||
+    isLoadingAssignmentMembers.value ||
+    assignmentMembers.value.length > 0
+  ) {
     return
   }
 
@@ -454,84 +455,82 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
     </header>
 
     <section v-if="canAssignRuns && isAssignmentPanelOpen" class="assignment-panel">
-        <div class="assignment-panel-header">
-          <div>
-            <h4 class="tasks-heading">Assignments</h4>
-            <p class="assignment-help">Assign staff with access to this establishment.</p>
-          </div>
+      <div class="assignment-panel-header">
+        <div>
+          <h4 class="tasks-heading">Assignments</h4>
+          <p class="assignment-help">Assign staff with access to this establishment.</p>
         </div>
+      </div>
 
-        <div class="assignment-chip-list">
-          <div
-            v-for="assignment in run.assignments"
-            :key="assignment.id"
-            class="assignment-chip"
-          >
-            <span>{{ assignment.assignedUserName || 'Assigned user' }}</span>
-            <button
-              type="button"
-              class="assignment-chip-remove"
-              aria-label="Remove assignment"
-              :disabled="isAssigning"
-              @click.stop="handleRemoveAssignment(assignment.id)"
-            >
-              <Trash2 :size="13" aria-hidden="true" />
-            </button>
-          </div>
-          <p v-if="run.assignments.length === 0" class="empty-text assignment-empty">
-            No one assigned yet.
-          </p>
-        </div>
-
-        <div class="assignment-controls">
+      <div class="assignment-chip-list">
+        <div v-for="assignment in run.assignments" :key="assignment.id" class="assignment-chip">
+          <span>{{ assignment.assignedUserName || 'Assigned user' }}</span>
           <button
             type="button"
-            class="btn btn-secondary btn-compact"
-            :disabled="!currentUserAssignmentOption || isAssigning"
-            @click="handleAssignToMe"
+            class="assignment-chip-remove"
+            aria-label="Remove assignment"
+            :disabled="isAssigning"
+            @click.stop="handleRemoveAssignment(assignment.id)"
           >
-            <UserPlus :size="14" aria-hidden="true" />
-            Assign to me
-          </button>
-
-          <label class="assignment-select">
-            <span class="assignment-label">Assign member</span>
-            <select
-              v-model="selectedAssigneeId"
-              :disabled="isLoadingAssignmentMembers || isAssigning || availableAssignmentMembers.length === 0"
-            >
-              <option value="">
-                {{
-                  isLoadingAssignmentMembers
-                    ? 'Loading members...'
-                    : availableAssignmentMembers.length === 0
-                      ? 'No available members'
-                      : 'Select member'
-                }}
-              </option>
-              <option
-                v-for="member in availableAssignmentMembers"
-                :key="member.id"
-                :value="member.userId"
-              >
-                {{ formatMemberName(member) }}
-              </option>
-            </select>
-          </label>
-
-          <button
-            type="button"
-            class="btn btn-primary btn-compact"
-            :disabled="!selectedAssigneeId || isAssigning"
-            @click="handleAssignSelected"
-          >
-            <UserPlus :size="14" aria-hidden="true" />
-            Add assignee
+            <Trash2 :size="13" aria-hidden="true" />
           </button>
         </div>
+        <p v-if="run.assignments.length === 0" class="empty-text assignment-empty">
+          No one assigned yet.
+        </p>
+      </div>
 
-        <p v-if="assignmentErrorMessage" class="assignment-error">{{ assignmentErrorMessage }}</p>
-      </section>
+      <div class="assignment-controls">
+        <button
+          type="button"
+          class="btn btn-secondary btn-compact"
+          :disabled="!currentUserAssignmentOption || isAssigning"
+          @click="handleAssignToMe"
+        >
+          <UserPlus :size="14" aria-hidden="true" />
+          Assign to me
+        </button>
+
+        <label class="assignment-select">
+          <span class="assignment-label">Assign member</span>
+          <select
+            v-model="selectedAssigneeId"
+            :disabled="
+              isLoadingAssignmentMembers || isAssigning || availableAssignmentMembers.length === 0
+            "
+          >
+            <option value="">
+              {{
+                isLoadingAssignmentMembers
+                  ? 'Loading members...'
+                  : availableAssignmentMembers.length === 0
+                    ? 'No available members'
+                    : 'Select member'
+              }}
+            </option>
+            <option
+              v-for="member in availableAssignmentMembers"
+              :key="member.id"
+              :value="member.userId"
+            >
+              {{ formatMemberName(member) }}
+            </option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          class="btn btn-primary btn-compact"
+          :disabled="!selectedAssigneeId || isAssigning"
+          @click="handleAssignSelected"
+        >
+          <UserPlus :size="14" aria-hidden="true" />
+          Add assignee
+        </button>
+      </div>
+
+      <p v-if="assignmentErrorMessage" class="assignment-error">{{ assignmentErrorMessage }}</p>
+    </section>
 
     <!-- Tasks Section -->
     <div v-if="isExpanded" class="tasks-container">

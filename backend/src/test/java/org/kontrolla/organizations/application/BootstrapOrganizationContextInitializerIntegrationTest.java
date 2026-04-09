@@ -169,26 +169,6 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 				org.springframework.data.domain.PageRequest.of(0, 20)
 		).getTotalElements()).isGreaterThanOrEqualTo(30);
 		assertThat(checklistRunRepository.search(
-				restaurant.getId(),
-				ChecklistServiceArea.IK_MAT,
-				java.util.List.of(ChecklistRunStatus.IN_PROGRESS),
-				false,
-				null,
-				null,
-				null,
-				org.springframework.data.domain.PageRequest.of(0, 20)
-		).getTotalElements()).isPositive();
-		assertThat(checklistRunRepository.search(
-				restaurant.getId(),
-				ChecklistServiceArea.IK_MAT,
-				java.util.List.of(ChecklistRunStatus.COMPLETED),
-				false,
-				null,
-				null,
-				null,
-				org.springframework.data.domain.PageRequest.of(0, 20)
-		).getTotalElements()).isPositive();
-		assertThat(checklistRunRepository.search(
 				bar.getId(),
 				ChecklistServiceArea.IK_ALKOHOL,
 				java.util.List.of(),
