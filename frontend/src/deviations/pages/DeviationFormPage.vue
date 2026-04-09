@@ -219,18 +219,20 @@ watch(
 </script>
 
 <template>
-  <div class="page-container">
-    <div class="page-header">
+  <div class="page-container app-page">
+    <div class="page-header app-page-header">
       <button type="button" class="back-button" @click="goBack">
         <ArrowLeft :size="16" aria-hidden="true" />
         <span>Back to deviations</span>
       </button>
 
-      <h2>Deviation Form</h2>
-      <p class="page-subtitle">{{ pageSubtitle }}</p>
+      <div class="page-header-copy app-page-header-copy">
+        <h1 class="app-page-title">Deviation form</h1>
+        <p class="page-subtitle app-page-subtitle">{{ pageSubtitle }}</p>
+      </div>
     </div>
 
-    <form @submit.prevent="onSubmit" class="form-wrapper">
+    <form @submit.prevent="onSubmit" class="form-wrapper app-panel">
       <p v-if="missingContextMessage" class="form-message">{{ missingContextMessage }}</p>
       <p v-else-if="errorMessage" class="form-message">{{ errorMessage }}</p>
 
@@ -254,7 +256,6 @@ watch(
             class="input-field"
             :class="{ 'input-field-error': Boolean(categoryError) }"
             :aria-invalid="Boolean(categoryError)"
-            required
             @change="clearFieldError('category')"
           >
             <option v-for="category in categoryOptions" :key="category" :value="category">
@@ -266,7 +267,7 @@ watch(
 
         <div class="input-group">
           <label for="severity" class="input-label">severity</label>
-          <select id="severity" v-model="form.severity" class="input-field" required @change="clearError">
+          <select id="severity" v-model="form.severity" class="input-field" @change="clearError">
             <option v-for="severity in severityOptions" :key="severity" :value="severity">
               {{ formatDeviationSeverity(severity) }}
             </option>
@@ -298,22 +299,13 @@ watch(
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
 }
 
 .page-header {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.875rem;
-}
-
-.page-header h2 {
-  margin: 0;
-}
-
-.page-subtitle {
-  margin: 0;
-  color: var(--color-text-secondary);
 }
 
 .back-button {
@@ -345,6 +337,7 @@ watch(
   flex-direction: column;
   gap: 24px;
   max-width: 760px;
+  padding: var(--panel-padding-md);
 }
 
 .form-row {
@@ -413,11 +406,4 @@ watch(
   font-size: var(--font-size-body-sm);
   line-height: var(--line-height-body);
 }
-
-@media (max-width: 720px) {
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
-
 </style>

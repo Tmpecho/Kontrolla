@@ -780,7 +780,7 @@ onBeforeUnmount(() => {
 }
 
 .deviation-list-item + .deviation-list-item {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--color-border-muted);
 }
 
 .deviation-row {
@@ -796,7 +796,7 @@ onBeforeUnmount(() => {
 }
 
 .deviation-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--color-surface);
 }
 
 .deviation-row:focus-visible {
@@ -829,7 +829,7 @@ onBeforeUnmount(() => {
 
 .deviation-row-chevron {
   color: var(--color-text-secondary);
-  font-size: 1.125rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
@@ -862,7 +862,7 @@ onBeforeUnmount(() => {
   align-self: flex-start;
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   font-size: 0.75rem;

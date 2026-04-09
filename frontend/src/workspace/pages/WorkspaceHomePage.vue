@@ -532,7 +532,7 @@ watch(
 
 .service-tile-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: clamp(1.35rem, 1.2rem + 0.5vw, 1.5rem);
 }
 
 .service-description {
@@ -602,11 +602,11 @@ watch(
 }
 
 .service-metric[data-tone='warning'] .service-metric-value {
-  color: #b45309;
+  color: var(--color-warning-strong);
 }
 
 .service-metric[data-tone='critical'] .service-metric-value {
-  color: #b91c1c;
+  color: var(--color-critical-strong);
 }
 
 .service-note {
@@ -694,11 +694,11 @@ watch(
 }
 
 .attention-link[data-tone='warning'] .attention-service {
-  color: #b45309;
+  color: var(--color-warning-strong);
 }
 
 .attention-link[data-tone='critical'] .attention-service {
-  color: #b91c1c;
+  color: var(--color-critical-strong);
 }
 
 .attention-empty-state {
