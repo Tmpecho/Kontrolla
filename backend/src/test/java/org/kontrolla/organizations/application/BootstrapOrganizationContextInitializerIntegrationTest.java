@@ -1,10 +1,17 @@
 package org.kontrolla.organizations.application;
 
 import org.junit.jupiter.api.Test;
+import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
+import org.kontrolla.checklists.domain.ChecklistRunStatus;
+import org.kontrolla.checklists.domain.ChecklistServiceArea;
+import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
+import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
+import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
+import org.kontrolla.organizations.domain.Organization;
 import org.kontrolla.organizations.domain.OrganizationRole;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.kontrolla.organizations.infrastructure.OrganizationRepository;
@@ -32,8 +39,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 		"app.security.bootstrap-employees[1].first-name=Noah",
 		"app.security.bootstrap-employees[1].last-name=Berg",
 		"app.security.bootstrap-organization.name=Kontrolla Dev Org",
-		"app.security.bootstrap-establishment.name=Kontrolla Demo Restaurant",
-		"app.security.bootstrap-establishment.type=RESTAURANT"
+		"app.security.bootstrap-establishments[0].name=Kontrolla Demo Restaurant",
+		"app.security.bootstrap-establishments[0].type=RESTAURANT",
+		"app.security.bootstrap-establishments[1].name=Kontrolla Demo Bar",
+		"app.security.bootstrap-establishments[1].type=BAR"
 })
 @ActiveProfiles({"dev", "test"})
 class BootstrapOrganizationContextInitializerIntegrationTest {
@@ -50,6 +59,15 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 	@Autowired
 	private EstablishmentRepository establishmentRepository;
 
+	@Autowired
+	private ChecklistDefinitionRepository checklistDefinitionRepository;
+
+	@Autowired
+	private ChecklistRunRepository checklistRunRepository;
+
+	@Autowired
+	private DeviationRepository deviationRepository;
+
 	@Test
 	void bootstrapDevelopmentTeamIsCreatedWithExpectedRoles() {
 		User admin = userRepository.findByEmailIgnoreCase("admin@example.com").orElseThrow();
@@ -61,28 +79,183 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 		assertThat(manager.getGlobalRoles()).isEmpty();
 		assertThat(employeeOne.getGlobalRoles()).isEmpty();
 		assertThat(employeeTwo.getGlobalRoles()).isEmpty();
+		assertThat(userRepository.findAll()).hasSizeGreaterThanOrEqualTo(40);
+		assertThat(organizationRepository.findAll()).hasSizeGreaterThanOrEqualTo(4);
+		assertThat(establishmentRepository.findAll()).hasSizeGreaterThanOrEqualTo(12);
+		assertThat(organizationMembershipRepository.findAll()).hasSizeGreaterThanOrEqualTo(55);
+		assertThat(deviationRepository.count()).isGreaterThanOrEqualTo(40);
 
-		var organization = organizationRepository.findByNameIgnoreCase("Kontrolla Dev Org").orElseThrow();
-		assertThat(establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(
-				organization.getId(),
+		Organization configuredOrganization = organizationRepository.findByNameIgnoreCase("Kontrolla Dev Org").orElseThrow();
+		var restaurant = establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(
+				configuredOrganization.getId(),
 				"Kontrolla Demo Restaurant"
-		)).isPresent();
+		).orElseThrow();
+		var bar = establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(
+				configuredOrganization.getId(),
+				"Kontrolla Demo Bar"
+		).orElseThrow();
 
-		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(organization.getId(), admin.getId()))
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(configuredOrganization.getId(), admin.getId()))
 				.get()
-				.extracting(membership -> membership.getRole())
-				.isEqualTo(OrganizationRole.ORG_ADMIN);
-		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(organization.getId(), manager.getId()))
+				.satisfies(membership -> {
+					assertThat(membership.getRole()).isEqualTo(OrganizationRole.ORG_ADMIN);
+					assertThat(membership.isAccessAllEstablishments()).isTrue();
+				});
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(configuredOrganization.getId(), manager.getId()))
 				.get()
-				.extracting(membership -> membership.getRole())
-				.isEqualTo(OrganizationRole.ORG_MANAGER);
-		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(organization.getId(), employeeOne.getId()))
+				.satisfies(membership -> {
+					assertThat(membership.getRole()).isEqualTo(OrganizationRole.ORG_MANAGER);
+					assertThat(membership.isAccessAllEstablishments()).isTrue();
+				});
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(configuredOrganization.getId(), employeeOne.getId()))
 				.get()
-				.extracting(membership -> membership.getRole())
-				.isEqualTo(OrganizationRole.ORG_EMPLOYEE);
-		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(organization.getId(), employeeTwo.getId()))
+				.satisfies(membership -> {
+					assertThat(membership.getRole()).isEqualTo(OrganizationRole.ORG_EMPLOYEE);
+					assertThat(membership.isAccessAllEstablishments()).isFalse();
+					assertThat(membership.getAccessibleEstablishments())
+							.extracting(establishment -> establishment.getName())
+							.containsExactly("Kontrolla Demo Restaurant");
+				});
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(configuredOrganization.getId(), employeeTwo.getId()))
 				.get()
-				.extracting(membership -> membership.getRole())
-				.isEqualTo(OrganizationRole.ORG_EMPLOYEE);
+				.satisfies(membership -> {
+					assertThat(membership.getRole()).isEqualTo(OrganizationRole.ORG_EMPLOYEE);
+					assertThat(membership.isAccessAllEstablishments()).isFalse();
+					assertThat(membership.getAccessibleEstablishments())
+							.extracting(establishment -> establishment.getName())
+							.containsExactly("Kontrolla Demo Bar");
+				});
+		assertThat(organizationMembershipRepository.findByOrganizationId(
+				configuredOrganization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 50)
+		).getTotalElements()).isGreaterThanOrEqualTo(12);
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndAccessibleEstablishmentId(
+				configuredOrganization.getId(),
+				restaurant.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 50)
+		).getTotalElements()).isGreaterThanOrEqualTo(8);
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndAccessibleEstablishmentId(
+				configuredOrganization.getId(),
+				bar.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 50)
+		).getTotalElements()).isGreaterThanOrEqualTo(8);
+
+		assertThat(checklistDefinitionRepository.findByEstablishmentIdAndStatus(
+				restaurant.getId(),
+				ChecklistDefinitionStatus.ACTIVE
+		)).anySatisfy(definition -> {
+			assertThat(definition.getServiceArea()).isEqualTo(ChecklistServiceArea.IK_MAT);
+			assertThat(definition.getTasks()).hasSizeGreaterThanOrEqualTo(3);
+			assertThat(definition.getSchedules()).isNotEmpty();
+		});
+		assertThat(checklistDefinitionRepository.findByEstablishmentIdAndStatus(
+				bar.getId(),
+				ChecklistDefinitionStatus.ACTIVE
+		)).extracting(definition -> definition.getServiceArea())
+				.contains(ChecklistServiceArea.IK_MAT, ChecklistServiceArea.IK_ALKOHOL);
+		assertThat(checklistDefinitionRepository.findByEstablishmentIdAndStatus(
+				bar.getId(),
+				ChecklistDefinitionStatus.ACTIVE
+		)).hasSizeGreaterThanOrEqualTo(6);
+
+		assertThat(checklistRunRepository.search(
+				restaurant.getId(),
+				ChecklistServiceArea.IK_MAT,
+				java.util.List.of(),
+				true,
+				null,
+				null,
+				null,
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isGreaterThanOrEqualTo(30);
+		assertThat(checklistRunRepository.search(
+				restaurant.getId(),
+				ChecklistServiceArea.IK_MAT,
+				java.util.List.of(ChecklistRunStatus.IN_PROGRESS),
+				false,
+				null,
+				null,
+				null,
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isPositive();
+		assertThat(checklistRunRepository.search(
+				restaurant.getId(),
+				ChecklistServiceArea.IK_MAT,
+				java.util.List.of(ChecklistRunStatus.COMPLETED),
+				false,
+				null,
+				null,
+				null,
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isPositive();
+		assertThat(checklistRunRepository.search(
+				bar.getId(),
+				ChecklistServiceArea.IK_ALKOHOL,
+				java.util.List.of(),
+				true,
+				null,
+				null,
+				null,
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isGreaterThanOrEqualTo(18);
+
+		assertThat(deviationRepository.findByEstablishmentIdAndOrganizationId(
+				restaurant.getId(),
+				configuredOrganization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isGreaterThanOrEqualTo(5);
+		assertThat(deviationRepository.findByEstablishmentIdAndOrganizationId(
+				bar.getId(),
+				configuredOrganization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isGreaterThanOrEqualTo(5);
+
+		Organization curatedOrganization = organizationRepository.findByNameIgnoreCase("Nordic Table Group").orElseThrow();
+		var curatedBar = establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(
+				curatedOrganization.getId(),
+				"Vulkan Tasting Room"
+		).orElseThrow();
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(curatedOrganization.getId(), manager.getId()))
+				.get()
+				.satisfies(membership -> {
+					assertThat(membership.getRole()).isEqualTo(OrganizationRole.ORG_OWNER);
+					assertThat(membership.isAccessAllEstablishments()).isTrue();
+				});
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndUserId(curatedOrganization.getId(), employeeOne.getId()))
+				.get()
+				.satisfies(membership -> {
+					assertThat(membership.getRole()).isEqualTo(OrganizationRole.ORG_EMPLOYEE);
+					assertThat(membership.isAccessAllEstablishments()).isFalse();
+					assertThat(membership.getAccessibleEstablishments()).hasSize(2);
+				});
+		assertThat(organizationMembershipRepository.findByOrganizationId(
+				curatedOrganization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 50)
+		).getTotalElements()).isGreaterThanOrEqualTo(18);
+		assertThat(organizationMembershipRepository.findByOrganizationIdAndAccessibleEstablishmentId(
+				curatedOrganization.getId(),
+				curatedBar.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 50)
+		).getTotalElements()).isGreaterThanOrEqualTo(8);
+		assertThat(checklistDefinitionRepository.findByEstablishmentIdAndStatus(
+				curatedBar.getId(),
+				ChecklistDefinitionStatus.ACTIVE
+		)).extracting(definition -> definition.getServiceArea())
+				.contains(ChecklistServiceArea.IK_MAT, ChecklistServiceArea.IK_ALKOHOL);
+
+		Organization secondCuratedOrganization = organizationRepository.findByNameIgnoreCase("Fjord Service Collective").orElseThrow();
+		var inactiveEstablishment = establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(
+				secondCuratedOrganization.getId(),
+				"Festivalpaviljongen"
+		).orElseThrow();
+		assertThat(checklistDefinitionRepository.findByEstablishmentIdAndStatus(
+				inactiveEstablishment.getId(),
+				ChecklistDefinitionStatus.ACTIVE
+		)).isEmpty();
+		assertThat(deviationRepository.findByEstablishmentIdAndOrganizationId(
+				inactiveEstablishment.getId(),
+				secondCuratedOrganization.getId(),
+				org.springframework.data.domain.PageRequest.of(0, 20)
+		).getTotalElements()).isZero();
 	}
 }

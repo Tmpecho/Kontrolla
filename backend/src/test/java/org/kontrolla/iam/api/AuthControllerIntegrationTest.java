@@ -10,8 +10,9 @@ import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
 import org.kontrolla.iam.application.AuthAttemptThrottleService;
-import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
+import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
+import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.AppSecurityProperties;
 import org.kontrolla.organizations.domain.Organization;
@@ -32,10 +33,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -52,11 +53,10 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -134,6 +134,7 @@ class AuthControllerIntegrationTest {
 				.andExpect(jsonPath("$.user.email").value("alice@example.com"))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
 				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"))
+				.andExpect(jsonPath("$.appContext.organizationRole").value("ORG_MANAGER"))
 				.andReturn()
 				.getResponse()
 				.getContentAsString();
@@ -294,13 +295,12 @@ class AuthControllerIntegrationTest {
 
 		String refreshCookie = Objects.requireNonNull(loginResult.getResponse().getCookie(REFRESH_COOKIE_NAME)).getValue();
 
-		mockMvc.perform(post("/api/v1/auth/refresh")
-						.with(csrf())
-						.cookie(new jakarta.servlet.http.Cookie(REFRESH_COOKIE_NAME, refreshCookie)))
+		performRefresh(refreshCookie)
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
-				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
+				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"))
+				.andExpect(jsonPath("$.appContext.organizationRole").value("ORG_MANAGER"));
 	}
 
 	@Test
@@ -629,6 +629,194 @@ class AuthControllerIntegrationTest {
 	}
 
 	@Test
+	void scopedMembershipUsesAccessibleEstablishmentInAppContext() throws Exception {
+		User user = new User("alice@example.com", "Alice", "Example", passwordEncoder.encode("password123"), true, Set.of());
+		userRepository.saveAndFlush(user);
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
+		establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Blocked Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
+		Establishment accessibleEstablishment = establishmentRepository.saveAndFlush(
+				new Establishment(organization, "Accessible Establishment", EstablishmentType.BAR, EstablishmentStatus.ACTIVE));
+		OrganizationMembership membership = new OrganizationMembership(
+				organization,
+				user,
+				OrganizationRole.ORG_EMPLOYEE,
+				true,
+				false
+		);
+		membership.replaceAccessibleEstablishments(java.util.List.of(accessibleEstablishment));
+		organizationMembershipRepository.saveAndFlush(membership);
+
+		performLogin("alice@example.com", "password123")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
+				.andExpect(jsonPath("$.appContext.establishmentName").value("Accessible Establishment"));
+	}
+
+	@Test
+	void invitedUserCanAcceptInvitationAndThenLogIn() throws Exception {
+		User orgAdmin = createInvitingOrgAdmin("orgadmin@example.com");
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Invite Organization", OrganizationStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, orgAdmin, OrganizationRole.ORG_ADMIN, true));
+
+		String adminAccessToken = accessTokenFor("orgadmin@example.com", "password123");
+
+		String inviteResponse = mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organization.getId()))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "invitee@example.com",
+								  "firstName": "Invited",
+								  "lastName": "User",
+								  "role": "ORG_EMPLOYEE",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String inviteUrl = objectMapper.readTree(inviteResponse).get("inviteUrl").asText();
+		String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+		mockMvc.perform(get("/api/v1/auth/invitations/%s".formatted(token)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value("invitee@example.com"))
+				.andExpect(jsonPath("$.organizationName").value("Invite Organization"));
+
+		mockMvc.perform(post("/api/v1/auth/invitations/%s/accept".formatted(token))
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isNoContent());
+
+		performLogin("invitee@example.com", "newpassword123")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.user.email").value("invitee@example.com"));
+	}
+
+	@Test
+	void inactiveInvitedUserRemainsInactiveAfterAcceptingInvitation() throws Exception {
+		User orgAdmin = createInvitingOrgAdmin("orgadmin@example.com");
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Invite Organization", OrganizationStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, orgAdmin, OrganizationRole.ORG_ADMIN, true));
+
+		String adminAccessToken = accessTokenFor("orgadmin@example.com", "password123");
+
+		String inviteResponse = mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organization.getId()))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "inactive.invitee@example.com",
+								  "firstName": "Inactive",
+								  "lastName": "Invitee",
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.membership.active").value(false))
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String inviteUrl = objectMapper.readTree(inviteResponse).get("inviteUrl").asText();
+		String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+		mockMvc.perform(post("/api/v1/auth/invitations/%s/accept".formatted(token))
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isNoContent());
+
+		performLogin("inactive.invitee@example.com", "newpassword123")
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void inactiveInvitedUserCanLogInAfterMembershipIsActivated() throws Exception {
+		User orgAdmin = createInvitingOrgAdmin("orgadmin@example.com");
+		Organization organization = organizationRepository.saveAndFlush(
+				new Organization("Invite Organization", OrganizationStatus.ACTIVE));
+		organizationMembershipRepository.saveAndFlush(
+				new OrganizationMembership(organization, orgAdmin, OrganizationRole.ORG_ADMIN, true));
+
+		String adminAccessToken = accessTokenFor("orgadmin@example.com", "password123");
+
+		String inviteResponse = mockMvc.perform(post("/api/v1/organizations/%s/members/managed-users".formatted(organization.getId()))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "email": "recoverable.invitee@example.com",
+								  "firstName": "Recoverable",
+								  "lastName": "Invitee",
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.membership.active").value(false))
+				.andExpect(jsonPath("$.inviteUrl").isString())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		JsonNode inviteJson = objectMapper.readTree(inviteResponse);
+		String membershipId = inviteJson.get("membership").get("id").asText();
+		String inviteUrl = inviteJson.get("inviteUrl").asText();
+		String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+		mockMvc.perform(post("/api/v1/auth/invitations/%s/accept".formatted(token))
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "password": "newpassword123"
+								}
+								"""))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organization.getId(), membershipId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminAccessToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "role": "ORG_EMPLOYEE",
+								  "active": true
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.active").value(true));
+
+		performLogin("recoverable.invitee@example.com", "newpassword123")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.user.email").value("recoverable.invitee@example.com"));
+	}
+
+	@Test
 	void refreshLocksOutIpAfterRepeatedFailedAttempts() throws Exception {
 		createUserWithOrganizationContext("alice@example.com", "password123");
 
@@ -796,6 +984,36 @@ class AuthControllerIntegrationTest {
 		organizationMembershipRepository.saveAndFlush(
 				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
 		return user;
+	}
+
+	private User createInvitingOrgAdmin(String email) {
+		User platformAdmin = new User(
+				"admin@example.com",
+				"Admin",
+				"User",
+				passwordEncoder.encode("password123"),
+				true,
+				Set.of(GlobalRole.PLATFORM_ADMIN)
+		);
+		User orgAdmin = new User(
+				email,
+				"Org",
+				"Admin",
+				passwordEncoder.encode("password123"),
+				true,
+				Set.of()
+		);
+		userRepository.saveAndFlush(platformAdmin);
+		return userRepository.saveAndFlush(orgAdmin);
+	}
+
+	private String accessTokenFor(String email, String password) throws Exception {
+		String response = performLogin(email, password)
+				.andExpect(status().isOk())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		return objectMapper.readTree(response).get("accessToken").asText();
 	}
 
 	private String issueAccessToken(

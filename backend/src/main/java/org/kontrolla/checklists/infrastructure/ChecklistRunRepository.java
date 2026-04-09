@@ -81,4 +81,19 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 	);
 
 	boolean existsByChecklistDefinitionIdAndDueAt(UUID checklistDefinitionId, Instant dueAt);
+
+	@EntityGraph(attributePaths = {
+			"checklistDefinition",
+			"establishment",
+			"taskExecutions",
+			"taskExecutions.sourceChecklistTaskDefinition",
+			"taskExecutions.resolvedByUser",
+			"assignments",
+			"assignments.assignedUser",
+			"assignments.assignedByUser",
+			"events",
+			"completedByUser",
+			"createdByUser"
+	})
+	List<ChecklistRun> findByEstablishmentIdOrderByDueAtAsc(UUID establishmentId);
 }

@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
+import ImportantDocumentsTile from '@/ik-alkohol/components/ImportantDocumentsTile.vue'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
 import { getTemperatureSummary } from '@/ik-mat/model/temperature.utils'
@@ -11,11 +12,11 @@ import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 
+const authStore = useAuthStore()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const temperatureSummary = getTemperatureSummary(createTemperatureUnits())
-const authStore = useAuthStore()
 
 const resolvedChecklistContext = computed(() => {
   if (!authStore.isSessionReady) {
@@ -23,10 +24,18 @@ const resolvedChecklistContext = computed(() => {
   }
 
   const organizationId = authStore.appContext?.organizationId ?? null
-  const establishmentId = authStore.appContext?.establishmentId ?? null
 
-  if (organizationId && establishmentId) {
-    return { organizationId, establishmentId }
+  if (organizationId) {
+    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
+
+    if (selectedEstablishmentId) {
+      return { organizationId, establishmentIds: [selectedEstablishmentId] }
+    }
+
+    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
+    if (establishmentIds.length > 0) {
+      return { organizationId, establishmentIds }
+    }
   }
 
   if (!authStore.isAuthenticated) {
@@ -36,7 +45,7 @@ const resolvedChecklistContext = computed(() => {
     if (defaultOrganizationId && defaultEstablishmentId) {
       return {
         organizationId: defaultOrganizationId,
-        establishmentId: defaultEstablishmentId,
+        establishmentIds: [defaultEstablishmentId],
       }
     }
   }
@@ -44,9 +53,7 @@ const resolvedChecklistContext = computed(() => {
   return null
 })
 
-const hasChecklistContext = computed(() =>
-  resolvedChecklistContext.value !== null,
-)
+const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
 
 const missingContextMessage = computed(() => {
   if (!authStore.isSessionReady) {
@@ -55,6 +62,10 @@ const missingContextMessage = computed(() => {
 
   if (hasChecklistContext.value) {
     return null
+  }
+
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Choose an establishment to load checklist runs.'
   }
 
   if (!appEnv.isDevelopment) {
@@ -89,6 +100,8 @@ async function loadChecklistRuns(): Promise<void> {
   const context = resolvedChecklistContext.value
 
   if (!context) {
+    checklistRuns.value = []
+    errorMessage.value = null
     return
   }
 
@@ -96,14 +109,18 @@ async function loadChecklistRuns(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const page = await listChecklistRuns({
-      organizationId: context.organizationId,
-      establishmentId: context.establishmentId,
-      serviceArea: 'IK_MAT',
-      size: 10,
-    })
+    const pages = await Promise.all(
+      context.establishmentIds.map((establishmentId) =>
+        listChecklistRuns({
+          organizationId: context.organizationId,
+          establishmentId,
+          serviceArea: 'IK_MAT',
+          size: 20,
+        }),
+      ),
+    )
 
-    checklistRuns.value = selectLatestChecklistRuns(page.items)
+    checklistRuns.value = selectLatestChecklistRuns(pages.flatMap((page) => page.items)).slice(0, 10)
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -168,12 +185,11 @@ watch(
 
     <div class="row-container">
       <section class="dashboard-section">
-        <RouterLink :to="{ name: 'ik-mat-documents' }" class="tile-link">
-          <div class="dashboard-tile dashboard-tile-link">
-            <h2>Documents</h2>
-            <p>Overview over IK-mat related documents.</p>
-          </div>
-        </RouterLink>
+        <ImportantDocumentsTile
+          class="dashboard-tile"
+          documents-route-name="ik-mat-documents"
+          service-area="IK_MAT"
+        />
       </section>
 
       <section class="dashboard-section">

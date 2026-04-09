@@ -53,12 +53,22 @@ public class ChecklistAccessService {
 	}
 
 	@Transactional(readOnly = true)
+	public void requireChecklistManagementAccess(
+			UUID organizationId,
+			UUID establishmentId,
+			CurrentUser currentUser
+	) {
+		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
+		organizationAccessService.requireEstablishmentAccess(currentUser, organizationId, establishmentId);
+	}
+
+	@Transactional(readOnly = true)
 	public void requireChecklistExecutionAccess(
 			UUID organizationId,
 			ChecklistRun checklistRun,
 			CurrentUser currentUser
 	) {
-		if (canManageChecklistOperations(organizationId, currentUser)) {
+		if (canManageChecklistOperations(organizationId, checklistRun.getEstablishment().getId(), currentUser)) {
 			return;
 		}
 
@@ -78,7 +88,7 @@ public class ChecklistAccessService {
 	}
 
 	@Transactional(readOnly = true)
-	public boolean canManageChecklistOperations(UUID organizationId, CurrentUser currentUser) {
+	public boolean canManageChecklistOperations(UUID organizationId, UUID establishmentId, CurrentUser currentUser) {
 		if (currentUser.isPlatformAdmin()) {
 			return true;
 		}
@@ -87,19 +97,22 @@ public class ChecklistAccessService {
 				.findByOrganizationIdAndUserId(organizationId, currentUser.userId())
 				.orElseThrow(() -> new ForbiddenException("organization_access_denied", "Organization access denied"));
 
-		return membership.isActive() && ESTABLISHMENT_MANAGEMENT_ROLES.contains(membership.getRole());
+		return membership.isActive()
+				&& ESTABLISHMENT_MANAGEMENT_ROLES.contains(membership.getRole())
+				&& membership.hasEstablishmentAccess(establishmentId);
 	}
 
 	@Transactional(readOnly = true)
 	public void requireAssignmentFilterAccess(
 			UUID organizationId,
+			UUID establishmentId,
 			UUID assignedUserId,
 			CurrentUser currentUser
 	) {
 		if (assignedUserId == null || assignedUserId.equals(currentUser.userId())) {
 			return;
 		}
-		if (!canManageChecklistOperations(organizationId, currentUser)) {
+		if (!canManageChecklistOperations(organizationId, establishmentId, currentUser)) {
 			throw new ForbiddenException(
 					"checklist_assignment_filter_forbidden",
 					"You are not allowed to query another user's checklist assignments"

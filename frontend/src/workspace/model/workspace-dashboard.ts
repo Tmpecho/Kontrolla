@@ -57,6 +57,7 @@ type BuildIKMatServiceSummaryOptions = {
 type BuildIKAlkoholServiceSummaryOptions = {
   documents: ImportantDocumentRecord[]
   deviations: DeviationListItem[]
+  note?: string | null
 }
 
 type BuildWorkspaceAttentionItemsOptions = {
@@ -196,6 +197,7 @@ export function buildIKMatServiceSummary({
 export function buildIKAlkoholServiceSummary({
   documents,
   deviations,
+  note = null,
 }: BuildIKAlkoholServiceSummaryOptions): WorkspaceServiceSummary {
   const documentList = getDocumentsWithStatus(documents, expiryWarningDays)
   const documentsNeedingAttention = documentList.filter((documentItem) => documentItem.status !== 'VALID').length
@@ -229,6 +231,7 @@ export function buildIKAlkoholServiceSummary({
         tone: readinessPercentage < 100 ? 'primary' : 'neutral',
       },
     ],
+    note,
   }
 }
 

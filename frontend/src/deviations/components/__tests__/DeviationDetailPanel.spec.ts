@@ -6,6 +6,7 @@ import type { DeviationListItem } from '@/deviations/model/deviation.types'
 function createDeviation(overrides: Partial<DeviationListItem> = {}): DeviationListItem {
   return {
     id: 'dev-1',
+    establishmentId: 'est-1',
     serviceArea: 'IK_MAT',
     title: 'Walk-in fridge too warm',
     reportedAt: '2026-04-06T08:00:00Z',

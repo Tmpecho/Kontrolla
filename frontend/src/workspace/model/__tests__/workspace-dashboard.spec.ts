@@ -83,6 +83,7 @@ function createDeviation(
 ): DeviationListItem {
   return {
     id,
+    establishmentId: 'est-1',
     serviceArea,
     title: `${id} deviation`,
     reportedAt,
@@ -179,12 +180,21 @@ describe('workspace-dashboard', () => {
       buildIKAlkoholServiceSummary({
         documents,
         deviations: ikAlkoholDeviations,
+        note: 'Deviation overview is temporarily unavailable.',
       }).metrics,
     ).toEqual([
       { label: 'Open alcohol deviations', value: '1 item', tone: 'critical' },
       { label: 'Documents needing attention', value: '2 documents', tone: 'warning' },
       { label: 'Audit readiness', value: '67%', tone: 'primary' },
     ])
+
+    expect(
+      buildIKAlkoholServiceSummary({
+        documents,
+        deviations: ikAlkoholDeviations,
+        note: 'Deviation overview is temporarily unavailable.',
+      }).note,
+    ).toBe('Deviation overview is temporarily unavailable.')
 
     vi.useRealTimers()
   })

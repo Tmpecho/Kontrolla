@@ -2,7 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import NotificationsPopup from '@/app/components/NotificationsPopup.vue'
+import OrganizationSwitcher from '@/app/components/OrganizationSwitcher.vue'
 import ProfilePopup from '@/app/components/ProfilePopup.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useNotificationsStore } from '@/notifications/model/notifications.store'
@@ -236,7 +238,13 @@ defineExpose({
       </div>
     </div>
 
+    <OrganizationSwitcher class="mobile-organization-switcher" variant="panel" />
+    <EstablishmentSwitcher class="mobile-establishment-switcher" variant="panel" />
+
     <div ref="popupArea" class="right-container icons-container">
+      <OrganizationSwitcher class="desktop-organization-switcher" />
+      <EstablishmentSwitcher class="desktop-establishment-switcher" />
+
       <div class="icon-wrapper icon-wrapper-notifications">
         <button
           id="notifications-trigger"
@@ -291,6 +299,14 @@ defineExpose({
   background-color: var(--color-white);
 }
 
+.mobile-establishment-switcher {
+  display: none;
+}
+
+.mobile-organization-switcher {
+  display: none;
+}
+
 .left-container {
   display: flex;
   flex-direction: row;
@@ -317,6 +333,16 @@ defineExpose({
   flex-direction: row;
   align-items: center;
   gap: 30px;
+}
+
+.desktop-establishment-switcher {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.desktop-organization-switcher {
+  width: 240px;
+  flex-shrink: 0;
 }
 
 .icons-container {
@@ -427,7 +453,10 @@ defineExpose({
 
 @media (max-width: 960px) {
   .top-bar-container {
+    flex-wrap: wrap;
+    align-items: flex-start;
     padding: 12px 16px;
+    gap: 12px;
   }
 
   .mobile-menu-button,
@@ -436,12 +465,22 @@ defineExpose({
   }
 
   .desktop-service-links,
+  .desktop-organization-switcher,
+  .desktop-establishment-switcher,
   .icon-wrapper-notifications {
     display: none;
   }
 
+  .mobile-organization-switcher,
+  .mobile-establishment-switcher {
+    display: flex;
+    width: 100%;
+    order: 3;
+  }
+
   .left-container {
     gap: 12px;
+    flex: 1;
   }
 
   .right-container {

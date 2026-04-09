@@ -27,11 +27,18 @@ public class OrganizationMembershipController {
 	public PageResponse<MembershipResponse> listMembers(
 			@PathVariable UUID organizationId,
 			@AuthenticationPrincipal CurrentUser currentUser,
+			@RequestParam(required = false) UUID establishmentId,
 			@RequestParam(defaultValue = "false") boolean includeInactive,
 			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
 	) {
 		return PageResponse.from(
-				organizationService.listMemberships(organizationId, currentUser, pageable, includeInactive),
+				organizationService.listMemberships(
+						organizationId,
+						currentUser,
+						pageable,
+						includeInactive,
+						establishmentId
+				),
 				MembershipResponse::from
 		);
 	}
@@ -48,6 +55,8 @@ public class OrganizationMembershipController {
 				request.userId(),
 				request.role(),
 				request.active() == null || request.active(),
+				request.allEstablishments(),
+				request.establishmentIds(),
 				currentUser
 		);
 		return MembershipResponse.from(membership);
@@ -68,6 +77,8 @@ public class OrganizationMembershipController {
 						request.lastName(),
 						request.role(),
 						request.active() == null || request.active(),
+						request.allEstablishments(),
+						request.establishmentIds(),
 						currentUser
 				)
 		);
@@ -85,6 +96,8 @@ public class OrganizationMembershipController {
 				membershipId,
 				request.role(),
 				request.active(),
+				request.allEstablishments(),
+				request.establishmentIds(),
 				currentUser
 		);
 		return MembershipResponse.from(membership);

@@ -248,26 +248,202 @@ class OrganizationFlowIntegrationTest {
 	}
 
 	@Test
-	void orgAdminMemberListingIncludesCreatedEmployees() throws Exception {
+	void memberListingCanBeFilteredByEstablishmentScope() throws Exception {
 		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
 		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
-		User employeeOne = createUser("restaurant@example.com", "Restaurant", "Employee", Set.of());
-		User employeeTwo = createUser("bar@example.com", "Bar", "Employee", Set.of());
+		User restaurantEmployee = createUser("restaurant@example.com", "Restaurant", "Employee", Set.of());
+		User barEmployee = createUser("bar@example.com", "Bar", "Employee", Set.of());
 
 		String adminToken = login("admin@example.com", "password123");
 		String organizationId = createOrganization(adminToken, "Scoped Org");
 		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
-		addMembership(adminToken, organizationId, employeeOne.getId(), "ORG_EMPLOYEE");
-		addMembership(adminToken, organizationId, employeeTwo.getId(), "ORG_EMPLOYEE");
+
+		String restaurantResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Restaurant",
+								  "type": "RESTAURANT"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		String barResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Bar",
+								  "type": "BAR"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String restaurantId = objectMapper.readTree(restaurantResponse).get("id").asText();
+		String barId = objectMapper.readTree(barResponse).get("id").asText();
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "allEstablishments": false,
+								  "establishmentIds": ["%s"]
+								}
+								""".formatted(restaurantEmployee.getId(), restaurantId)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.allEstablishments").value(false))
+				.andExpect(jsonPath("$.establishments[0].id").value(restaurantId));
+
+		mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "allEstablishments": false,
+								  "establishmentIds": ["%s"]
+								}
+								""".formatted(barEmployee.getId(), barId)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.allEstablishments").value(false))
+				.andExpect(jsonPath("$.establishments[0].id").value(barId));
 
 		String orgAdminToken = login("orgadmin@example.com", "password123");
 
-		mockMvc.perform(get("/api/v1/organizations/%s/members".formatted(organizationId))
+		mockMvc.perform(get("/api/v1/organizations/%s/members?establishmentId=%s".formatted(organizationId, restaurantId))
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("orgadmin@example.com")))
 				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("restaurant@example.com")))
-				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("bar@example.com")));
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("bar@example.com"))));
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?establishmentId=%s".formatted(organizationId, barId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("orgadmin@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.hasItem("bar@example.com")))
+				.andExpect(jsonPath("$.items[*].userEmail").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("restaurant@example.com"))));
+	}
+
+	@Test
+	void memberListingRejectsForeignEstablishmentId() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String orgAId = createOrganization(adminToken, "Org A");
+		String orgBId = createOrganization(adminToken, "Org B");
+		addMembership(adminToken, orgAId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String foreignEstablishmentResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(orgBId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Foreign Bar",
+								  "type": "BAR"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String foreignEstablishmentId = objectMapper.readTree(foreignEstablishmentResponse).get("id").asText();
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(get("/api/v1/organizations/%s/members?establishmentId=%s".formatted(orgAId, foreignEstablishmentId))
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void membershipUpdatePreservesScopedEstablishmentAccessWhenScopeIsOmitted() throws Exception {
+		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+		User orgAdmin = createUser("orgadmin@example.com", "Org", "Admin", Set.of());
+		User scopedEmployee = createUser("scoped@example.com", "Scoped", "Employee", Set.of());
+
+		String adminToken = login("admin@example.com", "password123");
+		String organizationId = createOrganization(adminToken, "Scoped Update Org");
+		addMembership(adminToken, organizationId, orgAdmin.getId(), "ORG_ADMIN");
+
+		String restaurantResponse = mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Restaurant",
+								  "type": "RESTAURANT"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		mockMvc.perform(post("/api/v1/organizations/%s/establishments".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "name": "Bar",
+								  "type": "BAR"
+								}
+								"""))
+				.andExpect(status().isCreated());
+
+		String restaurantId = objectMapper.readTree(restaurantResponse).get("id").asText();
+		String membershipResponse = mockMvc.perform(post("/api/v1/organizations/%s/members".formatted(organizationId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "userId": "%s",
+								  "role": "ORG_EMPLOYEE",
+								  "allEstablishments": false,
+								  "establishmentIds": ["%s"]
+								}
+								""".formatted(scopedEmployee.getId(), restaurantId)))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		String membershipId = objectMapper.readTree(membershipResponse).get("id").asText();
+		String orgAdminToken = login("orgadmin@example.com", "password123");
+
+		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organizationId, membershipId))
+						.with(csrf())
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + orgAdminToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "role": "ORG_EMPLOYEE",
+								  "active": false
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.active").value(false))
+				.andExpect(jsonPath("$.allEstablishments").value(false))
+				.andExpect(jsonPath("$.establishments.length()").value(1))
+				.andExpect(jsonPath("$.establishments[0].id").value(restaurantId));
 	}
 
 	@Test
