@@ -8,6 +8,7 @@ const {
   refreshSessionMock,
   logoutRequestMock,
   clearCsrfTokenMock,
+  getStartupStatusMock,
   listAdminOrganizationsMock,
   listEstablishmentsMock,
 } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const {
   refreshSessionMock: vi.fn(),
   logoutRequestMock: vi.fn(),
   clearCsrfTokenMock: vi.fn(),
+  getStartupStatusMock: vi.fn(),
   listAdminOrganizationsMock: vi.fn(),
   listEstablishmentsMock: vi.fn(),
 }))
@@ -36,6 +38,10 @@ vi.mock('@/auth/api/auth.api', () => ({
 
 vi.mock('@/establishments/api/establishments.api', () => ({
   listEstablishments: listEstablishmentsMock,
+}))
+
+vi.mock('@/app/api/startup.api', () => ({
+  getStartupStatus: getStartupStatusMock,
 }))
 
 vi.mock('@/organizations/api/organizations.api', () => ({
@@ -69,8 +75,13 @@ describe('auth.store', () => {
     refreshSessionMock.mockReset()
     logoutRequestMock.mockReset()
     clearCsrfTokenMock.mockReset()
+    getStartupStatusMock.mockReset()
     listAdminOrganizationsMock.mockReset()
     listEstablishmentsMock.mockReset()
+    getStartupStatusMock.mockResolvedValue({
+      status: 'READY',
+      ready: true,
+    })
 
     const storage = new Map<string, string>()
 

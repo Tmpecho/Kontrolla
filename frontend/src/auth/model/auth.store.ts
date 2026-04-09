@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { getStartupStatus } from '@/app/api/startup.api'
 import {
   AuthApiError,
   login as loginRequest,
@@ -12,16 +13,19 @@ import type {
   AuthSession,
   AuthUser,
   LoginCredentials,
+  WorkspaceStartupStatus,
 } from '@/auth/model/auth.types'
 import { listEstablishments } from '@/establishments/api/establishments.api'
 import type { Establishment } from '@/establishments/model/establishment.types'
 import { listAdminOrganizations } from '@/organizations/api/organizations.api'
 import type { OrganizationSummary } from '@/organizations/model/organization.types'
 import { clearCsrfToken } from '@/shared/api/csrf'
+import { ApiError } from '@/shared/api/http'
 
 let currentAccessToken: string | null = null
 const ESTABLISHMENT_SELECTION_STORAGE_KEY = 'kontrolla.establishmentSelectionByOrganization'
 const ORGANIZATION_SELECTION_STORAGE_KEY = 'kontrolla.organizationSelection'
+const STARTUP_POLL_INTERVAL_MS = 2_000
 
 export function getAccessToken(): string | null {
   return currentAccessToken
@@ -93,14 +97,25 @@ export const useAuthStore = defineStore('auth', () => {
   const appContext = ref<AuthAppContext | null>(null)
   const sessionAppContext = ref<AuthAppContext | null>(null)
   const isSessionReady = ref(false)
+  const startupStatus = ref<WorkspaceStartupStatus>('idle')
+  const startupError = ref<string | null>(null)
+  const startupStartedAt = ref<number | null>(null)
   const organizations = ref<OrganizationSummary[]>([])
   const isLoadingOrganizations = ref(false)
   const establishments = ref<Establishment[]>([])
   const isLoadingEstablishments = ref(false)
   let establishmentHydrationRequestId = 0
+  let startupRequestId = 0
+  let startupPollTimeoutId: number | null = null
 
   const isAuthenticated = computed(() => user.value !== null && accessToken.value !== null)
   const isPlatformAdmin = computed(() => user.value?.globalRoles.includes('PLATFORM_ADMIN') ?? false)
+  const isStartupPending = computed(() => {
+    return (
+      startupStatus.value === 'waiting-for-backend' ||
+      startupStatus.value === 'bootstrapping-workspace'
+    )
+  })
   const requiresEstablishmentSelection = computed(() => {
     return (
       Boolean(appContext.value?.organizationId) &&
@@ -124,7 +139,26 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = nextUser
   }
 
+  function clearStartupPolling() {
+    if (typeof window === 'undefined' || startupPollTimeoutId === null) {
+      return
+    }
+
+    window.clearTimeout(startupPollTimeoutId)
+    startupPollTimeoutId = null
+  }
+
+  function resetStartupState() {
+    clearStartupPolling()
+    startupStatus.value = 'idle'
+    startupError.value = null
+    startupStartedAt.value = null
+  }
+
   function clearSession() {
+    startupRequestId += 1
+    establishmentHydrationRequestId += 1
+    resetStartupState()
     user.value = null
     accessToken.value = null
     tokenType.value = null
@@ -167,7 +201,10 @@ export const useAuthStore = defineStore('auth', () => {
     writeStoredSelectionByOrganization(storedSelectionByOrganization)
   }
 
-  async function updateSelectedOrganization(organizationId: string | null) {
+  async function updateSelectedOrganization(
+    organizationId: string | null,
+    options: { throwOnError?: boolean } = {},
+  ) {
     const nextOrganization =
       organizationId === null
         ? null
@@ -177,7 +214,7 @@ export const useAuthStore = defineStore('auth', () => {
       appContext.value = sessionAppContext.value
       establishments.value = []
       writeStoredOrganizationSelection(null)
-      await hydrateEstablishments()
+      await hydrateEstablishments(options)
       return
     }
 
@@ -194,10 +231,10 @@ export const useAuthStore = defineStore('auth', () => {
     establishments.value = []
 
     writeStoredOrganizationSelection(nextOrganization.id)
-    await hydrateEstablishments()
+    await hydrateEstablishments(options)
   }
 
-  async function synchronizeOrganizationSelection() {
+  async function synchronizeOrganizationSelection(options: { throwOnError?: boolean } = {}) {
     if (!isPlatformAdmin.value) {
       organizations.value = []
       return
@@ -223,19 +260,19 @@ export const useAuthStore = defineStore('auth', () => {
     )
 
     if (storedOrganizationId && hasStoredSelection) {
-      await updateSelectedOrganization(storedOrganizationId)
+      await updateSelectedOrganization(storedOrganizationId, options)
       return
     }
 
     if (sessionOrganizationId && hasSessionOrganization) {
-      await updateSelectedOrganization(sessionOrganizationId)
+      await updateSelectedOrganization(sessionOrganizationId, options)
       return
     }
 
-    await updateSelectedOrganization(activeOrganizations[0]!.id)
+    await updateSelectedOrganization(activeOrganizations[0]!.id, options)
   }
 
-  async function hydrateOrganizations() {
+  async function hydrateOrganizations(options: { throwOnError?: boolean } = {}) {
     if (!isPlatformAdmin.value) {
       organizations.value = []
       return
@@ -260,9 +297,12 @@ export const useAuthStore = defineStore('auth', () => {
       } while (pageNumber < totalPages)
 
       organizations.value = fetchedOrganizations.sort((left, right) => left.name.localeCompare(right.name))
-      await synchronizeOrganizationSelection()
-    } catch {
+      await synchronizeOrganizationSelection(options)
+    } catch (error) {
       organizations.value = []
+      if (options.throwOnError) {
+        throw error
+      }
     } finally {
       isLoadingOrganizations.value = false
     }
@@ -298,7 +338,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function hydrateEstablishments() {
+  async function hydrateEstablishments(options: { throwOnError?: boolean } = {}) {
     const organizationId = appContext.value?.organizationId
     const requestId = ++establishmentHydrationRequestId
 
@@ -338,12 +378,15 @@ export const useAuthStore = defineStore('auth', () => {
         .filter((establishment) => establishment.status === 'ACTIVE')
         .sort((left, right) => left.name.localeCompare(right.name))
       synchronizeEstablishmentSelection()
-    } catch {
+    } catch (error) {
       if (requestId !== establishmentHydrationRequestId || appContext.value?.organizationId !== organizationId) {
         return
       }
 
       establishments.value = []
+      if (options.throwOnError) {
+        throw error
+      }
     } finally {
       if (requestId === establishmentHydrationRequestId) {
         isLoadingEstablishments.value = false
@@ -351,13 +394,146 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function prepareWorkspaceStartup() {
+    startupRequestId += 1
+    establishmentHydrationRequestId += 1
+    clearStartupPolling()
+    startupStatus.value = 'waiting-for-backend'
+    startupError.value = null
+    startupStartedAt.value = Date.now()
+    organizations.value = []
+    establishments.value = []
+    isLoadingOrganizations.value = false
+    isLoadingEstablishments.value = false
+    appContext.value = sessionAppContext.value
+  }
+
+  function isRetryableStartupPendingError(error: unknown): boolean {
+    if (!(error instanceof ApiError)) {
+      return true
+    }
+
+    return error.status >= 500
+  }
+
+  function isNonRecoverableStartupError(error: unknown): boolean {
+    return error instanceof ApiError && (error.status === 401 || error.status === 403)
+  }
+
+  async function waitForNextStartupPoll(requestId: number) {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    await new Promise<void>((resolve) => {
+      if (requestId !== startupRequestId) {
+        resolve()
+        return
+      }
+
+      startupPollTimeoutId = window.setTimeout(() => {
+        startupPollTimeoutId = null
+        resolve()
+      }, STARTUP_POLL_INTERVAL_MS)
+    })
+  }
+
+  async function waitForBackendReadiness(requestId: number): Promise<boolean> {
+    while (requestId === startupRequestId && isAuthenticated.value) {
+      try {
+        const backendStartupStatus = await getStartupStatus()
+
+        if (requestId !== startupRequestId) {
+          return false
+        }
+
+        if (backendStartupStatus.ready) {
+          return true
+        }
+      } catch (error) {
+        if (isNonRecoverableStartupError(error)) {
+          throw error
+        }
+
+        if (!isRetryableStartupPendingError(error)) {
+          throw error
+        }
+      }
+
+      await waitForNextStartupPoll(requestId)
+    }
+
+    return false
+  }
+
+  async function bootstrapWorkspaceContext(requestId: number) {
+    if (requestId !== startupRequestId || !isAuthenticated.value) {
+      return
+    }
+
+    startupStatus.value = 'bootstrapping-workspace'
+    startupError.value = null
+
+    try {
+      await hydrateOrganizations({ throwOnError: true })
+      if (!isPlatformAdmin.value) {
+        await hydrateEstablishments({ throwOnError: true })
+      }
+
+      if (requestId !== startupRequestId) {
+        return
+      }
+
+      startupStatus.value = 'ready'
+      startupError.value = null
+    } catch (error) {
+      if (requestId !== startupRequestId) {
+        return
+      }
+
+      startupStatus.value = 'error'
+      startupError.value =
+        error instanceof Error ? error.message : 'Unable to start the workspace.'
+    }
+  }
+
+  function startWorkspaceStartup() {
+    if (!isAuthenticated.value) {
+      return
+    }
+
+    prepareWorkspaceStartup()
+    const requestId = startupRequestId
+
+    void (async () => {
+      try {
+        const isBackendReady = await waitForBackendReadiness(requestId)
+
+        if (!isBackendReady) {
+          return
+        }
+
+        await bootstrapWorkspaceContext(requestId)
+      } catch (error) {
+        if (requestId !== startupRequestId) {
+          return
+        }
+
+        startupStatus.value = 'error'
+        startupError.value =
+          error instanceof Error ? error.message : 'Unable to start the workspace.'
+      }
+    })()
+  }
+
+  function retryWorkspaceStartup() {
+    startWorkspaceStartup()
+  }
+
   async function login(credentials: LoginCredentials) {
     const session = await loginRequest(credentials)
     setSession(session)
-    await hydrateOrganizations()
-    if (!isPlatformAdmin.value) {
-      await hydrateEstablishments()
-    }
+    startWorkspaceStartup()
     return session
   }
 
@@ -376,10 +552,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const session = await refreshSession()
       setSession(session)
-      await hydrateOrganizations()
-      if (!isPlatformAdmin.value) {
-        await hydrateEstablishments()
-      }
+      startWorkspaceStartup()
     } catch (error) {
       clearSession()
 
@@ -400,16 +573,22 @@ export const useAuthStore = defineStore('auth', () => {
     organizations,
     establishments,
     isSessionReady,
+    startupStatus,
+    startupError,
+    startupStartedAt,
     isLoadingOrganizations,
     isLoadingEstablishments,
     isAuthenticated,
     isPlatformAdmin,
+    isStartupPending,
     requiresEstablishmentSelection,
     setSession,
     updateSelectedOrganization,
     updateSelectedEstablishment,
     hydrateOrganizations,
     hydrateEstablishments,
+    startWorkspaceStartup,
+    retryWorkspaceStartup,
     setCurrentUser,
     clearSession,
     login,
