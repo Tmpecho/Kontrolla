@@ -600,7 +600,7 @@ watch(
   justify-content: center;
   min-width: 1.5rem;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: 0.5cqh;
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 0.875rem;
@@ -615,7 +615,7 @@ watch(
   min-height: 2.75rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: 0.5cqh;
   background: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
@@ -641,7 +641,7 @@ watch(
   gap: 14px;
   padding: 18px;
   border: 1px solid var(--date-group-border, var(--color-border));
-  border-radius: 12px;
+  border-radius: 0.5cqh;
   background: var(--date-group-background, var(--color-container));
 }
 
@@ -690,7 +690,7 @@ watch(
 .state-card {
   padding: 20px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 0.5cqh;
   background: var(--color-container);
 }
 

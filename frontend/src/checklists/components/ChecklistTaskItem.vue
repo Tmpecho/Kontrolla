@@ -208,7 +208,7 @@ const handleTextChange = (e: Event) => {
   row-gap: 0.125rem;
   padding: 0.55rem 0.35rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 78%, white);
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   background: color-mix(in srgb, var(--color-surface) 28%, white);
   position: relative;
 }
@@ -318,7 +318,7 @@ const handleTextChange = (e: Event) => {
   max-width: 100%;
   padding: 0.38rem 0.55rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   background: var(--color-white);
   font: 400 0.76rem var(--font-sans, inherit);
   color: var(--color-text-primary);

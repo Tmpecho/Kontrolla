@@ -355,7 +355,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .run-card {
   background: var(--color-container);
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -632,7 +632,7 @@ const handleTaskUpdate = async (updatedTask: ChecklistTaskExecution) => {
 .btn {
   font: 600 0.75rem var(--font-sans, inherit);
   padding: 0.42rem 0.7rem;
-  border-radius: 0.75cqh;
+  border-radius: 0.5cqh;
   border: 1px solid transparent;
   cursor: pointer;
   transition: 0.15s;

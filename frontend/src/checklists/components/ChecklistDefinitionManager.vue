@@ -1064,7 +1064,7 @@ watch(definitions, maybeOpenRequestedDefinition)
               class="builder-card"
             >
               <header class="builder-card-header">
-              <strong>Schedule {{ scheduleIndex + 1 }}</strong>
+                <strong>Schedule {{ scheduleIndex + 1 }}</strong>
                 <button
                   type="button"
                   class="icon-button icon-button-danger"
@@ -1191,7 +1191,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   gap: 12px;
   padding: 12px;
   border: 1px solid #bfd1e6;
-  border-radius: 6px;
+  border-radius: 0;
   background: #edf3fa;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   font-size: 0.9375rem;
@@ -1212,7 +1212,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   cursor: pointer;
   padding: 14px;
   border: 1px solid #c7d7ea;
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.62);
 }
 
@@ -1305,7 +1305,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-panel {
   padding: 16px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--color-container);
 }
 
@@ -1346,7 +1346,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 .definition-list {
   padding: 12px;
   border: 1px solid #d5dde8;
-  border-radius: 2px;
+  border-radius: 0;
   background: #f8fafc;
 }
 
@@ -1415,7 +1415,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: 0;
   font-weight: 700;
 }
 
@@ -1491,7 +1491,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-form:not(.editor-form-submenu) {
   padding: 12px;
   border: 1px solid #d6dee8;
-  border-radius: 2px;
+  border-radius: 0;
   background: #f8fafc;
 }
 
@@ -1504,8 +1504,8 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-panel-schedules {
   order: 2;
   padding: 16px;
-  border-color: #cad7e7;
-  background: #f4f7fb;
+  border-color: #d4dde8;
+  background: #fbfcfe;
 }
 
 .editor-panel-tasks {
@@ -1598,7 +1598,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   gap: 12px;
   padding: 14px;
   border: 1px solid #dde3ea;
-  border-radius: 2px;
+  border-radius: 0;
   background: #ffffff;
   box-shadow: none;
 }
@@ -1819,7 +1819,7 @@ watch(definitions, maybeOpenRequestedDefinition)
   width: 16px;
   height: 16px;
   border: 2px solid currentColor;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .weekday-square[data-active='true'] {
