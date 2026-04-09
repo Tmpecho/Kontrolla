@@ -179,12 +179,13 @@ public class ChecklistRunService {
 			CurrentUser currentUser
 	) {
 		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
-		findChecklistRunOrThrow(establishmentId, checklistRunId);
+		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
 
 		ChecklistRunAssignment assignment = checklistRunAssignmentRepository.findByIdAndChecklistRunId(assignmentId, checklistRunId)
 				.orElseThrow(checklistAccessService::checklistAssignmentNotFound);
 
-		checklistRunAssignmentRepository.delete(assignment);
+		checklistRun.removeAssignment(assignment);
+		checklistRunRepository.save(checklistRun);
 	}
 
 	@Transactional

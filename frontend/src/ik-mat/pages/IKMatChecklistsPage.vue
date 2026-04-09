@@ -500,6 +500,7 @@ watch(
               :selected="visibleChecklistRunId === run.id"
               :force-expanded="visibleChecklistRunId === run.id"
               :show-setup-actions="canManageChecklistDefinitions && selectedManagementEstablishmentId === run.establishmentId"
+              :can-manage-assignments="canManageChecklistDefinitions"
               @update:run="handleRunUpdate"
               @edit:definition-group="handleDefinitionEditRequest"
             />

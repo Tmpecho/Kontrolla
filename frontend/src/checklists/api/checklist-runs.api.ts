@@ -81,6 +81,9 @@ export async function assignChecklistRun(
 ): Promise<ChecklistRun> {
   return requestJson<ChecklistRun>(`${getBaseUrl(params)}/${params.checklistRunId}/assignments`, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(input),
   })
 }

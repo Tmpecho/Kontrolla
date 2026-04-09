@@ -144,6 +144,10 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 		this.assignments.add(assignment);
 	}
 
+	public void removeAssignment(ChecklistRunAssignment assignment) {
+		this.assignments.remove(assignment);
+	}
+
 	public void addEvent(ChecklistRunEvent event) {
 		event.attachTo(this);
 		this.events.add(event);
