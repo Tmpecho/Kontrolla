@@ -95,7 +95,9 @@ describe('AppLayout mobile navigation overlay', () => {
   it('traps focus inside the mobile navigation drawer and closes on escape', async () => {
     const wrapper = await mountLayout()
 
-    await wrapper.get('#mobile-nav-trigger').trigger('click')
+    const trigger = wrapper.get('#mobile-nav-trigger')
+    ;(trigger.element as HTMLButtonElement).focus()
+    await trigger.trigger('click')
     await flushPromises()
 
     const firstAction = document.body.querySelectorAll('#first-nav-action').item(1) as HTMLButtonElement
@@ -112,5 +114,6 @@ describe('AppLayout mobile navigation overlay', () => {
     await flushPromises()
 
     expect(document.body.querySelectorAll('#first-nav-action')).toHaveLength(1)
+    expect(document.activeElement).toBe(trigger.element)
   })
 })

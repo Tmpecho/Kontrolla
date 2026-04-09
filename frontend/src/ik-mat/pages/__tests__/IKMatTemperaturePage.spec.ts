@@ -40,7 +40,9 @@ describe('IKMatTemperaturePage mobile editor', () => {
       },
     })
 
-    await wrapper.find('button.row-action').trigger('click')
+    const trigger = wrapper.find('button.row-action')
+    ;(trigger.element as HTMLButtonElement).focus()
+    await trigger.trigger('click')
     await flushPromises()
 
     const overlayPanel = document.body.querySelector('.app-overlay-panel')
@@ -51,5 +53,6 @@ describe('IKMatTemperaturePage mobile editor', () => {
     await flushPromises()
 
     expect(document.body.querySelector('.app-overlay-panel')).toBeNull()
+    expect(document.activeElement).toBe(trigger.element)
   })
 })
