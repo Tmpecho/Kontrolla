@@ -13,6 +13,7 @@ const router = useRouter()
 const isSaving = ref(false)
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
+const attemptedSubmit = ref(false)
 
 const form = reactive({
   firstName: '',
@@ -54,12 +55,27 @@ const fullName = computed(() => {
 const normalizedFirstName = computed(() => form.firstName.trim())
 const normalizedLastName = computed(() => form.lastName.trim())
 
-const canSave = computed(() => {
-  if (!authStore.user || isSaving.value) {
-    return false
+const validationMessage = computed(() => {
+  if (!normalizedFirstName.value) {
+    return 'Enter your first name.'
   }
 
-  if (!normalizedFirstName.value || !normalizedLastName.value) {
+  if (!normalizedLastName.value) {
+    return 'Enter your last name.'
+  }
+
+  return null
+})
+
+const firstNameError = computed(() =>
+  attemptedSubmit.value && !normalizedFirstName.value ? 'Enter your first name.' : null,
+)
+const lastNameError = computed(() =>
+  attemptedSubmit.value && !normalizedLastName.value ? 'Enter your last name.' : null,
+)
+
+const hasProfileChanges = computed(() => {
+  if (!authStore.user) {
     return false
   }
 
@@ -68,6 +84,8 @@ const canSave = computed(() => {
     normalizedLastName.value !== authStore.user.lastName
   )
 })
+
+const isSubmitDisabled = computed(() => !authStore.user || isSaving.value)
 
 const createdAtLabel = computed(() => formatDate(authStore.user?.createdAt))
 const updatedAtLabel = computed(() => formatDate(authStore.user?.updatedAt))
@@ -98,7 +116,20 @@ function goToOrganizationMembers() {
 }
 
 async function onSubmit() {
-  if (!canSave.value) {
+  if (validationMessage.value) {
+    attemptedSubmit.value = true
+    errorMessage.value = null
+    successMessage.value = null
+    return
+  }
+
+  if (!hasProfileChanges.value) {
+    successMessage.value = 'No changes to save.'
+    errorMessage.value = null
+    return
+  }
+
+  if (!authStore.user || isSaving.value) {
     return
   }
 
@@ -199,6 +230,7 @@ async function onSubmit() {
             id="profile-first-name"
             v-model="form.firstName"
             label="First name"
+            :error="firstNameError"
             autocomplete="given-name"
             placeholder="First name"
             @update:model-value="clearFeedback"
@@ -208,6 +240,7 @@ async function onSubmit() {
             id="profile-last-name"
             v-model="form.lastName"
             label="Last name"
+            :error="lastNameError"
             autocomplete="family-name"
             placeholder="Last name"
             @update:model-value="clearFeedback"
@@ -215,7 +248,7 @@ async function onSubmit() {
         </div>
 
         <div class="actions-row">
-          <BaseButton type="submit" :disabled="!canSave">
+          <BaseButton type="submit" :disabled="isSubmitDisabled">
             {{ isSaving ? 'Saving...' : 'Save changes' }}
           </BaseButton>
         </div>

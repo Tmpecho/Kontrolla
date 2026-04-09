@@ -81,6 +81,33 @@ const form = reactive<{
   severity: 'MEDIUM',
   description: '',
 })
+const attemptedSubmit = ref(false)
+
+const validationMessage = computed(() => {
+  if (!form.title.trim()) {
+    return 'Enter a title for the deviation.'
+  }
+
+  if (!form.category) {
+    return 'Choose a category.'
+  }
+
+  if (!form.description.trim()) {
+    return 'Enter a description for the deviation.'
+  }
+
+  return null
+})
+
+const titleError = computed(() =>
+  attemptedSubmit.value && !form.title.trim() ? 'Enter a title for the deviation.' : null,
+)
+const categoryError = computed(() =>
+  attemptedSubmit.value && !form.category ? 'Choose a category.' : null,
+)
+const descriptionError = computed(() =>
+  attemptedSubmit.value && !form.description.trim() ? 'Enter a description for the deviation.' : null,
+)
 
 watch(
   categoryOptions,
@@ -92,16 +119,9 @@ watch(
   { immediate: true },
 )
 
-const canSubmit = computed(() => {
-  return Boolean(
-    form.title.trim() &&
-      form.description.trim() &&
-      form.category &&
-      organizationId.value &&
-      establishmentId.value &&
-      !isSubmitting.value,
-  )
-})
+const isSubmitDisabled = computed(
+  () => Boolean(isSubmitting.value || missingContextMessage.value),
+)
 
 function normalizeCategoryValue(value: string): string {
   return value.trim().toLowerCase().replace(/[_-]+/g, ' ')
@@ -135,11 +155,30 @@ function goBack(): void {
   })
 }
 
+function clearError(): void {
+  errorMessage.value = null
+}
+
+function clearFieldError(field: 'title' | 'category' | 'description'): void {
+  clearError()
+}
+
 async function onSubmit() {
   const resolvedOrganizationId = organizationId.value
   const resolvedEstablishmentId = establishmentId.value
 
-  if (!canSubmit.value || !resolvedOrganizationId || !resolvedEstablishmentId || !form.category) {
+  if (missingContextMessage.value) {
+    errorMessage.value = missingContextMessage.value
+    return
+  }
+
+  if (validationMessage.value) {
+    attemptedSubmit.value = true
+    errorMessage.value = null
+    return
+  }
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId || !form.category) {
     return
   }
 
@@ -201,22 +240,33 @@ watch(
           label="title"
           type="text"
           v-model="form.title"
+          :error="titleError"
+          @update:model-value="clearFieldError('title')"
         />
       </div>
 
       <div class="form-row">
         <div class="input-group">
           <label for="category" class="input-label">category</label>
-          <select id="category" v-model="form.category" class="input-field" required>
+          <select
+            id="category"
+            v-model="form.category"
+            class="input-field"
+            :class="{ 'input-field-error': Boolean(categoryError) }"
+            :aria-invalid="Boolean(categoryError)"
+            required
+            @change="clearFieldError('category')"
+          >
             <option v-for="category in categoryOptions" :key="category" :value="category">
               {{ category }}
             </option>
           </select>
+          <p v-if="categoryError" class="input-error">{{ categoryError }}</p>
         </div>
 
         <div class="input-group">
           <label for="severity" class="input-label">severity</label>
-          <select id="severity" v-model="form.severity" class="input-field" required>
+          <select id="severity" v-model="form.severity" class="input-field" required @change="clearError">
             <option v-for="severity in severityOptions" :key="severity" :value="severity">
               {{ formatDeviationSeverity(severity) }}
             </option>
@@ -230,11 +280,13 @@ watch(
           label="description"
           type="text-area"
           v-model="form.description"
+          :error="descriptionError"
+          @update:model-value="clearFieldError('description')"
         />
       </div>
 
       <div class="btn-wrapper">
-        <BaseButton :disabled="!canSubmit" type="submit">
+        <BaseButton :disabled="isSubmitDisabled" type="submit">
           {{ isSubmitting ? 'Submitting...' : 'Submit' }}
         </BaseButton>
       </div>
@@ -291,7 +343,7 @@ watch(
 .form-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 24px;
   max-width: 760px;
 }
 
@@ -304,6 +356,7 @@ watch(
 .input-group {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 @media (max-width: 720px) {
@@ -314,35 +367,51 @@ watch(
 }
 
 .input-label {
-  font-size: 0.75rem;
+  font-size: var(--font-size-label);
   font-weight: 600;
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5rem;
+  letter-spacing: var(--field-label-letter-spacing);
 }
 
 .input-field {
-  background-color: var(--color-container);
-  border: none;
-  border-bottom: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  padding: 0.875rem 0.5rem;
-  font-size: 1rem;
+  min-height: var(--field-min-height);
+  background-color: var(--field-background);
+  border: 1px solid var(--field-border-color);
+  border-radius: var(--field-radius);
+  padding: var(--field-padding-y) var(--field-padding-x);
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
   width: 100%;
   box-sizing: border-box;
 }
 
 .input-field:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-  border-bottom-color: transparent;
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+
+.input-field-error {
+  border-color: var(--color-critical);
+}
+
+.input-field-error:focus {
+  border-color: var(--color-critical);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-critical) 18%, transparent);
+}
+
+.input-error {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+  color: var(--color-critical);
 }
 
 .form-message {
   margin: 0;
   color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
 }
 
 @media (max-width: 720px) {

@@ -46,6 +46,16 @@ describe('SettingsPage', () => {
     expect(wrapper.text()).toContain('Password confirmation does not match.')
   })
 
+  it('shows a validation message when the form is submitted empty', async () => {
+    const wrapper = mount(SettingsPage)
+
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(changeMyPasswordMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Enter your current password.')
+  })
+
   it('changes the password, logs out, and redirects to login on success', async () => {
     changeMyPasswordMock.mockResolvedValue(undefined)
 

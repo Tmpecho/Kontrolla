@@ -464,11 +464,11 @@ watch([organizationId, establishmentId], () => {
 </script>
 
 <template>
-  <div class="temperature-page">
-    <header class="page-header">
-      <div class="page-header-copy">
-        <h1>Temperature</h1>
-        <p class="page-subtitle">
+  <div class="temperature-page app-page">
+    <header class="page-header app-page-header">
+      <div class="page-header-copy app-page-header-copy">
+        <h1 class="app-page-title">Temperature</h1>
+        <p class="page-subtitle app-page-subtitle">
           Log fridge and freezer temperatures quickly, keep track of what is due next, and follow
           up immediately when a reading falls outside the acceptable range.
         </p>
@@ -525,25 +525,25 @@ watch([organizationId, establishmentId], () => {
       </article>
     </section>
 
-    <section aria-label="Temperature log units" class="list-panel">
-      <div class="list-toolbar">
-        <div class="search-field">
-          <label class="search-label" for="temperature-search">Search</label>
+    <section aria-label="Temperature log units" class="list-panel app-panel">
+      <div class="list-toolbar app-toolbar">
+        <div class="search-field app-search-field">
+          <label class="search-label app-search-label" for="temperature-search">Search</label>
           <input
             id="temperature-search"
             v-model="searchQuery"
-            class="search-input"
+            class="search-input app-search-input"
             placeholder="Search units"
             type="search"
           />
         </div>
 
-        <div aria-label="Temperature filters" class="filter-group">
+        <div aria-label="Temperature filters" class="filter-group app-filter-group">
           <button
             v-for="filterOption in filterOptions"
             :key="filterOption.value"
             :data-active="activeFilter === filterOption.value"
-            class="filter-chip"
+            class="filter-chip app-filter-chip"
             type="button"
             @click="activeFilter = filterOption.value"
           >
@@ -779,26 +779,6 @@ watch([organizationId, establishmentId], () => {
 </template>
 
 <style scoped>
-.temperature-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.page-header-copy h1,
 .page-subtitle,
 .summary-label,
 .summary-value,
@@ -840,7 +820,7 @@ watch([organizationId, establishmentId], () => {
   gap: 2px 12px;
   padding: 12px 14px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-container);
 }
 
@@ -886,67 +866,37 @@ watch([organizationId, establishmentId], () => {
 
 .list-panel {
   overflow: hidden;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
-}
-
-.list-toolbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--color-border-muted);
-}
-
-.search-field {
-  display: flex;
-  min-width: 220px;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .search-label,
 .editor-field span {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  letter-spacing: var(--field-label-letter-spacing);
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
 
-.search-input,
 .editor-input {
   width: 100%;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  padding: 0.875rem 1rem;
-  font-size: 0.9375rem;
+  min-height: var(--field-min-height);
+  border: 1px solid var(--field-border-color);
+  border-radius: var(--field-radius);
+  padding: var(--field-padding-y) var(--field-padding-x);
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
-  background-color: var(--color-container);
+  background-color: var(--field-background);
+}
+
+.editor-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 
 .editor-textarea {
   min-height: 108px;
   resize: vertical;
-}
-
-.filter-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.filter-chip {
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  padding: 0.65rem 0.875rem;
-  font-size: 0.875rem;
-  cursor: pointer;
 }
 
 .filter-chip[data-active='true'] {
@@ -992,7 +942,7 @@ watch([organizationId, establishmentId], () => {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0.2rem 0.45rem;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
@@ -1042,7 +992,7 @@ watch([organizationId, establishmentId], () => {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0.22rem 0.45rem;
   font-size: 0.75rem;
   font-weight: 600;
@@ -1086,7 +1036,7 @@ watch([organizationId, establishmentId], () => {
   align-items: center;
   justify-content: center;
   width: fit-content;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.35rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1124,7 +1074,7 @@ watch([organizationId, establishmentId], () => {
 .editor-button,
 .editor-close-button {
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-container);
   color: var(--color-text-primary);
   padding: 0.58rem 0.8rem;
@@ -1158,7 +1108,7 @@ watch([organizationId, establishmentId], () => {
   flex-direction: column;
   gap: 2px;
   padding: 8px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-surface);
 }
 
@@ -1207,7 +1157,7 @@ watch([organizationId, establishmentId], () => {
 .editor-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .editor-field-note {
@@ -1216,10 +1166,13 @@ watch([organizationId, establishmentId], () => {
 
 .editor-help {
   color: var(--color-text-secondary);
+  font-size: var(--font-size-body-sm);
 }
 
 .editor-error {
   color: var(--color-critical);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
 }
 
 .editor-actions {
@@ -1238,7 +1191,7 @@ watch([organizationId, establishmentId], () => {
   gap: 16px;
   padding: 20px 16px 24px;
   border-top: 1px solid var(--color-border-muted);
-  border-radius: 4px 4px 0 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
 }
@@ -1283,12 +1236,6 @@ watch([organizationId, establishmentId], () => {
 }
 
 @media (max-width: 920px) {
-  .page-header,
-  .list-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .editor-grid {
     grid-template-columns: 1fr;
   }

@@ -81,9 +81,6 @@ describe('MyProfilePage', () => {
 
     const wrapper = mount(MyProfilePage)
 
-    const submitButton = wrapper.get('button[type="submit"]')
-    expect(submitButton.attributes('disabled')).toBeDefined()
-
     await wrapper.get('#profile-first-name').setValue('  Alicia  ')
     await wrapper.get('#profile-last-name').setValue('  Example-Smith  ')
     await wrapper.get('form').trigger('submit.prevent')

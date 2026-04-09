@@ -158,13 +158,15 @@ async function submitForm() {
 </script>
 
 <template>
-  <div class="upload-page">
-    <header class="page-header">
-      <h1>Upload new document</h1>
-      <p class="page-subtitle">{{ pageSubtitle }}</p>
+  <div class="upload-page app-page">
+    <header class="page-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">Upload new document</h1>
+        <p class="page-subtitle app-page-subtitle">{{ pageSubtitle }}</p>
+      </div>
     </header>
 
-    <section v-if="missingContextMessage" class="placeholder-panel">
+    <section v-if="missingContextMessage" class="placeholder-panel app-panel">
       <h2>Upload unavailable</h2>
       <p>{{ missingContextMessage }}</p>
 
@@ -173,7 +175,7 @@ async function submitForm() {
       </RouterLink>
     </section>
 
-    <form v-else class="upload-form" @submit.prevent="submitForm">
+    <form v-else class="upload-form app-panel" @submit.prevent="submitForm">
       <div class="form-grid">
         <label class="field">
           <span class="field-label">Document title</span>
@@ -240,12 +242,6 @@ async function submitForm() {
 </template>
 
 <style scoped>
-.upload-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .page-header,
 .placeholder-panel {
   display: flex;
@@ -258,9 +254,6 @@ async function submitForm() {
   flex-direction: column;
   gap: 16px;
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .page-header h1,
@@ -278,9 +271,6 @@ async function submitForm() {
 
 .placeholder-panel {
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .form-grid {
@@ -292,7 +282,7 @@ async function submitForm() {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
 .field-file {
@@ -301,40 +291,43 @@ async function submitForm() {
 
 .field-label {
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-label);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--field-label-letter-spacing);
   text-transform: uppercase;
 }
 
 .field-input {
   width: 100%;
-  padding: 0.875rem 0.75rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-white);
+  min-height: var(--field-min-height);
+  padding: var(--field-padding-y) var(--field-padding-x);
+  border: 1px solid var(--field-border-color);
+  border-radius: var(--field-radius);
+  background-color: var(--field-background);
   color: var(--color-text-primary);
   font: inherit;
   box-sizing: border-box;
 }
 
 .field-input:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-  border-color: transparent;
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 
 .field-input-file {
-  padding: 0.75rem;
+  padding: 0.75rem var(--field-padding-x);
 }
 
 .field-help {
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .feedback-message-error {
   color: var(--color-critical);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
 }
 
 .form-actions {
@@ -349,7 +342,7 @@ async function submitForm() {
   margin-top: 8px;
   text-decoration: none;
   padding: 0.875rem 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-primary);
   color: var(--color-white);
   font-size: 0.875rem;

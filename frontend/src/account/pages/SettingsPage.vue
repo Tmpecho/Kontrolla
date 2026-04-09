@@ -12,6 +12,7 @@ const authStore = useAuthStore()
 const router = useRouter()
 const isSubmitting = ref(false)
 const errorMessage = ref<string | null>(null)
+const attemptedSubmit = ref(false)
 
 const form = reactive({
   currentPassword: '',
@@ -47,7 +48,45 @@ const validationMessage = computed(() => {
   return null
 })
 
-const canSubmit = computed(() => !validationMessage.value && !isSubmitting.value)
+const currentPasswordError = computed(() =>
+  attemptedSubmit.value && !form.currentPassword.trim() ? 'Enter your current password.' : null,
+)
+const newPasswordError = computed(() => {
+  if (!attemptedSubmit.value) {
+    return null
+  }
+
+  if (!form.newPassword.trim()) {
+    return 'Enter a new password.'
+  }
+
+  if (form.newPassword.length < 8) {
+    return 'New password must be at least 8 characters long.'
+  }
+
+  if (form.newPassword === form.currentPassword) {
+    return 'New password must be different from the current password.'
+  }
+
+  return null
+})
+const confirmPasswordError = computed(() => {
+  if (!attemptedSubmit.value) {
+    return null
+  }
+
+  if (!form.confirmNewPassword.trim()) {
+    return 'Confirm your new password.'
+  }
+
+  if (form.confirmNewPassword !== form.newPassword) {
+    return 'Password confirmation does not match.'
+  }
+
+  return null
+})
+
+const isSubmitDisabled = computed(() => isSubmitting.value)
 
 function clearError() {
   errorMessage.value = null
@@ -55,7 +94,8 @@ function clearError() {
 
 async function onSubmit() {
   if (validationMessage.value) {
-    errorMessage.value = validationMessage.value
+    attemptedSubmit.value = true
+    errorMessage.value = null
     return
   }
 
@@ -108,6 +148,7 @@ async function onSubmit() {
           v-model="form.currentPassword"
           label="Current password"
           type="password"
+          :error="currentPasswordError"
           autocomplete="current-password"
           placeholder="Current password"
           @update:model-value="clearError"
@@ -118,6 +159,7 @@ async function onSubmit() {
           v-model="form.newPassword"
           label="New password"
           type="password"
+          :error="newPasswordError"
           autocomplete="new-password"
           placeholder="New password"
           hint="Use at least 8 characters."
@@ -129,13 +171,14 @@ async function onSubmit() {
           v-model="form.confirmNewPassword"
           label="Confirm new password"
           type="password"
+          :error="confirmPasswordError"
           autocomplete="new-password"
           placeholder="Confirm new password"
           @update:model-value="clearError"
         />
 
         <div class="actions-row">
-          <BaseButton type="submit" :disabled="!canSubmit">
+          <BaseButton type="submit" :disabled="isSubmitDisabled">
             {{ isSubmitting ? 'Updating password...' : 'Update password' }}
           </BaseButton>
         </div>

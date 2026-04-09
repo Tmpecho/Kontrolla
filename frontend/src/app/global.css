@@ -51,6 +51,15 @@
   --page-section-gap: 24px;
   --panel-padding-sm: 16px;
   --panel-padding-md: 24px;
+
+  --field-min-height: 3rem;
+  --field-padding-y: 0.875rem;
+  --field-padding-x: 0.75rem;
+  --field-radius: 4px;
+  --field-background: var(--color-white);
+  --field-border-color: var(--color-border-muted);
+  --field-label-letter-spacing: 0.04em;
+  --field-focus-ring: color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 *,
