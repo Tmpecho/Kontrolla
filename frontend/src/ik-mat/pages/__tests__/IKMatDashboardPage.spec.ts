@@ -79,6 +79,9 @@ function mountPage() {
         ImportantDocumentsTile: {
           template: '<div>Documents tile</div>',
         },
+        TemperatureTile: {
+          template: '<div>Temperature tile</div>',
+        },
       },
     },
   })
@@ -149,6 +152,7 @@ describe('IKMatDashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Checklists')
+    expect(wrapper.text()).toContain('Temperature tile')
     expect(wrapper.text()).toContain('1 active run')
     expect(wrapper.text()).toContain('0 overdue • 0 in progress')
   })
