@@ -1,6 +1,6 @@
 package org.kontrolla.organizations.api;
 
-import org.kontrolla.organizations.application.OrganizationService;
+import org.kontrolla.organizations.application.ManagedMembershipProvision;
 
 import java.time.Instant;
 
@@ -10,7 +10,7 @@ public record ManagedMemberProvisionResponse(
 		String inviteUrl
 ) {
 
-	public static ManagedMemberProvisionResponse from(OrganizationService.ManagedMembershipProvision provision) {
+	public static ManagedMemberProvisionResponse from(ManagedMembershipProvision provision) {
 		return new ManagedMemberProvisionResponse(
 				MembershipResponse.from(provision.membership()),
 				provision.inviteExpiresAt(),

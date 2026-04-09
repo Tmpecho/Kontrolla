@@ -115,19 +115,4 @@ public class UserInviteService {
 			throw new IllegalStateException("SHA-256 not available", exception);
 		}
 	}
-
-	public record IssuedInvite(
-			Instant expiresAt,
-			String inviteUrl
-	) {
-	}
-
-	public record InviteDetails(
-			String email,
-			String firstName,
-			String lastName,
-			String organizationName,
-			Instant expiresAt
-	) {
-	}
 }
