@@ -12,7 +12,7 @@ import {
 import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 
-const props = defineProps<{
+defineProps<{
   temperaturePageTo: string
 }>()
 

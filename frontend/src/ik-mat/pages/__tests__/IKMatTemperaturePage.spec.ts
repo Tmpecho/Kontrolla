@@ -170,6 +170,7 @@ describe('IKMatTemperaturePage', () => {
     })
     expect(wrapper.text()).toContain('Saved')
     expect(wrapper.text()).toContain('Logged by Maria Nilsen')
+  })
 
 describe('IKMatTemperaturePage mobile editor', () => {
   afterEach(() => {
@@ -207,4 +208,6 @@ describe('IKMatTemperaturePage mobile editor', () => {
     expect(document.body.querySelector('.app-overlay-panel')).toBeNull()
     expect(document.activeElement).toBe(trigger.element)
   })
+})
+
 })
