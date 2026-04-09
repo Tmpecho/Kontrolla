@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listTemperatureUnits } from '@/ik-mat/api/temperature.api'
@@ -13,13 +14,14 @@ import { ApiError } from '@/shared/api/http'
 import { appEnv } from '@/shared/config/env'
 
 defineProps<{
-  temperaturePageTo: string
+  temperaturePageTo: RouteLocationRaw
 }>()
 
 const authStore = useAuthStore()
 const units = ref<TemperatureUnitListItem[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+let requestSequence = 0
 
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
@@ -118,10 +120,12 @@ function getAccent(alertState: TemperatureUnitListItem['alertState']) {
 async function loadUnits(): Promise<void> {
   const resolvedOrganizationId = organizationId.value
   const resolvedEstablishmentId = establishmentId.value
+  const currentRequestId = ++requestSequence
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId) {
     units.value = []
     errorMessage.value = null
+    isLoading.value = false
     return
   }
 
@@ -133,13 +137,24 @@ async function loadUnits(): Promise<void> {
       organizationId: resolvedOrganizationId,
       establishmentId: resolvedEstablishmentId,
     })
+
+    if (currentRequestId !== requestSequence) {
+      return
+    }
+
     units.value = getTemperatureUnitsWithStatus(fetchedUnits)
   } catch (error) {
+    if (currentRequestId !== requestSequence) {
+      return
+    }
+
     units.value = []
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load temperature units.'
   } finally {
-    isLoading.value = false
+    if (currentRequestId === requestSequence) {
+      isLoading.value = false
+    }
   }
 }
 

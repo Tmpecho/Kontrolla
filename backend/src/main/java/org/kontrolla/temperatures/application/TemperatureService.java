@@ -8,6 +8,7 @@ import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.temperatures.domain.TemperatureLog;
 import org.kontrolla.temperatures.domain.TemperatureUnit;
+import org.kontrolla.temperatures.infrastructure.TemperatureLogRepository;
 import org.kontrolla.temperatures.infrastructure.TemperatureUnitRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,15 +21,18 @@ import java.util.UUID;
 public class TemperatureService {
 
   private final TemperatureUnitRepository temperatureUnitRepository;
+  private final TemperatureLogRepository temperatureLogRepository;
   private final EstablishmentService establishmentService;
   private final UserAccessService userAccessService;
 
   public TemperatureService(
       TemperatureUnitRepository temperatureUnitRepository,
+      TemperatureLogRepository temperatureLogRepository,
       EstablishmentService establishmentService,
       UserAccessService userAccessService
   ) {
     this.temperatureUnitRepository = temperatureUnitRepository;
+    this.temperatureLogRepository = temperatureLogRepository;
     this.establishmentService = establishmentService;
     this.userAccessService = userAccessService;
   }
@@ -77,9 +81,9 @@ public class TemperatureService {
         actor
     );
     temperatureUnit.addLog(temperatureLog);
-    temperatureUnitRepository.save(temperatureUnit);
+    TemperatureLog persistedTemperatureLog = temperatureLogRepository.saveAndFlush(temperatureLog);
 
-    return TemperatureLogEntryView.from(temperatureLog);
+    return TemperatureLogEntryView.from(persistedTemperatureLog);
   }
 
   private void validateCreateCommand(CreateTemperatureLogCommand command) {

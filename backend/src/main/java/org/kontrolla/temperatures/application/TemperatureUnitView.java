@@ -19,6 +19,8 @@ public record TemperatureUnitView(
     List<TemperatureLogEntryView> logs
 ) {
 
+  private static final int RECENT_LOG_LIMIT = 7;
+
   public static TemperatureUnitView from(TemperatureUnit unit) {
     return new TemperatureUnitView(
         unit.getId(),
@@ -28,7 +30,10 @@ public record TemperatureUnitView(
         unit.getDueByTime(),
         unit.getMinimumTemperature(),
         unit.getMaximumTemperature(),
-        unit.getLogs().stream().map(TemperatureLogEntryView::from).toList()
+        unit.getLogs().stream()
+            .limit(RECENT_LOG_LIMIT)
+            .map(TemperatureLogEntryView::from)
+            .toList()
     );
   }
 }

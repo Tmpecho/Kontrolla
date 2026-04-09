@@ -80,7 +80,9 @@ function mountPage() {
           template: '<div>Documents tile</div>',
         },
         TemperatureTile: {
-          template: '<div>Temperature tile</div>',
+          props: ['temperaturePageTo'],
+          template:
+            '<div :data-route-name="temperaturePageTo?.name ?? \'\'">Temperature tile</div>',
         },
       },
     },
@@ -153,6 +155,7 @@ describe('IKMatDashboardPage', () => {
 
     expect(wrapper.text()).toContain('Checklists')
     expect(wrapper.text()).toContain('Temperature tile')
+    expect(wrapper.find('[data-route-name="ik-mat-temperature"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('1 active run')
     expect(wrapper.text()).toContain('0 overdue • 0 in progress')
   })

@@ -26,6 +26,7 @@ public record TemperatureLogEntryView(
   }
 
   private static String formatUserDisplayName(User user) {
-    return (user.getFirstName() + " " + user.getLastName()).trim();
+    String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
+    return fullName.isEmpty() ? user.getEmail() : fullName;
   }
 }

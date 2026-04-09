@@ -138,6 +138,7 @@ class TemperatureServiceIntegrationTest {
     assertThat(units.get(0).logs()).hasSize(1);
     assertThat(units.get(0).logs().getFirst().loggedByName()).isEqualTo("Jonas Berg");
     assertThat(units.get(1).name()).isEqualTo("Sushi prep fridge");
+    assertThat(createdLog.id()).isNotNull();
     assertThat(createdLog.temperatureCelsius()).isEqualByComparingTo("3.20");
     assertThat(createdLog.note()).isEqualTo("Opening check completed.");
     assertThat(createdLog.loggedByName()).isEqualTo("Maria Nilsen");
@@ -220,6 +221,81 @@ class TemperatureServiceIntegrationTest {
         currentUser(outsider)
     ))
         .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void listTemperatureUnitsLimitsReturnedLogsToMostRecentSeven() {
+    User logger = createUser("temperature-history@example.com", "History", "Logger");
+    Organization organization = createOrganization("Kontrolla Temperature History");
+    Establishment establishment = createEstablishment(organization, "Kitchen");
+    createMembership(organization, logger, OrganizationRole.ORG_EMPLOYEE, true);
+
+    TemperatureUnit unit = createTemperatureUnit(
+        organization,
+        establishment,
+        "Walk-in fridge",
+        "Receiving room",
+        TemperatureUnitType.FRIDGE,
+        LocalTime.of(8, 30),
+        new BigDecimal("2.00"),
+        new BigDecimal("4.00")
+    );
+
+    for (int i = 0; i < 8; i++) {
+      unit.addLog(new TemperatureLog(
+          Instant.parse("2026-04-%02dT06:10:00Z".formatted(9 - i)),
+          new BigDecimal("3.20"),
+          "Log %d".formatted(i),
+          logger
+      ));
+    }
+    temperatureUnitRepository.saveAndFlush(unit);
+
+    List<TemperatureUnitView> units = temperatureService.listTemperatureUnits(
+        organization.getId(),
+        establishment.getId(),
+        currentUser(logger)
+    );
+
+    assertThat(units).hasSize(1);
+    assertThat(units.getFirst().logs()).hasSize(7);
+    assertThat(units.getFirst().logs().getFirst().measuredAt()).isEqualTo(Instant.parse("2026-04-09T06:10:00Z"));
+    assertThat(units.getFirst().logs().getLast().measuredAt()).isEqualTo(Instant.parse("2026-04-03T06:10:00Z"));
+  }
+
+  @Test
+  void listTemperatureUnitsFallsBackToEmailWhenLoggerNameIsBlank() {
+    User logger = createUser("temperature-fallback@example.com", "", "");
+    Organization organization = createOrganization("Kontrolla Temperature Display");
+    Establishment establishment = createEstablishment(organization, "Kitchen");
+    createMembership(organization, logger, OrganizationRole.ORG_EMPLOYEE, true);
+
+    TemperatureUnit unit = createTemperatureUnit(
+        organization,
+        establishment,
+        "Sushi prep fridge",
+        "Hot kitchen",
+        TemperatureUnitType.FRIDGE,
+        LocalTime.of(8, 30),
+        new BigDecimal("2.00"),
+        new BigDecimal("4.00")
+    );
+    unit.addLog(new TemperatureLog(
+        Instant.parse("2026-04-09T06:10:00Z"),
+        new BigDecimal("3.20"),
+        "Opening check completed.",
+        logger
+    ));
+    temperatureUnitRepository.saveAndFlush(unit);
+
+    List<TemperatureUnitView> units = temperatureService.listTemperatureUnits(
+        organization.getId(),
+        establishment.getId(),
+        currentUser(logger)
+    );
+
+    assertThat(units).hasSize(1);
+    assertThat(units.getFirst().logs().getFirst().loggedByName()).isEqualTo("temperature-fallback@example.com");
   }
 
   private User createUser(String email, String firstName, String lastName) {

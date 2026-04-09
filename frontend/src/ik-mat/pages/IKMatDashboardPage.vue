@@ -188,7 +188,7 @@ watch(
 
       <section class="dashboard-section">
         <div class="dashboard-tile">
-          <TemperatureTile temperature-page-to="/app/ik-mat/temperature" />
+          <TemperatureTile :temperature-page-to="{ name: 'ik-mat-temperature' }" />
         </div>
       </section>
     </div>

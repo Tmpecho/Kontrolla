@@ -129,6 +129,7 @@ class TemperatureControllerIntegrationTest {
                 "  Opening check completed.  "
             ))))
         .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").isNotEmpty())
         .andExpect(jsonPath("$.temperatureCelsius").value(3.2))
         .andExpect(jsonPath("$.note").value("Opening check completed."))
         .andExpect(jsonPath("$.loggedByName").value("Maria Nilsen"));
