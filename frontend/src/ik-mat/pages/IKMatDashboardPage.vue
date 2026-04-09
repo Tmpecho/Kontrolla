@@ -2,49 +2,33 @@
 import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import ImportantDocumentsTile from '@/ik-alkohol/components/ImportantDocumentsTile.vue'
 import TemperatureTile from '@/ik-mat/components/TemperatureTile.vue'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 
 const resolvedChecklistContext = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || workspaceContext.isStartupPending.value) {
     return null
   }
 
-  const organizationId = authStore.appContext?.organizationId ?? null
-
-  if (organizationId) {
-    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
-
-    if (selectedEstablishmentId) {
-      return { organizationId, establishmentIds: [selectedEstablishmentId] }
-    }
-
-    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
-    if (establishmentIds.length > 0) {
-      return { organizationId, establishmentIds }
-    }
-  }
-
-  if (!authStore.isAuthenticated) {
-    const defaultOrganizationId = appEnv.defaultOrganizationId
-    const defaultEstablishmentId = appEnv.defaultEstablishmentId
-
-    if (defaultOrganizationId && defaultEstablishmentId) {
-      return {
-        organizationId: defaultOrganizationId,
-        establishmentIds: [defaultEstablishmentId],
-      }
+  if (
+    workspaceContext.hasOrganizationContext.value &&
+    workspaceContext.availableEstablishmentIds.value.length > 0
+  ) {
+    return {
+      organizationId: workspaceContext.organizationId.value!,
+      establishmentIds: workspaceContext.availableEstablishmentIds.value,
     }
   }
 
@@ -54,7 +38,7 @@ const resolvedChecklistContext = computed(() => {
 const hasChecklistContext = computed(() => resolvedChecklistContext.value !== null)
 
 const missingContextMessage = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || workspaceContext.isStartupPending.value) {
     return 'Loading checklist context...'
   }
 
@@ -62,15 +46,11 @@ const missingContextMessage = computed(() => {
     return null
   }
 
-  if (authStore.requiresEstablishmentSelection) {
+  if (workspaceContext.requiresEstablishmentSelection.value) {
     return 'Choose an establishment to load checklist runs.'
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Checklist runs cannot be loaded until organization and establishment context is available.'
-  }
-
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID to load checklist runs in development.'
+  return 'Checklist runs cannot be loaded until organization and establishment context is available.'
 })
 
 const activeRunsCount = computed(() => {

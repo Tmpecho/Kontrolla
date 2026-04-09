@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
@@ -14,7 +15,6 @@ import {
 import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
 import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 import {
   buildIKAlkoholServiceSummary,
   buildIKMatServiceSummary,
@@ -22,6 +22,7 @@ import {
 } from '@/workspace/model/workspace-dashboard'
 
 const authStore = useAuthStore()
+const protectedWorkspaceContext = useProtectedWorkspaceContext()
 const checklistRuns = ref<ChecklistRun[] | null>(null)
 const isLoadingChecklistRuns = ref(false)
 const checklistErrorMessage = ref<string | null>(null)
@@ -36,40 +37,17 @@ const importantDocuments = createImportantDocuments()
 const temperatureUnits = createTemperatureUnits()
 
 const workspaceContext = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
     return null
   }
 
-  const organizationId = authStore.appContext?.organizationId ?? null
-
-  if (organizationId) {
-    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
-
-    if (selectedEstablishmentId) {
-      return {
-        organizationId,
-        establishmentIds: [selectedEstablishmentId],
-      }
-    }
-
-    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
-    if (establishmentIds.length > 0) {
-      return {
-        organizationId,
-        establishmentIds,
-      }
-    }
-  }
-
-  if (!authStore.isAuthenticated) {
-    const defaultOrganizationId = appEnv.defaultOrganizationId
-    const defaultEstablishmentId = appEnv.defaultEstablishmentId
-
-    if (defaultOrganizationId && defaultEstablishmentId) {
-      return {
-        organizationId: defaultOrganizationId,
-        establishmentIds: [defaultEstablishmentId],
-      }
+  if (
+    protectedWorkspaceContext.hasOrganizationContext.value &&
+    protectedWorkspaceContext.availableEstablishmentIds.value.length > 0
+  ) {
+    return {
+      organizationId: protectedWorkspaceContext.organizationId.value!,
+      establishmentIds: protectedWorkspaceContext.availableEstablishmentIds.value,
     }
   }
 
@@ -77,7 +55,7 @@ const workspaceContext = computed(() => {
 })
 
 const checklistNote = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
     return 'Loading workspace context...'
   }
 
@@ -105,7 +83,7 @@ const checklistNote = computed(() => {
 })
 
 const deviationNote = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
     return 'Loading workspace context...'
   }
 

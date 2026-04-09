@@ -242,7 +242,7 @@ const navigationItems = computed<NavigationItem[]>(() => {
 })
 
 const displayOrganizationName = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || authStore.isStartupPending) {
     return 'Loading organization...'
   }
 
@@ -254,7 +254,7 @@ const displayOrganizationName = computed(() => {
 })
 
 const displayEstablishmentName = computed(() => {
-  if (!authStore.isSessionReady || authStore.isLoadingEstablishments) {
+  if (!authStore.isSessionReady || authStore.isStartupPending || authStore.isLoadingEstablishments) {
     return 'Loading establishment...'
   }
 
