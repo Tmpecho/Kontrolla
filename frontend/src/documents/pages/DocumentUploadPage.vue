@@ -282,8 +282,8 @@ watch([organizationId, establishmentId], () => {
         </label>
 
         <fieldset class="field field-audit">
+          <legend class="field-label">Audit readers (optional)</legend>
           <div class="field-audit-header">
-            <legend class="field-label">Audit readers (optional)</legend>
             <button
               v-if="auditMembers.length > 0"
               type="button"
