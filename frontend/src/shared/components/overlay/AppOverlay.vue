@@ -8,6 +8,7 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     variant: OverlayVariant
+    panelId?: string
     modal?: boolean
     anchorEl?: HTMLElement | null
     closeOnEscape?: boolean
@@ -17,6 +18,7 @@ const props = withDefaults(
     ariaLabelledby?: string
   }>(),
   {
+    panelId: undefined,
     modal: undefined,
     anchorEl: null,
     closeOnEscape: true,
@@ -326,6 +328,7 @@ onBeforeUnmount(() => {
 
       <div
         ref="panelRef"
+        :id="panelId"
         class="app-overlay-panel"
         :data-variant="variant"
         :style="panelStyle"

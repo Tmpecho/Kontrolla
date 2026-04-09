@@ -71,6 +71,7 @@ watch(
       <AppOverlay
         :open="isMobileNavigationOpen"
         aria-label="App navigation"
+        panel-id="mobile-navigation"
         variant="drawer-left"
         @close="closeMobileNavigation"
       >

@@ -112,10 +112,13 @@ describe('TopBar overlay integration', () => {
   it('opens and closes the notifications popup with keyboard dismissal', async () => {
     const wrapper = await mountTopBar()
 
-    await wrapper.get('#notifications-trigger').trigger('click')
+    const notificationsTrigger = wrapper.get('#notifications-trigger')
+    await notificationsTrigger.trigger('click')
     await flushPromises()
 
     expect(document.body.textContent).toContain('No notifications')
+    expect(notificationsTrigger.attributes('aria-controls')).toBe('notifications-popup')
+    expect(document.body.querySelector('#notifications-popup')).not.toBeNull()
 
     document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
     await flushPromises()
@@ -126,13 +129,16 @@ describe('TopBar overlay integration', () => {
   it('opens and closes the profile popup from the trigger button', async () => {
     const wrapper = await mountTopBar()
 
-    await wrapper.get('#profile-trigger').trigger('click')
+    const profileTrigger = wrapper.get('#profile-trigger')
+    await profileTrigger.trigger('click')
     await flushPromises()
 
     expect(document.body.textContent).toContain('My profile')
     expect(document.body.textContent).toContain('Settings')
+    expect(profileTrigger.attributes('aria-controls')).toBe('profile-popup')
+    expect(document.body.querySelector('#profile-popup')).not.toBeNull()
 
-    await wrapper.get('#profile-trigger').trigger('click')
+    await profileTrigger.trigger('click')
     await flushPromises()
 
     expect(document.body.textContent).not.toContain('My profile')

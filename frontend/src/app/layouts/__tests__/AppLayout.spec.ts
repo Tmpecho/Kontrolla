@@ -55,8 +55,8 @@ vi.mock('@/app/components/Sidebar.vue', () => ({
     emits: ['navigate'],
     template: `
       <div class="sidebar-stub" :data-variant="variant">
-        <button id="first-nav-action" type="button">First action</button>
-        <button id="last-nav-action" type="button" @click="$emit('navigate')">Navigate</button>
+        <button :data-testid="\`\${variant}-first-nav-action\`" type="button">First action</button>
+        <button :data-testid="\`\${variant}-last-nav-action\`" type="button" @click="$emit('navigate')">Navigate</button>
       </div>
     `,
   }),
@@ -100,8 +100,12 @@ describe('AppLayout mobile navigation overlay', () => {
     await trigger.trigger('click')
     await flushPromises()
 
-    const firstAction = document.body.querySelectorAll('#first-nav-action').item(1) as HTMLButtonElement
-    const lastAction = document.body.querySelectorAll('#last-nav-action').item(1) as HTMLButtonElement
+    const firstAction = document.body.querySelector(
+      '[data-testid="mobile-first-nav-action"]',
+    ) as HTMLButtonElement
+    const lastAction = document.body.querySelector(
+      '[data-testid="mobile-last-nav-action"]',
+    ) as HTMLButtonElement
 
     expect(firstAction).not.toBeNull()
     expect(document.activeElement).toBe(firstAction)
@@ -113,7 +117,8 @@ describe('AppLayout mobile navigation overlay', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
     await flushPromises()
 
-    expect(document.body.querySelectorAll('#first-nav-action')).toHaveLength(1)
+    expect(document.body.querySelector('[data-testid="mobile-first-nav-action"]')).toBeNull()
+    expect(document.body.querySelector('[data-testid="desktop-first-nav-action"]')).not.toBeNull()
     expect(document.activeElement).toBe(trigger.element)
   })
 })

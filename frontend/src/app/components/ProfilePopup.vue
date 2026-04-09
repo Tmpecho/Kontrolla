@@ -46,6 +46,7 @@ async function onLogout() {
     :anchor-el="anchorEl"
     :open="open"
     aria-label="User menu"
+    panel-id="profile-popup"
     variant="popover"
     @close="emit('close')"
   >

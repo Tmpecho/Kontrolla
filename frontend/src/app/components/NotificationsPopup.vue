@@ -94,6 +94,7 @@ onMounted(() => {
     :anchor-el="anchorEl"
     :open="open"
     aria-label="Notifications"
+    panel-id="notifications-popup"
     variant="popover"
     @close="closePopup"
   >
