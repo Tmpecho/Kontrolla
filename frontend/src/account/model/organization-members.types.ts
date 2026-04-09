@@ -10,6 +10,11 @@ export type OrganizationMembership = {
   userLastName: string
   role: OrganizationRole
   active: boolean
+  allEstablishments: boolean
+  establishments: Array<{
+    id: string
+    name: string
+  }>
   createdAt: string
   updatedAt: string
 }
@@ -20,6 +25,8 @@ export type CreateOrganizationMembershipInput = {
   userId: string
   role: OrganizationRole
   active?: boolean
+  allEstablishments?: boolean
+  establishmentIds?: string[]
 }
 
 export type CreateManagedOrganizationMemberInput = {
@@ -28,6 +35,8 @@ export type CreateManagedOrganizationMemberInput = {
   lastName: string
   role: OrganizationRole
   active?: boolean
+  allEstablishments?: boolean
+  establishmentIds?: string[]
 }
 
 export type ManagedOrganizationMemberProvision = {
@@ -39,4 +48,6 @@ export type ManagedOrganizationMemberProvision = {
 export type UpdateOrganizationMembershipInput = {
   role: OrganizationRole
   active: boolean
+  allEstablishments?: boolean
+  establishmentIds?: string[]
 }

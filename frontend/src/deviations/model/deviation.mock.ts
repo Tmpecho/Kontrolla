@@ -4,6 +4,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
   IK_MAT: [
     {
       id: 'ik-mat-1',
+      establishmentId: 'est-1',
       serviceArea: 'IK_MAT',
       title: 'Raw salmon delivery measured above receiving limit',
       reportedAt: '2026-04-01T09:10:00+02:00',
@@ -31,6 +32,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
     },
     {
       id: 'ik-mat-2',
+      establishmentId: 'est-1',
       serviceArea: 'IK_MAT',
       title: 'Allergen labels missing on prepared takeaway sauces',
       reportedAt: '2026-03-31T16:25:00+02:00',
@@ -52,6 +54,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
     },
     {
       id: 'ik-mat-3',
+      establishmentId: 'est-1',
       serviceArea: 'IK_MAT',
       title: 'Hand-wash station by prep bench was out of soap',
       reportedAt: '2026-03-31T08:05:00+02:00',
@@ -73,6 +76,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
     },
     {
       id: 'ik-mat-4',
+      establishmentId: 'est-1',
       serviceArea: 'IK_MAT',
       title: 'Dry storage container missing product date marking',
       reportedAt: '2026-03-30T13:40:00+02:00',
@@ -96,6 +100,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
   IK_ALKOHOL: [
     {
       id: 'ik-alkohol-1',
+      establishmentId: 'est-2',
       serviceArea: 'IK_ALKOHOL',
       title: 'Age verification was skipped during late bar service',
       reportedAt: '2026-04-01T00:18:00+02:00',
@@ -117,6 +122,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
     },
     {
       id: 'ik-alkohol-2',
+      establishmentId: 'est-2',
       serviceArea: 'IK_ALKOHOL',
       title: 'Refusal incident log was not completed before shift close',
       reportedAt: '2026-03-31T23:10:00+02:00',
@@ -138,6 +144,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
     },
     {
       id: 'ik-alkohol-3',
+      establishmentId: 'est-2',
       serviceArea: 'IK_ALKOHOL',
       title: 'Guests remained in the serving area past licensed hours',
       reportedAt: '2026-03-30T02:18:00+02:00',
@@ -159,6 +166,7 @@ const baseDeviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
     },
     {
       id: 'ik-alkohol-4',
+      establishmentId: 'est-2',
       serviceArea: 'IK_ALKOHOL',
       title: 'Door host briefing on intoxication handling was missed',
       reportedAt: '2026-03-29T18:45:00+02:00',

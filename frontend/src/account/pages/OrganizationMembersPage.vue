@@ -84,6 +84,7 @@ const resolvedOrganizationId = computed(() => {
 const resolvedOrganizationName = computed(() => {
   return authStore.appContext?.organizationName ?? 'Current organization'
 })
+const resolvedEstablishmentId = computed(() => authStore.appContext?.establishmentId ?? null)
 
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const canManageMembers = computed(() => {
@@ -158,6 +159,7 @@ async function loadMembers(): Promise<void> {
 
     const page = await listOrganizationMembers({
       organizationId,
+      establishmentId: resolvedEstablishmentId.value ?? undefined,
       includeInactive: showInactiveMembers.value,
       size: 100,
     })
@@ -295,6 +297,10 @@ onMounted(() => {
 })
 
 watch(showInactiveMembers, () => {
+  void loadMembers()
+})
+
+watch(resolvedEstablishmentId, () => {
   void loadMembers()
 })
 </script>

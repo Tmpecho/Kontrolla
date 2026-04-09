@@ -10,6 +10,7 @@ import {
   listEstablishmentDeviations,
   listOrganizationMembers,
   mapDeviationResponseToListItem,
+  type OrganizationMemberResponse,
   toMemberNameLookup,
   toMemberOptions,
   updateDeviationDetails,
@@ -37,7 +38,7 @@ const router = useRouter()
 const searchQuery = ref('')
 const activeFilter = ref<'ALL' | 'OPEN' | 'RECENT'>('ALL')
 const deviations = ref<DeviationListItem[]>([])
-const memberOptions = ref<DeviationMemberOption[]>([])
+const memberOptionsByEstablishment = ref<Record<string, DeviationMemberOption[]>>({})
 const memberNamesById = ref<Record<string, string>>({})
 const selectedDeviationDetails = ref<DeviationListItem | null>(null)
 const isLoading = ref(false)
@@ -54,15 +55,32 @@ const filterOptions = [
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
 )
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const establishmentId = computed(() => {
+  if (authStore.appContext?.organizationId) {
+    return authStore.appContext.establishmentId ?? null
+  }
 
-const hasDeviationContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+  return appEnv.defaultEstablishmentId ?? null
+})
+const availableEstablishmentIds = computed(() => {
+  if (establishmentId.value) {
+    return [establishmentId.value]
+  }
+
+  return (authStore.establishments ?? []).map((establishment) => establishment.id)
+})
+
+const hasDeviationContext = computed(
+  () => Boolean(organizationId.value && availableEstablishmentIds.value.length > 0),
+)
 
 const missingContextMessage = computed(() => {
   if (hasDeviationContext.value) {
     return null
+  }
+
+  if (authStore.requiresEstablishmentSelection) {
+    return 'Choose an establishment to load deviations.'
   }
 
   if (!appEnv.isDevelopment) {
@@ -120,6 +138,16 @@ const selectedDeviation = computed(() => {
   }
 
   return selectedDeviationSummary.value
+})
+
+const selectedMemberOptions = computed(() => {
+  const resolvedEstablishmentId = selectedDeviation.value?.establishmentId ?? establishmentId.value
+
+  if (!resolvedEstablishmentId) {
+    return []
+  }
+
+  return memberOptionsByEstablishment.value[resolvedEstablishmentId] ?? []
 })
 
 const filteredDeviations = computed(() => {
@@ -187,8 +215,11 @@ function replaceDeviation(updatedDeviation: DeviationListItem) {
 
 async function loadSelectedDeviation() {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
   const deviationId = selectedDeviationId.value
+  const resolvedEstablishmentId =
+    selectedDeviationDetails.value?.establishmentId ??
+    selectedDeviationSummary.value?.establishmentId ??
+    establishmentId.value
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId || !deviationId) {
     selectedDeviationDetails.value = null
@@ -226,11 +257,10 @@ async function loadSelectedDeviation() {
 
 async function loadDeviations() {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
 
-  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+  if (!resolvedOrganizationId || availableEstablishmentIds.value.length === 0) {
     deviations.value = []
-    memberOptions.value = []
+    memberOptionsByEstablishment.value = {}
     selectedDeviationDetails.value = null
     errorMessage.value = null
     return
@@ -240,31 +270,64 @@ async function loadDeviations() {
   errorMessage.value = null
 
   try {
-    const [deviationPage, memberPage] = await Promise.all([
-      listEstablishmentDeviations({
-        organizationId: resolvedOrganizationId,
-        establishmentId: resolvedEstablishmentId,
-        size: 200,
-      }),
-      listOrganizationMembers({
-        organizationId: resolvedOrganizationId,
-        size: 200,
-      }).catch(() => null),
+    const [deviationPages, memberPages] = await Promise.all([
+      Promise.all(
+        availableEstablishmentIds.value.map((nextEstablishmentId) =>
+          listEstablishmentDeviations({
+            organizationId: resolvedOrganizationId,
+            establishmentId: nextEstablishmentId,
+            size: 200,
+          }),
+        ),
+      ),
+      Promise.all(
+        availableEstablishmentIds.value.map((nextEstablishmentId) =>
+          listOrganizationMembers({
+            organizationId: resolvedOrganizationId,
+            establishmentId: nextEstablishmentId,
+            includeInactive: true,
+            size: 200,
+          })
+            .then((page) => ({
+              establishmentId: nextEstablishmentId,
+              page,
+            }))
+            .catch(() => ({
+              establishmentId: nextEstablishmentId,
+              page: null,
+            })),
+        ),
+      ),
     ])
 
-    memberNamesById.value = memberPage ? toMemberNameLookup(memberPage.items) : {}
+    const nextMemberOptionsByEstablishment: Record<string, DeviationMemberOption[]> = {}
+    const mergedMembers = new Map<string, OrganizationMemberResponse>()
+    for (const { establishmentId: nextEstablishmentId, page } of memberPages) {
+      if (!page) {
+        nextMemberOptionsByEstablishment[nextEstablishmentId] = []
+        continue
+      }
 
-    deviations.value = deviationPage.items.map((deviation) =>
+      nextMemberOptionsByEstablishment[nextEstablishmentId] = toMemberOptions(page.items)
+
+      for (const member of page.items) {
+        mergedMembers.set(member.userId, member)
+      }
+    }
+
+    memberOptionsByEstablishment.value = nextMemberOptionsByEstablishment
+    memberNamesById.value = toMemberNameLookup([...mergedMembers.values()])
+
+    deviations.value = deviationPages.flatMap((page) => page.items).map((deviation) =>
       mapDeviationResponseToListItem(deviation, memberNamesById.value),
     )
-    memberOptions.value = memberPage ? toMemberOptions(memberPage.items) : []
 
     if (selectedDeviationId.value) {
       await loadSelectedDeviation()
     }
   } catch (error) {
     deviations.value = []
-    memberOptions.value = []
+    memberOptionsByEstablishment.value = {}
     memberNamesById.value = {}
     selectedDeviationDetails.value = null
     errorMessage.value =
@@ -297,8 +360,8 @@ async function clearSelectedDeviation() {
 
 async function handleDeviationSave(nextValues: DeviationSaveInput) {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
   const currentDeviation = selectedDeviation.value
+  const resolvedEstablishmentId = currentDeviation?.establishmentId ?? establishmentId.value
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
     return
@@ -366,8 +429,8 @@ async function handleDeviationSave(nextValues: DeviationSaveInput) {
 
 async function handleTimelineNoteAdd(note: string) {
   const resolvedOrganizationId = organizationId.value
-  const resolvedEstablishmentId = establishmentId.value
   const currentDeviation = selectedDeviation.value
+  const resolvedEstablishmentId = currentDeviation?.establishmentId ?? establishmentId.value
 
   if (!resolvedOrganizationId || !resolvedEstablishmentId || !currentDeviation) {
     return
@@ -415,7 +478,7 @@ function handleEscape(event: KeyboardEvent) {
   }
 }
 
-watch([organizationId, establishmentId], () => {
+watch([organizationId, establishmentId, availableEstablishmentIds], () => {
   void loadDeviations()
 }, { immediate: true })
 
@@ -584,7 +647,7 @@ onBeforeUnmount(() => {
         <DeviationDetailPanel
           :deviation="selectedDeviation"
           :is-saving="isSaving"
-          :member-options="memberOptions"
+          :member-options="selectedMemberOptions"
           :save-error-message="saveErrorMessage"
           :show-close-button="true"
           @add-note="handleTimelineNoteAdd"
@@ -610,7 +673,7 @@ onBeforeUnmount(() => {
       <DeviationDetailPanel
         :deviation="selectedDeviation"
         :is-saving="isSaving"
-        :member-options="memberOptions"
+        :member-options="selectedMemberOptions"
         :save-error-message="saveErrorMessage"
         :show-close-button="true"
         @add-note="handleTimelineNoteAdd"

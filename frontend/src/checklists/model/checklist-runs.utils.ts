@@ -16,10 +16,11 @@ export function selectLatestChecklistRuns(runs: ChecklistRun[]): ChecklistRun[] 
   const latestRunsByDefinitionGroup = new Map<string, ChecklistRun>()
 
   for (const run of runs) {
-    const current = latestRunsByDefinitionGroup.get(run.definitionGroupId)
+    const definitionKey = `${run.establishmentId}:${run.definitionGroupId}`
+    const current = latestRunsByDefinitionGroup.get(definitionKey)
 
     if (!current || compareRunsByRecency(run, current) < 0) {
-      latestRunsByDefinitionGroup.set(run.definitionGroupId, run)
+      latestRunsByDefinitionGroup.set(definitionKey, run)
     }
   }
 

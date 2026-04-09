@@ -2,6 +2,7 @@ package org.kontrolla.support;
 
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
+import org.kontrolla.audit.infrastructure.AuditEventRepository;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.documents.infrastructure.DocumentFileRepository;
 import org.kontrolla.documents.infrastructure.DocumentRepository;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class TestDataCleaner {
 
+  private final AuditEventRepository auditEventRepository;
   private final RefreshTokenRepository refreshTokenRepository;
   private final NotificationRepository notificationRepository;
   private final UserInviteRepository userInviteRepository;
@@ -31,6 +33,7 @@ public class TestDataCleaner {
   private final UserRepository userRepository;
 
   public TestDataCleaner(
+      AuditEventRepository auditEventRepository,
       RefreshTokenRepository refreshTokenRepository,
       NotificationRepository notificationRepository,
       UserInviteRepository userInviteRepository,
@@ -44,6 +47,7 @@ public class TestDataCleaner {
       OrganizationRepository organizationRepository,
       UserRepository userRepository
   ) {
+    this.auditEventRepository = auditEventRepository;
     this.refreshTokenRepository = refreshTokenRepository;
     this.notificationRepository = notificationRepository;
     this.userInviteRepository = userInviteRepository;
@@ -59,6 +63,7 @@ public class TestDataCleaner {
   }
 
   public void clearAll() {
+    auditEventRepository.deleteAll();
     refreshTokenRepository.deleteAll();
     notificationRepository.deleteAll();
     userInviteRepository.deleteAll();

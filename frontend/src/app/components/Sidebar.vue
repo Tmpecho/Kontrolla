@@ -252,8 +252,12 @@ const displayOrganizationName = computed(() => {
 })
 
 const displayEstablishmentName = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || authStore.isLoadingEstablishments) {
     return 'Loading establishment...'
+  }
+
+  if (authStore.requiresEstablishmentSelection) {
+    return 'No establishment selected'
   }
 
   if (authStore.appContext?.establishmentName) {

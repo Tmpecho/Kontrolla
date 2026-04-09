@@ -25,8 +25,9 @@ const {
   authStoreMock: {
     appContext: {
       organizationId: 'org-1',
-      establishmentId: 'est-1',
+      establishmentId: 'est-1' as string | null,
     },
+    establishments: [] as Array<{ id: string; name: string }>,
   },
   appEnvMock: {
     mode: 'test',
@@ -89,6 +90,8 @@ describe('DeviationPage', () => {
     updateDeviationDetailsMock.mockReset()
     updateDeviationStatusMock.mockReset()
     routerReplaceMock.mockClear()
+    authStoreMock.appContext.establishmentId = 'est-1'
+    authStoreMock.establishments = []
     routeState.name = 'ik-mat-deviation'
     routeState.query = { deviationId: 'dev-1' }
   })
@@ -126,6 +129,8 @@ describe('DeviationPage', () => {
           userLastName: 'User',
           role: 'ORG_EMPLOYEE',
           active: true,
+          allEstablishments: false,
+          establishments: [{ id: 'est-1', name: 'Restaurant' }],
           createdAt: '2026-04-06T08:00:00Z',
           updatedAt: '2026-04-06T08:00:00Z',
         },
@@ -196,6 +201,12 @@ describe('DeviationPage', () => {
     await flushPromises()
 
     expect(listEstablishmentDeviationsMock).toHaveBeenCalled()
+    expect(listOrganizationMembersMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      includeInactive: true,
+      size: 200,
+    })
     expect(getDeviationMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
       establishmentId: 'est-1',
@@ -250,6 +261,8 @@ describe('DeviationPage', () => {
           userLastName: 'User',
           role: 'ORG_EMPLOYEE',
           active: true,
+          allEstablishments: false,
+          establishments: [{ id: 'est-1', name: 'Restaurant' }],
           createdAt: '2026-04-06T08:00:00Z',
           updatedAt: '2026-04-06T08:00:00Z',
         },
@@ -261,6 +274,8 @@ describe('DeviationPage', () => {
           userLastName: 'User',
           role: 'ORG_EMPLOYEE',
           active: false,
+          allEstablishments: false,
+          establishments: [{ id: 'est-1', name: 'Restaurant' }],
           createdAt: '2026-04-06T08:00:00Z',
           updatedAt: '2026-04-06T08:00:00Z',
         },
@@ -305,5 +320,140 @@ describe('DeviationPage', () => {
     await flushPromises()
     const assigneeOptions = wrapper.findAll('#deviation-assignee option')
     expect(assigneeOptions.some((option) => option.text() === 'Inactive User')).toBe(true)
+  })
+
+  it('limits assignee options to the selected deviation establishment in aggregated views', async () => {
+    authStoreMock.appContext.establishmentId = null
+    authStoreMock.establishments = [
+      { id: 'est-1', name: 'Restaurant One' },
+      { id: 'est-2', name: 'Restaurant Two' },
+    ]
+
+    listEstablishmentDeviationsMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'dev-1',
+            organizationId: 'org-1',
+            establishmentId: 'est-1',
+            createdByUserId: 'user-1',
+            assignedToUserId: null,
+            title: 'Walk-in fridge too warm',
+            description: 'Opening check measured 10C.',
+            status: 'OPEN',
+            severity: 'HIGH',
+            category: 'TEMPERATURE',
+            createdAt: '2026-04-06T08:00:00Z',
+            updatedAt: '2026-04-06T08:00:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'dev-2',
+            organizationId: 'org-1',
+            establishmentId: 'est-2',
+            createdByUserId: 'user-2',
+            assignedToUserId: null,
+            title: 'Missing cleaning log',
+            description: 'Evening checklist incomplete.',
+            status: 'OPEN',
+            severity: 'MEDIUM',
+            category: 'HYGIENE',
+            createdAt: '2026-04-06T09:00:00Z',
+            updatedAt: '2026-04-06T09:00:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+      })
+
+    listOrganizationMembersMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'member-1',
+            userId: 'user-1',
+            userEmail: 'est1@example.com',
+            userFirstName: 'Est',
+            userLastName: 'One',
+            role: 'ORG_EMPLOYEE',
+            active: true,
+            allEstablishments: false,
+            establishments: [{ id: 'est-1', name: 'Restaurant One' }],
+            createdAt: '2026-04-06T08:00:00Z',
+            updatedAt: '2026-04-06T08:00:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'member-2',
+            userId: 'user-2',
+            userEmail: 'est2@example.com',
+            userFirstName: 'Est',
+            userLastName: 'Two',
+            role: 'ORG_EMPLOYEE',
+            active: true,
+            allEstablishments: false,
+            establishments: [{ id: 'est-2', name: 'Restaurant Two' }],
+            createdAt: '2026-04-06T08:00:00Z',
+            updatedAt: '2026-04-06T08:00:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+      })
+
+    getDeviationMock.mockResolvedValue({
+      id: 'dev-1',
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      createdByUserId: 'user-1',
+      assignedToUserId: null,
+      title: 'Walk-in fridge too warm',
+      description: 'Opening check measured 10C.',
+      status: 'OPEN',
+      severity: 'HIGH',
+      category: 'TEMPERATURE',
+      createdAt: '2026-04-06T08:00:00Z',
+      updatedAt: '2026-04-06T08:00:00Z',
+      timeline: [
+        {
+          id: 'evt-1',
+          eventType: 'REPORTED',
+          actorUserId: 'user-1',
+          authorName: 'Est One',
+          note: 'Deviation reported.',
+          occurredAt: '2026-04-06T08:00:00Z',
+        },
+      ],
+    })
+
+    const wrapper = mount(DeviationPage)
+    await flushPromises()
+
+    const updateButton = wrapper.findAll('button').find((candidate) => candidate.text() === 'Update')
+    await updateButton?.trigger('click')
+    await flushPromises()
+
+    const assigneeOptions = wrapper.findAll('#deviation-assignee option').map((option) => option.text())
+    expect(assigneeOptions).toContain('Unassigned')
+    expect(assigneeOptions).toContain('Est One')
+    expect(assigneeOptions).not.toContain('Est Two')
   })
 })
