@@ -14,6 +14,7 @@ type AppRouteName =
   | 'ik-mat-dashboard'
   | 'ik-mat-checklists'
   | 'ik-mat-temperature'
+  | 'ik-mat-temperature-create'
   | 'ik-mat-documents'
   | 'ik-mat-deviation'
   | 'ik-alkohol-dashboard'
@@ -71,7 +72,8 @@ const activeRouteNamesByNavigationRoute: Record<AppRouteName, string[]> = {
   notifications: ['notifications'],
   'ik-mat-dashboard': ['ik-mat-dashboard'],
   'ik-mat-checklists': ['ik-mat-checklists'],
-  'ik-mat-temperature': ['ik-mat-temperature'],
+  'ik-mat-temperature': ['ik-mat-temperature', 'ik-mat-temperature-create'],
+  'ik-mat-temperature-create': ['ik-mat-temperature', 'ik-mat-temperature-create'],
   'ik-mat-documents': ['ik-mat-documents', 'ik-mat-documents-upload'],
   'ik-mat-deviation': ['ik-mat-deviation', 'ik-mat-deviation-form'],
   'ik-alkohol-dashboard': ['ik-alkohol-dashboard'],

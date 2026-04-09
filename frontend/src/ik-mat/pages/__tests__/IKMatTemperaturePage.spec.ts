@@ -27,14 +27,23 @@ function createUnit(overrides: Partial<Record<string, unknown>> = {}) {
   }
 }
 
-const { listTemperatureUnitsMock, createTemperatureLogMock, authStoreMock, appEnvMock } = vi.hoisted(() => ({
+const {
+  listTemperatureUnitsMock,
+  createTemperatureLogMock,
+  deleteTemperatureUnitMock,
+  authStoreMock,
+  appEnvMock,
+} = vi.hoisted(() => ({
   listTemperatureUnitsMock: vi.fn(),
   createTemperatureLogMock: vi.fn(),
+  deleteTemperatureUnitMock: vi.fn(),
   authStoreMock: {
     appContext: {
       organizationId: 'org-1',
       establishmentId: 'est-1',
       organizationRole: 'ORG_EMPLOYEE',
+      organizationName: null,
+      establishmentName: null,
     } as AuthAppContext | null,
     user: {
       id: 'user-1',
@@ -58,6 +67,7 @@ const { listTemperatureUnitsMock, createTemperatureLogMock, authStoreMock, appEn
 vi.mock('@/ik-mat/api/temperature.api', () => ({
   listTemperatureUnits: listTemperatureUnitsMock,
   createTemperatureLog: createTemperatureLogMock,
+  deleteTemperatureUnit: deleteTemperatureUnitMock,
 }))
 
 vi.mock('@/auth/model/auth.store', () => ({
@@ -68,8 +78,9 @@ vi.mock('@/shared/config/env', () => ({
   appEnv: appEnvMock,
 }))
 
-function mountPage() {
+function mountPage(options?: { attachToBody?: boolean }) {
   return mount(IKMatTemperaturePage, {
+    attachTo: options?.attachToBody ? document.body : undefined,
     global: {
       stubs: {
         TemperatureSparkline: {
@@ -77,7 +88,7 @@ function mountPage() {
         },
         RouterLink: {
           props: ['to'],
-          template: '<a :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>',
+          template: '<a :data-to="JSON.stringify(to)"><slot /></a>',
         },
       },
     },
@@ -88,6 +99,7 @@ describe('IKMatTemperaturePage', () => {
   afterEach(() => {
     listTemperatureUnitsMock.mockReset()
     createTemperatureLogMock.mockReset()
+    deleteTemperatureUnitMock.mockReset()
     authStoreMock.appContext = {
       organizationId: 'org-1',
       establishmentId: 'est-1',
@@ -95,10 +107,13 @@ describe('IKMatTemperaturePage', () => {
       organizationName: null,
       establishmentName: null,
     }
+    authStoreMock.user.globalRoles = []
     appEnvMock.isDevelopment = true
     appEnvMock.isProduction = false
     appEnvMock.defaultOrganizationId = undefined
     appEnvMock.defaultEstablishmentId = undefined
+    document.body.innerHTML = ''
+    window.innerWidth = 1024
   })
 
   it('loads temperature units for the current context', async () => {
@@ -140,6 +155,25 @@ describe('IKMatTemperaturePage', () => {
     expect(wrapper.text()).toContain('Could not load temperature units.')
   })
 
+  it('shows the add new unit action only for admins', async () => {
+    listTemperatureUnitsMock.mockResolvedValue([createUnit()])
+
+    const employeeWrapper = mountPage()
+    await flushPromises()
+    expect(employeeWrapper.text()).not.toContain('Add new unit')
+
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      organizationRole: 'ORG_ADMIN',
+      organizationName: null,
+      establishmentName: null,
+    }
+    const adminWrapper = mountPage()
+    await flushPromises()
+    expect(adminWrapper.text()).toContain('Add new unit')
+  })
+
   it('creates a new temperature log and prepends it to the unit', async () => {
     listTemperatureUnitsMock.mockResolvedValue([createUnit()])
     createTemperatureLogMock.mockResolvedValue({
@@ -172,35 +206,44 @@ describe('IKMatTemperaturePage', () => {
     expect(wrapper.text()).toContain('Logged by Maria Nilsen')
   })
 
-describe('IKMatTemperaturePage mobile editor', () => {
-  afterEach(() => {
-    document.body.innerHTML = ''
-    window.innerWidth = 1024
-    listTemperatureUnitsMock.mockReset()
+  it('allows admins to delete a unit', async () => {
+    listTemperatureUnitsMock.mockResolvedValue([createUnit()])
+    deleteTemperatureUnitMock.mockResolvedValue(undefined)
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      organizationRole: 'ORG_ADMIN',
+      organizationName: null,
+      establishmentName: null,
+    }
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const buttons = wrapper.findAll('button.row-action')
+    expect(buttons).toHaveLength(2)
+    await buttons[1]!.trigger('click')
+    await flushPromises()
+
+    expect(confirmSpy).toHaveBeenCalledWith('Delete "Sushi prep fridge"? This cannot be undone.')
+    expect(deleteTemperatureUnitMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      temperatureUnitId: 'unit-1',
+    })
+    expect(wrapper.text()).not.toContain('Sushi prep fridge')
   })
 
   it('opens the shared mobile sheet and closes it on escape', async () => {
     window.innerWidth = 700
     listTemperatureUnitsMock.mockResolvedValue([createUnit()])
 
-    const { default: IKMatTemperaturePage } = await import('@/ik-mat/pages/IKMatTemperaturePage.vue')
-    const wrapper = mount(IKMatTemperaturePage, {
-      attachTo: document.body,
-      global: {
-        stubs: {
-          TemperatureSparkline: {
-            template: '<div class="sparkline-stub" />',
-          },
-          RouterLink: {
-            template: '<a><slot /></a>',
-          },
-        },
-      },
-    })
+    const wrapper = mountPage({ attachToBody: true })
     await flushPromises()
 
-    const trigger = wrapper.find('button.row-action')
-    expect(trigger.exists()).toBe(true)
+    const trigger = wrapper.get('button.row-action')
     ;(trigger.element as HTMLButtonElement).focus()
     await trigger.trigger('click')
     await flushPromises()
@@ -215,6 +258,4 @@ describe('IKMatTemperaturePage mobile editor', () => {
     expect(document.body.querySelector('.app-overlay-panel')).toBeNull()
     expect(document.activeElement).toBe(trigger.element)
   })
-})
-
 })
