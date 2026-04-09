@@ -134,6 +134,7 @@ class AuthControllerIntegrationTest {
 				.andExpect(jsonPath("$.user.email").value("alice@example.com"))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
 				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"))
+				.andExpect(jsonPath("$.appContext.organizationRole").value("ORG_MANAGER"))
 				.andReturn()
 				.getResponse()
 				.getContentAsString();
@@ -298,7 +299,8 @@ class AuthControllerIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(cookie().exists(REFRESH_COOKIE_NAME))
 				.andExpect(jsonPath("$.appContext.organizationName").value("Alice Organization"))
-				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"));
+				.andExpect(jsonPath("$.appContext.establishmentName").value("Alice Establishment"))
+				.andExpect(jsonPath("$.appContext.organizationRole").value("ORG_MANAGER"));
 	}
 
 	@Test

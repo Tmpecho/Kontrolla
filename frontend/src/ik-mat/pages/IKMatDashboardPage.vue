@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
+import ImportantDocumentsTile from '@/ik-alkohol/components/ImportantDocumentsTile.vue'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
 import { getTemperatureSummary } from '@/ik-mat/model/temperature.utils'
@@ -184,12 +185,11 @@ watch(
 
     <div class="row-container">
       <section class="dashboard-section">
-        <RouterLink :to="{ name: 'ik-mat-documents' }" class="tile-link">
-          <div class="dashboard-tile dashboard-tile-link">
-            <h2>Documents</h2>
-            <p>Overview over IK-mat related documents.</p>
-          </div>
-        </RouterLink>
+        <ImportantDocumentsTile
+          class="dashboard-tile"
+          documents-route-name="ik-mat-documents"
+          service-area="IK_MAT"
+        />
       </section>
 
       <section class="dashboard-section">

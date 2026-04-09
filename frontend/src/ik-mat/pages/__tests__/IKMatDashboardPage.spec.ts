@@ -76,6 +76,9 @@ function mountPage() {
         DeviationsTile: {
           template: '<div>Deviations tile</div>',
         },
+        ImportantDocumentsTile: {
+          template: '<div>Documents tile</div>',
+        },
       },
     },
   })

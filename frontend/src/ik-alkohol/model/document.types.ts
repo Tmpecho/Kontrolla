@@ -1,13 +1,5 @@
-export type ImportantDocumentStatus = 'VALID' | 'EXPIRING' | 'EXPIRED'
-
-export type ImportantDocumentRecord = {
-  id: string
-  title: string
-  holderName: string
-  issueDate: string
-  renewalDate: string
-}
-
-export type ImportantDocumentListItem = ImportantDocumentRecord & {
-  status: ImportantDocumentStatus
-}
+export type {
+  DocumentListItem as ImportantDocumentListItem,
+  DocumentPreview as ImportantDocumentRecord,
+  DocumentStatus as ImportantDocumentStatus,
+} from '@/documents/model/document.types'
