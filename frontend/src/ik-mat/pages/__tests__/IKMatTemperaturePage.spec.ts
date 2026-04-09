@@ -176,24 +176,31 @@ describe('IKMatTemperaturePage mobile editor', () => {
   afterEach(() => {
     document.body.innerHTML = ''
     window.innerWidth = 1024
+    listTemperatureUnitsMock.mockReset()
   })
 
   it('opens the shared mobile sheet and closes it on escape', async () => {
     window.innerWidth = 700
+    listTemperatureUnitsMock.mockResolvedValue([createUnit()])
 
     const { default: IKMatTemperaturePage } = await import('@/ik-mat/pages/IKMatTemperaturePage.vue')
     const wrapper = mount(IKMatTemperaturePage, {
       attachTo: document.body,
       global: {
         stubs: {
+          TemperatureSparkline: {
+            template: '<div class="sparkline-stub" />',
+          },
           RouterLink: {
             template: '<a><slot /></a>',
           },
         },
       },
     })
+    await flushPromises()
 
     const trigger = wrapper.find('button.row-action')
+    expect(trigger.exists()).toBe(true)
     ;(trigger.element as HTMLButtonElement).focus()
     await trigger.trigger('click')
     await flushPromises()
