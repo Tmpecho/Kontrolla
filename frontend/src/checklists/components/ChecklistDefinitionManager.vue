@@ -680,9 +680,10 @@ watch(definitions, maybeOpenRequestedDefinition)
             class="editor-form editor-form-submenu"
             @submit.prevent="submitDefinition"
           >
-            <section class="editor-panel">
+            <section class="editor-panel editor-panel-overview">
               <header class="editor-header">
-                <div>
+                <div class="editor-title-block">
+                  <span class="editor-title-badge">+</span>
                   <p class="section-kicker">selected setup submenu</p>
                   <h3>{{ editorTitle }}</h3>
                   <p class="editor-parent-label">
@@ -705,11 +706,14 @@ watch(definitions, maybeOpenRequestedDefinition)
               </div>
             </section>
 
-            <section class="editor-panel">
+            <section class="editor-panel editor-panel-tasks">
               <div class="section-header">
-                <div>
+                <div class="section-title-block">
                   <p class="section-kicker">Checklist tasks</p>
-                  <h3>Tasks in this checklist</h3>
+                  <div class="section-title-row">
+                    <h3>Tasks in this checklist</h3>
+                    <span class="section-count-badge">{{ form.tasks.length }} tasks</span>
+                  </div>
                 </div>
                 <button type="button" class="btn btn-secondary" @click="addTask">Add task</button>
               </div>
@@ -802,11 +806,14 @@ watch(definitions, maybeOpenRequestedDefinition)
               </div>
             </section>
 
-            <section class="editor-panel">
+            <section class="editor-panel editor-panel-schedules">
               <div class="section-header">
-                <div>
+                <div class="section-title-block">
                   <p class="section-kicker">Checklist schedule</p>
-                  <h3>Schedules in this checklist</h3>
+                  <div class="section-title-row">
+                    <h3>Schedules in this checklist</h3>
+                    <span class="section-count-badge">{{ form.schedules.length }} schedules</span>
+                  </div>
                 </div>
                 <button type="button" class="btn btn-secondary" @click="addSchedule">
                   Add schedule
@@ -917,9 +924,10 @@ watch(definitions, maybeOpenRequestedDefinition)
         class="editor-form"
         @submit.prevent="submitDefinition"
       >
-        <section class="editor-panel">
+        <section class="editor-panel editor-panel-overview">
           <header class="editor-header">
-            <div>
+            <div class="editor-title-block">
+              <span class="editor-title-badge">+</span>
               <p class="section-kicker">new setup</p>
               <h3>{{ editorTitle }}</h3>
             </div>
@@ -939,11 +947,14 @@ watch(definitions, maybeOpenRequestedDefinition)
           </div>
         </section>
 
-        <section class="editor-panel">
+        <section class="editor-panel editor-panel-tasks">
           <div class="section-header">
-            <div>
+            <div class="section-title-block">
               <p class="section-kicker">Checklist tasks</p>
-              <h3>Tasks in this checklist</h3>
+              <div class="section-title-row">
+                <h3>Tasks in this checklist</h3>
+                <span class="section-count-badge">{{ form.tasks.length }} tasks</span>
+              </div>
             </div>
             <button type="button" class="btn btn-secondary" @click="addTask">Add task</button>
           </div>
@@ -1032,11 +1043,14 @@ watch(definitions, maybeOpenRequestedDefinition)
           </div>
         </section>
 
-        <section class="editor-panel">
+        <section class="editor-panel editor-panel-schedules">
           <div class="section-header">
-            <div>
+            <div class="section-title-block">
               <p class="section-kicker">Checklist schedule</p>
-              <h3>Schedules in this checklist</h3>
+              <div class="section-title-row">
+                <h3>Schedules in this checklist</h3>
+                <span class="section-count-badge">{{ form.schedules.length }} schedules</span>
+              </div>
             </div>
             <button type="button" class="btn btn-secondary" @click="addSchedule">
               Add schedule
@@ -1050,7 +1064,7 @@ watch(definitions, maybeOpenRequestedDefinition)
               class="builder-card"
             >
               <header class="builder-card-header">
-                <strong>Schedule {{ scheduleIndex + 1 }}</strong>
+              <strong>Schedule {{ scheduleIndex + 1 }}</strong>
                 <button
                   type="button"
                   class="icon-button icon-button-danger"
@@ -1169,12 +1183,18 @@ watch(definitions, maybeOpenRequestedDefinition)
   flex-direction: column;
 }
 
+.editor-form {
+  gap: 18px;
+}
+
 .manager-shell {
   gap: 12px;
   padding: 12px;
-  border: 1px solid var(--color-border-muted);
+  border: 1px solid #bfd1e6;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--color-container) 96%, #f5f9ff);
+  background: #edf3fa;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  font-size: 0.9375rem;
 }
 
 .manager-header,
@@ -1190,6 +1210,10 @@ watch(definitions, maybeOpenRequestedDefinition)
 
 .manager-header-toggle {
   cursor: pointer;
+  padding: 14px;
+  border: 1px solid #c7d7ea;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .manager-copy h2,
@@ -1211,10 +1235,23 @@ watch(definitions, maybeOpenRequestedDefinition)
   gap: 4px;
 }
 
+.editor-title-block,
+.section-title-block {
+  display: grid;
+  gap: 5px;
+}
+
 .manager-title-row {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.section-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .manager-copy p,
@@ -1223,6 +1260,18 @@ watch(definitions, maybeOpenRequestedDefinition)
 .editor-summary,
 .manager-state-card p {
   color: var(--color-text-secondary);
+}
+
+.manager-copy h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.definition-row-copy h3,
+.editor-header h3 {
+  font-size: 1.3rem;
+  line-height: 1.2;
+  font-weight: 700;
 }
 
 .manager-actions,
@@ -1254,9 +1303,9 @@ watch(definitions, maybeOpenRequestedDefinition)
 .manager-state-card,
 .definition-row,
 .editor-panel {
-  padding: 12px;
+  padding: 16px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: 2px;
   background: var(--color-container);
 }
 
@@ -1273,7 +1322,11 @@ watch(definitions, maybeOpenRequestedDefinition)
 .definition-list,
 .builder-list {
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.editor-panel {
+  gap: 16px;
 }
 
 .editor-panel:first-child .form-grid {
@@ -1281,7 +1334,7 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .definition-row {
-  gap: 12px;
+  gap: 14px;
   justify-content: space-between;
   cursor: pointer;
   transition:
@@ -1290,14 +1343,21 @@ watch(definitions, maybeOpenRequestedDefinition)
     background-color 120ms ease;
 }
 
+.definition-list {
+  padding: 12px;
+  border: 1px solid #d5dde8;
+  border-radius: 2px;
+  background: #f8fafc;
+}
+
 .definition-row:hover,
 .definition-row[data-active='true'] {
   border-color: var(--color-primary);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow: inset 4px 0 0 var(--color-primary);
 }
 
 .definition-row[data-active='true'] {
-  background: color-mix(in srgb, var(--color-container) 90%, #eff6ff);
+  background: #edf5ff;
 }
 
 .definition-row-copy {
@@ -1310,11 +1370,25 @@ watch(definitions, maybeOpenRequestedDefinition)
 .section-kicker,
 .field-block span,
 .checkbox-row span {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
+}
+
+.field-block span,
+.checkbox-row span {
+  font-size: 0.625rem;
+}
+
+.definition-row-description,
+.editor-parent-label,
+.editor-summary,
+.manager-state-card p,
+.manager-collapsed-summary {
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 
 .definition-chip-row {
@@ -1336,19 +1410,46 @@ watch(definitions, maybeOpenRequestedDefinition)
   font-weight: 600;
 }
 
+.editor-title-badge,
+.section-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.editor-title-badge {
+  width: 1.1rem;
+  height: 1.1rem;
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: 0.75rem;
+}
+
+.section-count-badge {
+  min-height: 1.1rem;
+  padding: 0 0.45rem;
+  background: #d9e8fb;
+  color: var(--color-primary);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
+  gap: 14px 16px;
 }
 
 .builder-card .form-grid {
-  gap: 8px 10px;
+  gap: 12px 14px;
 }
 
 .editor-form-submenu {
   position: relative;
-  gap: 8px;
+  gap: 14px;
   margin-left: 18px;
   padding-left: 14px;
 }
@@ -1373,9 +1474,59 @@ watch(definitions, maybeOpenRequestedDefinition)
   background: color-mix(in srgb, var(--color-primary) 40%, white);
 }
 
+.editor-form-submenu {
+  padding-top: 2px;
+}
+
+.editor-form-submenu .editor-panel:first-child {
+  border-color: #d6dee8;
+  background: #ffffff;
+}
+
+.editor-form-submenu .editor-panel:first-child .editor-header {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e6ee;
+}
+
+.editor-form:not(.editor-form-submenu) {
+  padding: 12px;
+  border: 1px solid #d6dee8;
+  border-radius: 2px;
+  background: #f8fafc;
+}
+
+.editor-panel-overview {
+  order: 1;
+  border-color: #d4dde8;
+  background: #ffffff;
+}
+
+.editor-panel-schedules {
+  order: 2;
+  padding: 16px;
+  border-color: #cad7e7;
+  background: #f4f7fb;
+}
+
+.editor-panel-tasks {
+  order: 3;
+  margin-top: 28px;
+  padding: 18px 16px 16px;
+  border-color: #d7dfe8;
+  background: #fdfefe;
+  box-shadow: none;
+}
+
+.editor-panel-tasks::before {
+  content: '';
+  display: block;
+  margin: -8px 0 10px;
+  border-top: 1px solid #cfd8e3;
+}
+
 .field-block {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 .builder-card .field-block,
@@ -1391,33 +1542,33 @@ watch(definitions, maybeOpenRequestedDefinition)
 .field-block textarea,
 .field-block select {
   width: 100%;
-  min-height: 34px;
-  padding: 0.5rem 0.45rem;
+  min-height: 38px;
+  padding: 0.68rem 0.7rem 0.58rem;
   border: none;
-  border-bottom: 1px solid var(--color-border-muted);
-  border-radius: 4px 4px 0 0;
-  background: color-mix(in srgb, var(--color-container) 90%, white);
+  border-bottom: 1px solid #8d8d8d;
+  border-radius: 0;
+  background: #f4f4f4;
   color: var(--color-text-primary);
   font: inherit;
   box-sizing: border-box;
+  transition:
+    outline-color 120ms ease,
+    border-bottom-color 120ms ease,
+    background-color 120ms ease;
 }
 
 .field-block textarea {
-  min-height: 64px;
+  min-height: 80px;
   resize: vertical;
 }
 
 .builder-card input,
 .builder-card select {
-  min-height: 32px;
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
+  min-height: 36px;
 }
 
 .builder-card textarea {
-  min-height: 56px;
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
+  min-height: 72px;
 }
 
 .field-block input:focus,
@@ -1425,35 +1576,59 @@ watch(definitions, maybeOpenRequestedDefinition)
 .field-block select:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
-  border-bottom-color: transparent;
+  border-bottom-color: var(--color-primary);
+  background: #ffffff;
 }
 
 .checkbox-row {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  min-height: 40px;
 }
 
 .checkbox-row input {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
   accent-color: var(--color-primary);
 }
 
 .builder-card {
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--color-container) 94%, white);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dde3ea;
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .builder-card-header {
-  gap: 8px;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e8edf3;
 }
 
 .builder-card-header strong {
-  font-size: 0.75rem;
+  font-size: 0.98rem;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.editor-panel-tasks .builder-card-header strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.editor-panel-tasks .builder-card-header strong::before {
+  content: '';
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--color-primary);
+  background: #dceafe;
+  box-sizing: border-box;
 }
 
 .builder-card-actions {
@@ -1461,26 +1636,76 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .editor-panel .builder-card {
-  gap: 8px;
-  padding: 10px;
+  gap: 12px;
+  padding: 14px;
 }
 
-.editor-form-submenu .editor-panel {
-  background: color-mix(in srgb, var(--color-container) 92%, #eff6ff);
+.editor-form-submenu .builder-card {
+  border-color: #d2dfef;
+  background: #f9fbfe;
+}
+
+.editor-form-submenu .section-header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d6dee8;
+}
+
+.section-header .btn {
+  align-self: center;
+}
+
+.editor-panel-schedules .section-header {
+  margin-bottom: 4px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #d6dee8;
+}
+
+.editor-panel-tasks .section-header {
+  margin-bottom: 6px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #d6dee8;
+}
+
+.section-header h3 {
+  font-size: 1.08rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.section-kicker {
+  font-size: 0.6875rem;
+}
+
+.editor-panel-tasks .builder-list {
+  gap: 10px;
+}
+
+.editor-panel-schedules .builder-list {
+  gap: 8px;
+}
+
+.editor-panel-schedules .builder-card {
+  border-color: #dce4ee;
+  background: #ffffff;
+}
+
+.editor-panel-tasks .builder-card {
+  border-color: #dce4ee;
+  background: #ffffff;
 }
 
 .btn,
 .text-button,
 .icon-button,
 .weekday-square {
-  font: 600 0.75rem var(--font-sans, inherit);
+  font: 600 0.6875rem var(--font-sans, inherit);
 }
 
 .btn {
-  min-height: 2rem;
-  padding: 0.35rem 0.6rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.9rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -1507,11 +1732,12 @@ watch(definitions, maybeOpenRequestedDefinition)
 .btn-secondary {
   background: transparent;
   color: var(--color-text-primary);
-  border-color: var(--color-border-muted);
+  border-color: #8d8d8d;
+  font-size: 0.6875rem;
 }
 
 .btn-secondary:hover {
-  background: var(--color-surface);
+  background: #f4f4f4;
 }
 
 .btn-danger-ghost,
@@ -1545,18 +1771,18 @@ watch(definitions, maybeOpenRequestedDefinition)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.8rem;
+  height: 1.8rem;
   padding: 0;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background: transparent;
+  border: 1px solid #c6ced8;
+  border-radius: 0;
+  background: #ffffff;
   color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .icon-button:hover {
-  background: var(--color-surface);
+  background: #f4f4f4;
   color: var(--color-primary);
 }
 
@@ -1581,9 +1807,9 @@ watch(definitions, maybeOpenRequestedDefinition)
   gap: 6px;
   min-height: 58px;
   padding: 0.45rem 0.3rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background: var(--color-container);
+  border: 1px solid #c6ced8;
+  border-radius: 0;
+  background: #ffffff;
   color: var(--color-text-secondary);
   cursor: pointer;
 }
@@ -1597,8 +1823,8 @@ watch(definitions, maybeOpenRequestedDefinition)
 }
 
 .weekday-square[data-active='true'] {
-  border-color: #8ab6ff;
-  background: #eff6ff;
+  border-color: var(--color-primary);
+  background: #edf5ff;
   color: var(--color-primary);
 }
 
