@@ -762,6 +762,20 @@ async function loadDocuments(): Promise<void> {
 }
 
 @media (max-width: 1080px) {
+  .documents-panel {
+    overflow: visible;
+  }
+
+  .documents-table {
+    display: block;
+  }
+
+  .documents-list {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
   .documents-table-header {
     display: none;
   }
@@ -769,6 +783,9 @@ async function loadDocuments(): Promise<void> {
   .documents-list-item {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 12px;
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-xs);
+    overflow: hidden;
   }
 
   .document-cell-label {
@@ -784,11 +801,19 @@ async function loadDocuments(): Promise<void> {
     align-items: flex-start;
     justify-content: flex-start;
   }
+
+  .documents-list-item + .documents-list-item {
+    border-top: 1px solid var(--color-border-muted);
+  }
 }
 
 @media (max-width: 720px) {
   .upload-button {
-    align-self: flex-start;
+    align-self: stretch;
+  }
+
+  .upload-button :deep(.button) {
+    width: 100%;
   }
 
   .summary-grid {
@@ -797,6 +822,26 @@ async function loadDocuments(): Promise<void> {
 
   .documents-list-item {
     grid-template-columns: 1fr;
+  }
+
+  .documents-list {
+    padding: 0;
+    gap: 10px;
+  }
+
+  .document-cell {
+    padding: 14px 16px;
+  }
+
+  .document-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .document-action-button {
+    width: 100%;
+    text-align: left;
   }
 }
 </style>

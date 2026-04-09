@@ -1236,6 +1236,10 @@ watch([organizationId, establishmentId], () => {
 }
 
 @media (max-width: 920px) {
+  .summary-card {
+    padding: 12px;
+  }
+
   .editor-grid {
     grid-template-columns: 1fr;
   }
@@ -1250,10 +1254,16 @@ watch([organizationId, establishmentId], () => {
       'primary reading'
       'trend status'
       'actions actions';
+    gap: 14px;
+    padding: 14px 16px;
   }
 
   .temperature-actions {
     align-items: flex-start;
+  }
+
+  .editor-actions {
+    flex-wrap: wrap;
   }
 }
 
@@ -1263,11 +1273,74 @@ watch([organizationId, establishmentId], () => {
     grid-template-columns: 1fr;
   }
 
+  .summary-grid {
+    gap: 12px;
+  }
+
+  .temperature-row {
+    grid-template-areas:
+      'primary'
+      'reading'
+      'trend'
+      'status'
+      'actions';
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .temperature-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .temperature-primary,
+  .temperature-reading,
+  .temperature-trend,
+  .temperature-status,
+  .temperature-actions {
+    gap: 6px;
+  }
+
   .temperature-actions {
     align-items: stretch;
   }
 
-  .row-action {
+  .row-action,
+  .save-feedback,
+  .deviation-link {
+    width: 100%;
+  }
+
+  .row-action,
+  .editor-button,
+  .editor-close-button {
+    text-align: left;
+  }
+
+  .inline-editor {
+    gap: 10px;
+    padding: 0 14px 14px;
+  }
+
+  .editor-actions {
+    flex-direction: column;
+  }
+
+  .editor-actions .editor-button {
+    width: 100%;
+  }
+
+  .editor-sheet {
+    padding: 16px 14px 20px;
+  }
+
+  .editor-sheet-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .editor-close-button {
     width: 100%;
   }
 }
