@@ -1,4 +1,6 @@
 import type {
+  DocumentAuditAssignment,
+  DocumentListItem,
   DocumentPreview,
   DocumentStatus,
 } from '@/documents/model/document.types'
@@ -82,4 +84,38 @@ export function formatDocumentStatus(status: DocumentStatus) {
       throw new Error(`Unsupported document status: ${String(exhaustiveStatus)}`)
     }
   }
+}
+
+export function isDocumentAuditReady(
+  documentRecord: Pick<DocumentListItem, 'status' | 'auditAssignments'>,
+): boolean {
+  if (documentRecord.status === 'EXPIRED') {
+    return false
+  }
+
+  return documentRecord.auditAssignments.every(isDocumentAuditAssignmentAcknowledged)
+}
+
+export function getDocumentAuditAcknowledgedCount(
+  auditAssignments: DocumentAuditAssignment[],
+): number {
+  return auditAssignments.filter(isDocumentAuditAssignmentAcknowledged).length
+}
+
+export function documentNeedsAuditForUser(
+  documentRecord: Pick<DocumentPreview, 'auditAssignments'>,
+  userId: string | null,
+): boolean {
+  if (!userId) {
+    return false
+  }
+
+  return documentRecord.auditAssignments.some((assignment) =>
+    assignment.userId === userId && !isDocumentAuditAssignmentAcknowledged(assignment))
+}
+
+export function isDocumentAuditAssignmentAcknowledged(
+  assignment: Pick<DocumentAuditAssignment, 'acknowledgedAt'>,
+): boolean {
+  return assignment.acknowledgedAt != null
 }

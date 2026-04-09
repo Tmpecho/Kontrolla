@@ -8,6 +8,7 @@ import type {
   EstablishmentDocument,
 } from '@/documents/model/document.types'
 import {
+  documentNeedsAuditForUser,
   expiryWarningDays,
   parseLocalDate,
   sortDocumentsByRenewalDate,
@@ -27,6 +28,7 @@ const authStore = useAuthStore()
 const documents = ref<EstablishmentDocument[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const currentUserId = computed(() => authStore.user?.id ?? null)
 
 const organizationId = computed(
   () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
@@ -57,16 +59,9 @@ const expiringCount = computed(() => {
   return documentsWithStatus.value.filter((documentRecord) => documentRecord.status === 'EXPIRING').length
 })
 
-const readyCount = computed(() => {
-  return documentsWithStatus.value.filter((documentRecord) => documentRecord.status !== 'EXPIRED').length
-})
-
-const readinessPercentage = computed(() => {
-  if (documentsWithStatus.value.length === 0) {
-    return 0
-  }
-
-  return Math.round((readyCount.value / documentsWithStatus.value.length) * 100)
+const documentsNeedingCurrentUserAuditCount = computed(() => {
+  return documentsWithStatus.value.filter((documentRecord) =>
+    documentNeedsAuditForUser(documentRecord, currentUserId.value)).length
 })
 
 const nextRenewalDocument = computed(() => documentsWithStatus.value[0] ?? null)
@@ -160,10 +155,13 @@ async function loadDocuments(): Promise<void> {
       </div>
 
       <div class="summary-card summary-card-readiness">
-        <p class="summary-label">Audit readiness</p>
-        <p class="summary-value">{{ readinessPercentage }}%</p>
+        <p class="summary-label">Needs your audit</p>
+        <p class="summary-value">
+          {{ documentsNeedingCurrentUserAuditCount }}
+          {{ documentsNeedingCurrentUserAuditCount === 1 ? 'document' : 'documents' }}
+        </p>
         <p class="summary-hint">
-          {{ readyCount }}/{{ documentsWithStatus.length }} documents ready for audit
+          Assigned to you and awaiting acknowledgement.
         </p>
       </div>
     </div>
