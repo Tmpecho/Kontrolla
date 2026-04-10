@@ -2,12 +2,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { ApiError } from '@/shared/api/http'
 
 const {
   loginMock,
   refreshSessionMock,
   logoutRequestMock,
   clearCsrfTokenMock,
+  getStartupStatusMock,
   listAdminOrganizationsMock,
   listEstablishmentsMock,
 } = vi.hoisted(() => ({
@@ -15,6 +17,7 @@ const {
   refreshSessionMock: vi.fn(),
   logoutRequestMock: vi.fn(),
   clearCsrfTokenMock: vi.fn(),
+  getStartupStatusMock: vi.fn(),
   listAdminOrganizationsMock: vi.fn(),
   listEstablishmentsMock: vi.fn(),
 }))
@@ -36,6 +39,10 @@ vi.mock('@/auth/api/auth.api', () => ({
 
 vi.mock('@/establishments/api/establishments.api', () => ({
   listEstablishments: listEstablishmentsMock,
+}))
+
+vi.mock('@/app/api/startup.api', () => ({
+  getStartupStatus: getStartupStatusMock,
 }))
 
 vi.mock('@/organizations/api/organizations.api', () => ({
@@ -62,6 +69,56 @@ function createDeferred<T>() {
   }
 }
 
+function createSession() {
+  return {
+    user: {
+      id: 'user-1',
+      email: 'user@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      active: true,
+      globalRoles: [] as string[],
+      createdAt: '2026-04-08T08:00:00Z',
+      updatedAt: '2026-04-08T08:00:00Z',
+    },
+    accessToken: 'token',
+    tokenType: 'Bearer',
+    expiresIn: 3600,
+    appContext: {
+      organizationId: 'org-1',
+      organizationName: 'Org 1',
+      organizationRole: 'ORG_MANAGER' as const,
+      establishmentId: 'est-1',
+      establishmentName: 'Kitchen',
+    },
+  }
+}
+
+function createEstablishmentPage() {
+  return {
+    items: [
+      {
+        id: 'est-1',
+        organizationId: 'org-1',
+        name: 'Kitchen',
+        type: 'RESTAURANT' as const,
+        status: 'ACTIVE' as const,
+        createdAt: '2026-04-08T08:00:00Z',
+        updatedAt: '2026-04-08T08:00:00Z',
+      },
+    ],
+    page: 0,
+    size: 100,
+    totalElements: 1,
+    totalPages: 1,
+  }
+}
+
+async function flushAsyncWork() {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('auth.store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -69,8 +126,13 @@ describe('auth.store', () => {
     refreshSessionMock.mockReset()
     logoutRequestMock.mockReset()
     clearCsrfTokenMock.mockReset()
+    getStartupStatusMock.mockReset()
     listAdminOrganizationsMock.mockReset()
     listEstablishmentsMock.mockReset()
+    getStartupStatusMock.mockResolvedValue({
+      status: 'READY',
+      ready: true,
+    })
 
     const storage = new Map<string, string>()
 
@@ -90,6 +152,7 @@ describe('auth.store', () => {
 
   afterEach(() => {
     listEstablishmentsMock.mockReset()
+    vi.useRealTimers()
   })
 
   it('requires an explicit establishment selection when multiple active establishments exist', async () => {
@@ -675,6 +738,123 @@ describe('auth.store', () => {
       'est-3',
       'est-1',
     ])
+  })
+
+  it('keeps startup pending while the backend reports that it is still starting', async () => {
+    vi.useFakeTimers()
+    loginMock.mockResolvedValue(createSession())
+    getStartupStatusMock.mockResolvedValue({
+      status: 'STARTING',
+      ready: false,
+    })
+
+    const authStore = useAuthStore()
+    await authStore.login({ email: 'user@example.com', password: 'password123' })
+
+    expect(authStore.startupStatus).toBe('waiting-for-backend')
+    expect(authStore.isStartupPending).toBe(true)
+    expect(listEstablishmentsMock).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(getStartupStatusMock).toHaveBeenCalledTimes(2)
+    expect(authStore.startupStatus).toBe('waiting-for-backend')
+  })
+
+  it('cancels a pending startup poll cleanly when logging out', async () => {
+    vi.useFakeTimers()
+    loginMock.mockResolvedValue(createSession())
+    logoutRequestMock.mockResolvedValue(undefined)
+    getStartupStatusMock.mockResolvedValue({
+      status: 'STARTING',
+      ready: false,
+    })
+
+    const authStore = useAuthStore()
+    await authStore.login({ email: 'user@example.com', password: 'password123' })
+
+    expect(authStore.startupStatus).toBe('waiting-for-backend')
+    expect(getStartupStatusMock).toHaveBeenCalledTimes(1)
+
+    await authStore.logout()
+    await flushAsyncWork()
+    await vi.advanceTimersByTimeAsync(2_000)
+    await flushAsyncWork()
+
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(authStore.startupStatus).toBe('idle')
+    expect(getStartupStatusMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('moves from backend readiness polling into workspace hydration and becomes ready', async () => {
+    vi.useFakeTimers()
+    loginMock.mockResolvedValue(createSession())
+    getStartupStatusMock
+      .mockResolvedValueOnce({
+        status: 'STARTING',
+        ready: false,
+      })
+      .mockResolvedValueOnce({
+        status: 'READY',
+        ready: true,
+      })
+    listEstablishmentsMock.mockResolvedValue(createEstablishmentPage())
+
+    const authStore = useAuthStore()
+    await authStore.login({ email: 'user@example.com', password: 'password123' })
+
+    expect(authStore.startupStatus).toBe('waiting-for-backend')
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    await flushAsyncWork()
+
+    expect(listEstablishmentsMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      page: 0,
+      size: 100,
+    })
+    expect(authStore.startupStatus).toBe('ready')
+    expect(authStore.isStartupPending).toBe(false)
+  })
+
+  it('enters an error state when workspace hydration fails after backend readiness', async () => {
+    loginMock.mockResolvedValue(createSession())
+    getStartupStatusMock.mockResolvedValue({
+      status: 'READY',
+      ready: true,
+    })
+    listEstablishmentsMock.mockRejectedValue(new ApiError('Backend unavailable', 503))
+
+    const authStore = useAuthStore()
+    await authStore.login({ email: 'user@example.com', password: 'password123' })
+    await flushAsyncWork()
+
+    expect(authStore.startupStatus).toBe('error')
+    expect(authStore.startupError).toBe('Backend unavailable')
+  })
+
+  it('retries workspace startup after an initial hydration failure', async () => {
+    loginMock.mockResolvedValue(createSession())
+    getStartupStatusMock.mockResolvedValue({
+      status: 'READY',
+      ready: true,
+    })
+    listEstablishmentsMock
+      .mockRejectedValueOnce(new ApiError('Backend unavailable', 503))
+      .mockResolvedValueOnce(createEstablishmentPage())
+
+    const authStore = useAuthStore()
+    await authStore.login({ email: 'user@example.com', password: 'password123' })
+    await flushAsyncWork()
+
+    expect(authStore.startupStatus).toBe('error')
+
+    authStore.retryWorkspaceStartup()
+    await flushAsyncWork()
+    await flushAsyncWork()
+
+    expect(authStore.startupStatus).toBe('ready')
+    expect(authStore.startupError).toBeNull()
   })
 
   it('clears the local session after a successful logout', async () => {

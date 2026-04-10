@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
-import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listEstablishmentDeviations } from '@/deviations/api/deviations.api'
 import type {
   DeviationServiceArea,
@@ -16,7 +16,6 @@ import {
   toDeviationCategoryLabel,
 } from '@/deviations/model/deviation.types'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
 const props = defineProps<{
@@ -34,43 +33,29 @@ type TileDeviation = {
   status: DeviationStatus
 }
 
-const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const deviations = ref<TileDeviation[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(() => {
-  if (authStore.appContext?.organizationId) {
-    return authStore.appContext.establishmentId ?? null
-  }
-
-  return appEnv.defaultEstablishmentId ?? null
-})
-const availableEstablishmentIds = computed(() => {
-  if (establishmentId.value) {
-    return [establishmentId.value]
-  }
-
-  return (authStore.establishments ?? []).map((establishment) => establishment.id)
-})
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
+const availableEstablishmentIds = workspaceContext.availableEstablishmentIds
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && availableEstablishmentIds.value.length > 0) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (authStore.requiresEstablishmentSelection) {
+  if (workspaceContext.hasAccessibleEstablishmentContext.value) {
+    return null
+  }
+
+  if (workspaceContext.requiresEstablishmentSelection.value) {
     return 'Choose an establishment to load deviations.'
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Deviations are unavailable until organization context is ready.'
-  }
-
-  return 'Set the default organization and establishment IDs or sign in with an organization context to load deviations.'
+  return 'Deviations are unavailable until organization context is ready.'
 })
 
 const recentDeviations = computed(() => {

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
-import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listTemperatureUnits } from '@/ik-mat/api/temperature.api'
 import type { TemperatureUnitListItem } from '@/ik-mat/model/temperature.types'
 import {
@@ -11,43 +11,34 @@ import {
   getTemperatureUnitsWithStatus,
 } from '@/ik-mat/model/temperature.utils'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 
 defineProps<{
   temperaturePageTo: RouteLocationRaw
 }>()
 
-const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const units = ref<TemperatureUnitListItem[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 let requestSequence = 0
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(() => {
-  if (authStore.appContext?.organizationId) {
-    return authStore.appContext.establishmentId ?? null
-  }
-
-  return appEnv.defaultEstablishmentId ?? null
-})
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (authStore.requiresEstablishmentSelection) {
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
+  }
+
+  if (workspaceContext.requiresEstablishmentSelection.value) {
     return 'Choose an establishment to load temperature units.'
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Temperature logs are unavailable until organization context is ready.'
-  }
-
-  return 'Set the default organization and establishment IDs or sign in with an organization context to load temperature units.'
+  return 'Temperature logs are unavailable until organization context is ready.'
 })
 
 const highlightedUnits = computed(() => {

@@ -6,6 +6,11 @@ import { defineComponent } from 'vue'
 const { authStoreMock, notificationsStoreMock } = vi.hoisted(() => ({
   authStoreMock: {
     isAuthenticated: true,
+    isStartupPending: false,
+    startupStatus: 'ready' as 'idle' | 'waiting-for-backend' | 'bootstrapping-workspace' | 'ready' | 'error',
+    startupError: null as string | null,
+    startupStartedAt: null as number | null,
+    retryWorkspaceStartup: vi.fn(),
   },
   notificationsStoreMock: {
     startPolling: vi.fn(),
@@ -90,6 +95,11 @@ describe('AppLayout mobile navigation overlay', () => {
     notificationsStoreMock.startPolling.mockReset()
     notificationsStoreMock.stopPolling.mockReset()
     notificationsStoreMock.reset.mockReset()
+    authStoreMock.isStartupPending = false
+    authStoreMock.startupStatus = 'ready'
+    authStoreMock.startupError = null
+    authStoreMock.startupStartedAt = null
+    authStoreMock.retryWorkspaceStartup.mockReset()
   })
 
   it('traps focus inside the mobile navigation drawer and closes on escape', async () => {
@@ -120,5 +130,34 @@ describe('AppLayout mobile navigation overlay', () => {
     expect(document.body.querySelector('[data-testid="mobile-first-nav-action"]')).toBeNull()
     expect(document.body.querySelector('[data-testid="desktop-first-nav-action"]')).not.toBeNull()
     expect(document.activeElement).toBe(trigger.element)
+  })
+
+  it('renders the startup shell instead of route content while startup is pending', async () => {
+    authStoreMock.isStartupPending = true
+    authStoreMock.startupStatus = 'waiting-for-backend'
+    authStoreMock.startupStartedAt = Date.now() - 91_000
+
+    const wrapper = await mountLayout()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Starting workspace...')
+    expect(wrapper.text()).toContain('Retry now')
+    expect(wrapper.text()).not.toContain('Page content')
+    expect(notificationsStoreMock.startPolling).not.toHaveBeenCalled()
+  })
+
+  it('renders the startup error state and forwards the retry action', async () => {
+    authStoreMock.startupStatus = 'error'
+    authStoreMock.startupError = 'Backend unavailable'
+
+    const wrapper = await mountLayout()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Unable to start workspace')
+    expect(wrapper.text()).toContain('Backend unavailable')
+
+    await wrapper.get('.startup-state__retry').trigger('click')
+
+    expect(authStoreMock.retryWorkspaceStartup).toHaveBeenCalledTimes(1)
   })
 })
