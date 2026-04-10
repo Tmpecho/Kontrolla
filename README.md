@@ -21,6 +21,11 @@ Kontrolla consists of:
 
 If you want to work on the project locally, start with the setup guide in [`docs/setup.md`](docs/setup.md).
 
+Module-specific documentation:
+
+- Frontend: [`docs/frontend/README.md`](docs/frontend/README.md)
+- Backend: [`docs/backend/README.md`](docs/backend/README.md)
+
 ## Docker Compose
 
 Start the development stack:
@@ -36,7 +41,7 @@ The backend will be available on `http://localhost:8080`.
 
 - [`backend/`](backend/): Spring Boot API, database migrations, and backend tests
 - [`frontend/`](frontend/): Vue app, shared UI code, and frontend tests
-- [`docs/`](docs/): project documentation and setup notes
+- [`docs/`](docs/): split frontend/backend documentation, setup notes, and system documentation
 
 ## GitHub Actions
 
