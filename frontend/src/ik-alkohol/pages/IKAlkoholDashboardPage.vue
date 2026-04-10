@@ -24,21 +24,23 @@
     </section>
 
     <div class="row-container">
-      <section class="dashboard-section">
+      <section class="dashboard-section dashboard-section-documents">
         <ImportantDocumentsTile class="dashboard-tile" />
       </section>
 
-      <section class="dashboard-section">
-        <AgeVerificationTile class="dashboard-tile" />
-      </section>
+      <div class="stacked-column">
+        <section class="dashboard-section">
+          <AgeVerificationTile class="dashboard-tile" />
+        </section>
 
-      <section class="dashboard-section">
-        <ServingHoursTile
-          :dashboard-to="{ name: 'ik-alkohol-dashboard' }"
-          :edit-to="{ name: 'ik-alkohol-serving-hours-edit' }"
-          class="dashboard-tile"
-        />
-      </section>
+        <section class="dashboard-section">
+          <ServingHoursTile
+            :dashboard-to="{ name: 'ik-alkohol-dashboard' }"
+            :edit-to="{ name: 'ik-alkohol-serving-hours-edit' }"
+            class="dashboard-tile"
+          />
+        </section>
+      </div>
     </div>
 
   </div>
@@ -78,12 +80,27 @@
 .row-container {
   display: flex;
   flex-direction: row;
-  gap: 24px
+  gap: 24px;
+}
+
+.dashboard-section-documents {
+  flex: 1.15;
+}
+
+.stacked-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
 }
 
 @media (max-width: 960px) {
   .row-container {
     flex-direction: column;
+  }
+
+  .stacked-column {
+    gap: 24px;
   }
 }
 
