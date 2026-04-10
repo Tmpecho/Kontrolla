@@ -7,8 +7,17 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Repository for user invite tokens.
+ */
 public interface UserInviteRepository extends JpaRepository<UserInvite, UUID> {
 
+	/**
+	 * Finds an invite by hashed token with related user and organization loaded.
+	 *
+	 * @param tokenHash the hashed token
+	 * @return the matching invite, if present
+	 */
 	@EntityGraph(attributePaths = {"user", "organization"})
 	Optional<UserInvite> findByTokenHash(String tokenHash);
 }

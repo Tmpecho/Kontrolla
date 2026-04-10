@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
 
+/**
+ * Handles administrative user creation and listing.
+ */
 @Service
 public class UserAdministrationService {
 
@@ -24,6 +27,13 @@ public class UserAdministrationService {
 	private final AuditRecorder auditRecorder;
 	private final PasswordEncoder passwordEncoder;
 
+	/**
+	 * Creates the user administration service.
+	 *
+	 * @param userRepository repository for user persistence
+	 * @param auditRecorder recorder for user-creation audit events
+	 * @param passwordEncoder encoder for stored passwords
+	 */
 	public UserAdministrationService(
 			UserRepository userRepository,
 			AuditRecorder auditRecorder,
@@ -34,6 +44,17 @@ public class UserAdministrationService {
 		this.passwordEncoder = passwordEncoder;
 	}
 
+	/**
+	 * Creates a user directly with administrator-provided credentials and roles.
+	 *
+	 * @param email the user email
+	 * @param firstName the user first name
+	 * @param lastName the user last name
+	 * @param password the raw password
+	 * @param active whether the user should be active
+	 * @param globalRoles the user's global roles
+	 * @return the created user
+	 */
 	@Transactional
 	public User createUser(
 			String email,
@@ -53,6 +74,14 @@ public class UserAdministrationService {
 		return user;
 	}
 
+	/**
+	 * Creates an invited user with a placeholder password and no global roles.
+	 *
+	 * @param email the user email
+	 * @param firstName the user first name
+	 * @param lastName the user last name
+	 * @return the created invited user
+	 */
 	@Transactional
 	public User createInvitedUser(
 			String email,
@@ -68,6 +97,12 @@ public class UserAdministrationService {
 		return userRepository.save(user);
 	}
 
+	/**
+	 * Lists users.
+	 *
+	 * @param pageable pagination information
+	 * @return a page of users
+	 */
 	@Transactional(readOnly = true)
 	public Page<User> listUsers(Pageable pageable) {
 		return userRepository.findAll(pageable);

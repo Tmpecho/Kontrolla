@@ -4,6 +4,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Configuration properties for outgoing invite emails.
+ */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.mail.invites")

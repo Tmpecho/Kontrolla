@@ -5,5 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;
 
+/**
+ * Repository for persisted audit events.
+ */
 public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
 }

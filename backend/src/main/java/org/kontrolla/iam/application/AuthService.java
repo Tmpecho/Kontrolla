@@ -36,6 +36,9 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.Optional;
 
+/**
+ * Handles login, refresh, logout, and invite acceptance for authentication.
+ */
 @Service
 public class AuthService {
 
@@ -53,6 +56,21 @@ public class AuthService {
 	private final AppSecurityProperties securityProperties;
 	private final Clock clock;
 
+	/**
+	 * Creates the authentication service.
+	 *
+	 * @param userRepository repository for users
+	 * @param refreshTokenRepository repository for refresh tokens
+	 * @param organizationMembershipRepository repository for memberships
+	 * @param establishmentRepository repository for establishments
+	 * @param authAttemptThrottleService service for auth throttling
+	 * @param auditRecorder recorder for auth audit events
+	 * @param passwordEncoder encoder for password verification
+	 * @param userInviteService service for invite lookup and acceptance
+	 * @param jwtService service for issuing access tokens
+	 * @param securityProperties security configuration properties
+	 * @param clock clock used for token timestamps
+	 */
 	public AuthService(
 			UserRepository userRepository,
 			RefreshTokenRepository refreshTokenRepository,
@@ -79,6 +97,14 @@ public class AuthService {
 		this.clock = clock;
 	}
 
+	/**
+	 * Authenticates a user and issues a new access and refresh token pair.
+	 *
+	 * @param email the login email
+	 * @param password the login password
+	 * @param clientIp the client IP address
+	 * @return the authenticated session
+	 */
 	@Transactional
 	public AuthSession login(String email, String password, String clientIp) {
 		Instant now = Instant.now(clock);
@@ -107,6 +133,13 @@ public class AuthService {
 		return issueSession(user, now);
 	}
 
+	/**
+	 * Refreshes an authenticated session using an active refresh token.
+	 *
+	 * @param rawRefreshToken the raw refresh token
+	 * @param clientIp the client IP address
+	 * @return the refreshed authenticated session
+	 */
 	@Transactional
 	public AuthSession refresh(String rawRefreshToken, String clientIp) {
 		Instant now = Instant.now(clock);
@@ -136,6 +169,11 @@ public class AuthService {
 		return session;
 	}
 
+	/**
+	 * Revokes an active refresh token if present.
+	 *
+	 * @param rawRefreshToken the raw refresh token
+	 */
 	@Transactional
 	public void logout(String rawRefreshToken) {
 		if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
@@ -159,6 +197,12 @@ public class AuthService {
 		auditRecorder.record(logoutSuccessAudit(refreshToken));
 	}
 
+	/**
+	 * Returns the current authenticated active user.
+	 *
+	 * @param currentUser the authenticated principal
+	 * @return the resolved user
+	 */
 	@Transactional(readOnly = true)
 	public User getCurrentUser(CurrentUser currentUser) {
 		return userRepository.findById(currentUser.userId())
@@ -166,11 +210,23 @@ public class AuthService {
 				.orElseThrow(() -> new UnauthorizedException("user_not_found", "Authenticated user no longer exists"));
 	}
 
+	/**
+	 * Returns public details for an invite token.
+	 *
+	 * @param token the invite token
+	 * @return the invite details
+	 */
 	@Transactional(readOnly = true)
 	public InviteDetails getInviteDetails(String token) {
 		return userInviteService.getInviteDetails(token);
 	}
 
+	/**
+	 * Accepts an invite token and sets the invited user's password.
+	 *
+	 * @param token the invite token
+	 * @param password the chosen password
+	 */
 	@Transactional
 	public void acceptInvite(String token, String password) {
 		userInviteService.acceptInvite(token, password);

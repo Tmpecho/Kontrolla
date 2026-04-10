@@ -18,6 +18,9 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 
+/**
+ * Issues, validates, and accepts organization invite tokens.
+ */
 @Service
 public class UserInviteService {
 
@@ -27,6 +30,15 @@ public class UserInviteService {
 	private final AppSecurityProperties securityProperties;
 	private final InviteNotificationService inviteNotificationService;
 
+	/**
+	 * Creates the user invite service.
+	 *
+	 * @param userInviteRepository repository for invite tokens
+	 * @param organizationMembershipRepository repository for memberships
+	 * @param passwordEncoder encoder for accepted invite passwords
+	 * @param securityProperties security and invite configuration
+	 * @param inviteNotificationService service used to deliver invite notifications
+	 */
 	public UserInviteService(
 			UserInviteRepository userInviteRepository,
 			OrganizationMembershipRepository organizationMembershipRepository,
@@ -41,6 +53,13 @@ public class UserInviteService {
 		this.inviteNotificationService = inviteNotificationService;
 	}
 
+	/**
+	 * Issues a new organization invite for a user.
+	 *
+	 * @param user the invited user
+	 * @param organization the invited organization
+	 * @return the issued invite metadata
+	 */
 	@Transactional
 	public IssuedInvite issueOrganizationInvite(User user, Organization organization) {
 		Instant now = Instant.now();
@@ -63,6 +82,12 @@ public class UserInviteService {
 		return new IssuedInvite(expiresAt, exposedInviteUrl);
 	}
 
+	/**
+	 * Returns public details about an active invite token.
+	 *
+	 * @param rawToken the raw invite token
+	 * @return the invite details
+	 */
 	@Transactional(readOnly = true)
 	public InviteDetails getInviteDetails(String rawToken) {
 		UserInvite invite = resolveActiveInvite(rawToken, Instant.now());
@@ -75,6 +100,13 @@ public class UserInviteService {
 		);
 	}
 
+	/**
+	 * Accepts an invite by setting the invited user's password and marking the
+	 * invite as accepted.
+	 *
+	 * @param rawToken the raw invite token
+	 * @param password the password chosen by the invited user
+	 */
 	@Transactional
 	public void acceptInvite(String rawToken, String password) {
 		UserInvite invite = resolveActiveInvite(rawToken, Instant.now());

@@ -5,6 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 
+/**
+ * Persisted organization entity.
+ */
 @Setter
 @Getter
 @Entity
@@ -21,6 +24,12 @@ public class Organization extends AbstractAuditableUuidEntity {
 	protected Organization() {
 	}
 
+	/**
+	 * Creates an organization.
+	 *
+	 * @param name the organization name
+	 * @param status the organization status
+	 */
 	public Organization(String name, OrganizationStatus status) {
 		this.name = name;
 		this.status = status;

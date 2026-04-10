@@ -15,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Centralizes organization- and establishment-level access checks for the
+ * current user.
+ */
 @Service
 public class OrganizationAccessService {
 
@@ -33,6 +37,13 @@ public class OrganizationAccessService {
 	private final EstablishmentRepository establishmentRepository;
 	private final OrganizationMembershipRepository membershipRepository;
 
+	/**
+	 * Creates the organization access service.
+	 *
+	 * @param organizationRepository repository for organizations
+	 * @param establishmentRepository repository for establishments
+	 * @param membershipRepository repository for organization memberships
+	 */
 	public OrganizationAccessService(
 			OrganizationRepository organizationRepository,
 			EstablishmentRepository establishmentRepository,
@@ -43,12 +54,24 @@ public class OrganizationAccessService {
 		this.membershipRepository = membershipRepository;
 	}
 
+	/**
+	 * Returns an organization or throws if it does not exist.
+	 *
+	 * @param organizationId the organization identifier
+	 * @return the requested organization
+	 */
 	@Transactional(readOnly = true)
 	public Organization getOrganizationOrThrow(UUID organizationId) {
 		return organizationRepository.findById(organizationId)
 				.orElseThrow(() -> new ResourceNotFoundException("organization_not_found", "Organization not found"));
 	}
 
+	/**
+	 * Requires that the current user can read data for the organization.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param organizationId the organization identifier
+	 */
 	@Transactional(readOnly = true)
 	public void requireOrganizationReadAccess(CurrentUser currentUser, UUID organizationId) {
 		if (currentUser.isPlatformAdmin()) {
@@ -57,6 +80,12 @@ public class OrganizationAccessService {
 		getActiveMembershipOrThrow(currentUser, organizationId);
 	}
 
+	/**
+	 * Requires that the current user can manage memberships in the organization.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param organizationId the organization identifier
+	 */
 	@Transactional(readOnly = true)
 	public void requireMembershipManagement(CurrentUser currentUser, UUID organizationId) {
 		if (currentUser.isPlatformAdmin()) {
@@ -68,6 +97,13 @@ public class OrganizationAccessService {
 		}
 	}
 
+	/**
+	 * Requires that the current user can manage establishments in the
+	 * organization.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param organizationId the organization identifier
+	 */
 	@Transactional(readOnly = true)
 	public void requireEstablishmentManagement(CurrentUser currentUser, UUID organizationId) {
 		if (currentUser.isPlatformAdmin()) {
@@ -79,6 +115,13 @@ public class OrganizationAccessService {
 		}
 	}
 
+	/**
+	 * Requires organization-wide operational access, either through elevated role
+	 * or full establishment scope.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param organizationId the organization identifier
+	 */
 	@Transactional(readOnly = true)
 	public void requireOrganizationWideOperationalAccess(CurrentUser currentUser, UUID organizationId) {
 		if (currentUser.isPlatformAdmin()) {
@@ -96,6 +139,13 @@ public class OrganizationAccessService {
 		}
 	}
 
+	/**
+	 * Requires that the current user can access a specific establishment.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 */
 	@Transactional(readOnly = true)
 	public void requireEstablishmentAccess(CurrentUser currentUser, UUID organizationId, UUID establishmentId) {
 		establishmentRepository.findByIdAndOrganizationId(establishmentId, organizationId)
@@ -111,6 +161,13 @@ public class OrganizationAccessService {
 		}
 	}
 
+	/**
+	 * Returns the active membership for the current user in an organization.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param organizationId the organization identifier
+	 * @return the active organization membership
+	 */
 	@Transactional(readOnly = true)
 	public OrganizationMembership getActiveMembershipOrThrow(CurrentUser currentUser, UUID organizationId) {
 		OrganizationMembership membership = getMembershipOrThrow(currentUser, organizationId);

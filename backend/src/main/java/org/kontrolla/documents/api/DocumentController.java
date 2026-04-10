@@ -30,6 +30,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Clock;
 import java.util.UUID;
 
+/**
+ * REST API for document metadata, file downloads, file replacement, and audit
+ * acknowledgement.
+ */
 @RestController
 @RequestMapping("/api/v1/organizations/{organizationId}")
 public class DocumentController {
@@ -37,11 +41,27 @@ public class DocumentController {
   private final DocumentService documentService;
   private final Clock clock;
 
+  /**
+   * Creates a controller backed by the document service.
+   *
+   * @param documentService service handling document operations
+   * @param clock clock used to derive document status in responses
+   */
   public DocumentController(DocumentService documentService, Clock clock) {
     this.documentService = documentService;
     this.clock = clock;
   }
 
+  /**
+   * Lists documents for an establishment and service area.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param serviceArea the requested service area
+   * @param currentUser the authenticated user
+   * @param pageable pagination information
+   * @return a page of document responses
+   */
   @GetMapping("/establishments/{establishmentId}/documents")
   public PageResponse<DocumentResponse> listDocuments(
       @PathVariable UUID organizationId,
@@ -56,6 +76,15 @@ public class DocumentController {
     );
   }
 
+  /**
+   * Returns a single document by id.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return the document response
+   */
   @GetMapping("/establishments/{establishmentId}/documents/{documentId}")
   public DocumentResponse getDocument(
       @PathVariable UUID organizationId,
@@ -69,6 +98,15 @@ public class DocumentController {
     );
   }
 
+  /**
+   * Downloads the stored file for a document.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return the downloadable file response
+   */
   @GetMapping("/establishments/{establishmentId}/documents/{documentId}/file")
   public ResponseEntity<byte[]> downloadDocumentFile(
       @PathVariable UUID organizationId,
@@ -88,6 +126,15 @@ public class DocumentController {
         .body(file.content());
   }
 
+  /**
+   * Deletes a document and its stored file.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return an empty no-content response
+   */
   @DeleteMapping("/establishments/{establishmentId}/documents/{documentId}")
   public ResponseEntity<Void> deleteDocument(
       @PathVariable UUID organizationId,
@@ -99,6 +146,16 @@ public class DocumentController {
     return ResponseEntity.noContent().build();
   }
 
+  /**
+   * Creates a new document from multipart metadata and file content.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param currentUser the authenticated user
+   * @param request the metadata payload
+   * @param file the uploaded PDF file
+   * @return the created document response
+   */
   @PostMapping(value = "/establishments/{establishmentId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @ResponseStatus(HttpStatus.CREATED)
   public DocumentResponse createDocument(
@@ -127,6 +184,16 @@ public class DocumentController {
     );
   }
 
+  /**
+   * Updates document metadata and audit assignments.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @param request the metadata update payload
+   * @return the updated document response
+   */
   @PutMapping(value = "/establishments/{establishmentId}/documents/{documentId}", consumes = MediaType.APPLICATION_JSON_VALUE)
   public DocumentResponse updateDocument(
       @PathVariable UUID organizationId,
@@ -152,6 +219,16 @@ public class DocumentController {
     );
   }
 
+  /**
+   * Replaces the stored PDF file for a document.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @param file the uploaded replacement file
+   * @return the updated document response
+   */
   @PutMapping(value = "/establishments/{establishmentId}/documents/{documentId}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public DocumentResponse replaceDocumentFile(
       @PathVariable UUID organizationId,
@@ -174,6 +251,15 @@ public class DocumentController {
     );
   }
 
+  /**
+   * Acknowledges a document audit assignment for the current user.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return the updated document response
+   */
   @PostMapping("/establishments/{establishmentId}/documents/{documentId}/acknowledge-read")
   public DocumentResponse acknowledgeDocumentAudit(
       @PathVariable UUID organizationId,

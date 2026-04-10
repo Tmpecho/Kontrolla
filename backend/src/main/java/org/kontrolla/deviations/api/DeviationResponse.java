@@ -8,6 +8,22 @@ import org.kontrolla.deviations.domain.DeviationStatus;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * API response describing a deviation summary.
+ *
+ * @param id the deviation identifier
+ * @param organizationId the owning organization identifier
+ * @param establishmentId the owning establishment identifier
+ * @param createdByUserId the creator user identifier
+ * @param assignedToUserId the assigned user identifier, if any
+ * @param title the deviation title
+ * @param description the deviation description
+ * @param status the deviation status
+ * @param severity the deviation severity
+ * @param category the deviation category
+ * @param createdAt when the deviation was created
+ * @param updatedAt when the deviation was last updated
+ */
 public record DeviationResponse(
 		UUID id,
 		UUID organizationId,
@@ -23,6 +39,12 @@ public record DeviationResponse(
 		Instant updatedAt
 ) {
 
+	/**
+	 * Maps a deviation entity to the API response shape.
+	 *
+	 * @param deviation the deviation to map
+	 * @return the mapped response
+	 */
 	public static DeviationResponse from(Deviation deviation) {
 		return new DeviationResponse(
 				deviation.getId(),

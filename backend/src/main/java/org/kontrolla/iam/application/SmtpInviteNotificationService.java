@@ -14,6 +14,10 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
+/**
+ * Invite notification implementation that sends invitation emails through
+ * SMTP.
+ */
 @Service
 @ConditionalOnProperty(prefix = "app.mail.invites", name = "enabled", havingValue = "true")
 public class SmtpInviteNotificationService implements InviteNotificationService {
@@ -23,11 +27,25 @@ public class SmtpInviteNotificationService implements InviteNotificationService 
 	private final JavaMailSender mailSender;
 	private final MailInviteProperties mailInviteProperties;
 
+	/**
+	 * Creates the SMTP invite notification service.
+	 *
+	 * @param mailSender mail sender used to deliver invite messages
+	 * @param mailInviteProperties invite mail configuration properties
+	 */
 	public SmtpInviteNotificationService(JavaMailSender mailSender, MailInviteProperties mailInviteProperties) {
 		this.mailSender = mailSender;
 		this.mailInviteProperties = mailInviteProperties;
 	}
 
+	/**
+	 * Sends an organization member invite email.
+	 *
+	 * @param recipientEmail the invite recipient email
+	 * @param organizationName the invited organization name
+	 * @param inviteUrl the invite URL
+	 * @param expiresAt when the invite expires
+	 */
 	@Override
 	public void sendOrganizationMemberInvite(
 			String recipientEmail,

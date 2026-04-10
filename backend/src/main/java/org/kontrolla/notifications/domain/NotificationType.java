@@ -1,5 +1,8 @@
 package org.kontrolla.notifications.domain;
 
+/**
+ * Enumerates the notification events that can be sent to users.
+ */
 public enum NotificationType {
 	CHECKLIST_ASSIGNED,
 	CHECKLIST_OVERDUE,

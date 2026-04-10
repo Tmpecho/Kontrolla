@@ -1,5 +1,8 @@
 package org.kontrolla.deviations.domain;
 
+/**
+ * Categories used to classify deviations.
+ */
 public enum DeviationCategory {
     TEMPERATURE,
     HYGIENE,

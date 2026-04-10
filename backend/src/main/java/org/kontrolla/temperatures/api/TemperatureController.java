@@ -19,16 +19,33 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * REST API for managing temperature units and logged readings for an
+ * establishment.
+ */
 @RestController
 @RequestMapping("/api/v1/organizations/{organizationId}/establishments/{establishmentId}/temperature-units")
 public class TemperatureController {
 
   private final TemperatureService temperatureService;
 
+  /**
+   * Creates a controller backed by the temperature service.
+   *
+   * @param temperatureService service handling temperature unit operations
+   */
   public TemperatureController(TemperatureService temperatureService) {
     this.temperatureService = temperatureService;
   }
 
+  /**
+   * Lists temperature units for an establishment.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param currentUser the authenticated user
+   * @return the temperature units for the establishment
+   */
   @GetMapping
   public List<TemperatureUnitResponse> listTemperatureUnits(
       @PathVariable UUID organizationId,
@@ -41,6 +58,15 @@ public class TemperatureController {
         .toList();
   }
 
+  /**
+   * Creates a new temperature unit for an establishment.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param currentUser the authenticated user
+   * @param request the request payload
+   * @return the created temperature unit
+   */
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public TemperatureUnitResponse createTemperatureUnit(
@@ -66,6 +92,16 @@ public class TemperatureController {
     );
   }
 
+  /**
+   * Records a new temperature reading for a specific temperature unit.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param temperatureUnitId the temperature unit identifier
+   * @param currentUser the authenticated user
+   * @param request the request payload
+   * @return the created temperature log entry
+   */
   @PostMapping("/{temperatureUnitId}/logs")
   @ResponseStatus(HttpStatus.CREATED)
   public TemperatureLogEntryResponse createTemperatureLog(
@@ -90,6 +126,14 @@ public class TemperatureController {
     );
   }
 
+  /**
+   * Deletes an existing temperature unit.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param temperatureUnitId the temperature unit identifier
+   * @param currentUser the authenticated user
+   */
   @DeleteMapping("/{temperatureUnitId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteTemperatureUnit(

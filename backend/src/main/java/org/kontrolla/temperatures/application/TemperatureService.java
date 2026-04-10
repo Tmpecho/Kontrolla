@@ -21,6 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Coordinates temperature unit management and temperature logging for an
+ * establishment.
+ */
 @Service
 public class TemperatureService {
 
@@ -30,6 +34,15 @@ public class TemperatureService {
   private final EstablishmentService establishmentService;
   private final UserAccessService userAccessService;
 
+  /**
+   * Creates a service for managing temperature units and their logged readings.
+   *
+   * @param temperatureUnitRepository repository for temperature units
+   * @param temperatureLogRepository repository for temperature logs
+   * @param organizationAccessService service for organization-level access checks
+   * @param establishmentService service for establishment access and lookup
+   * @param userAccessService service for resolving the current user
+   */
   public TemperatureService(
       TemperatureUnitRepository temperatureUnitRepository,
       TemperatureLogRepository temperatureLogRepository,
@@ -44,6 +57,14 @@ public class TemperatureService {
     this.userAccessService = userAccessService;
   }
 
+  /**
+   * Lists temperature units for the specified establishment.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param currentUser the authenticated user
+   * @return the temperature units for the establishment
+   */
   @Transactional(readOnly = true)
   public List<TemperatureUnitView> listTemperatureUnits(
       UUID organizationId,
@@ -59,6 +80,15 @@ public class TemperatureService {
         .toList();
   }
 
+  /**
+   * Creates a new temperature unit for the specified establishment.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param command the creation command
+   * @param currentUser the authenticated user
+   * @return the created temperature unit
+   */
   @Transactional
   public TemperatureUnitView createTemperatureUnit(
       UUID organizationId,
@@ -99,6 +129,16 @@ public class TemperatureService {
     return TemperatureUnitView.from(temperatureUnitRepository.save(unit));
   }
 
+  /**
+   * Records a new temperature reading for a specific temperature unit.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param temperatureUnitId the temperature unit identifier
+   * @param command the log creation command
+   * @param currentUser the authenticated user
+   * @return the created temperature log entry view
+   */
   @Transactional
   public TemperatureLogEntryView createTemperatureLog(
       UUID organizationId,
@@ -133,6 +173,14 @@ public class TemperatureService {
     return TemperatureLogEntryView.from(persistedTemperatureLog);
   }
 
+  /**
+   * Deletes a temperature unit from the specified establishment.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param temperatureUnitId the temperature unit identifier
+   * @param currentUser the authenticated user
+   */
   @Transactional
   public void deleteTemperatureUnit(
       UUID organizationId,

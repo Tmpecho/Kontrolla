@@ -7,6 +7,18 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * API response describing a user.
+ *
+ * @param id the user identifier
+ * @param email the user email
+ * @param firstName the user first name
+ * @param lastName the user last name
+ * @param active whether the user is active
+ * @param globalRoles the user's global roles
+ * @param createdAt when the user was created
+ * @param updatedAt when the user was last updated
+ */
 public record UserResponse(
 		UUID id,
 		String email,
@@ -18,6 +30,12 @@ public record UserResponse(
 		Instant updatedAt
 ) {
 
+	/**
+	 * Maps a user entity to the API response shape.
+	 *
+	 * @param user the user to map
+	 * @return the mapped response
+	 */
 	public static UserResponse from(User user) {
 		return new UserResponse(
 				user.getId(),

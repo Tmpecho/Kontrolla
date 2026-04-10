@@ -11,14 +11,40 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Repository for organization membership queries and access-scope lookups.
+ */
 public interface OrganizationMembershipRepository extends JpaRepository<OrganizationMembership, UUID> {
 
+	/**
+	 * Returns memberships for an organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param pageable pagination information
+	 * @return a page of memberships
+	 */
 	@EntityGraph(attributePaths = {"user", "accessibleEstablishments"})
 	Page<OrganizationMembership> findByOrganizationId(UUID organizationId, Pageable pageable);
 
+	/**
+	 * Returns active memberships for an organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param pageable pagination information
+	 * @return a page of active memberships
+	 */
 	@EntityGraph(attributePaths = {"user", "accessibleEstablishments"})
 	Page<OrganizationMembership> findByOrganizationIdAndActiveTrue(UUID organizationId, Pageable pageable);
 
+	/**
+	 * Returns memberships that grant access to a specific establishment within an
+	 * organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param pageable pagination information
+	 * @return a page of matching memberships
+	 */
 	@EntityGraph(attributePaths = {"user", "accessibleEstablishments"})
 	@Query(
 			value = """
@@ -42,6 +68,15 @@ public interface OrganizationMembershipRepository extends JpaRepository<Organiza
 			Pageable pageable
 	);
 
+	/**
+	 * Returns active memberships that grant access to a specific establishment
+	 * within an organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param pageable pagination information
+	 * @return a page of matching active memberships
+	 */
 	@EntityGraph(attributePaths = {"user", "accessibleEstablishments"})
 	@Query(
 			value = """
@@ -67,12 +102,32 @@ public interface OrganizationMembershipRepository extends JpaRepository<Organiza
 			Pageable pageable
 	);
 
+	/**
+	 * Finds a membership by organization and user id.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param userId the user identifier
+	 * @return the matching membership, if present
+	 */
 	@EntityGraph(attributePaths = {"organization", "user", "accessibleEstablishments"})
 	Optional<OrganizationMembership> findByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 
+	/**
+	 * Finds a membership by id scoped to an organization.
+	 *
+	 * @param id the membership identifier
+	 * @param organizationId the organization identifier
+	 * @return the matching membership, if present
+	 */
 	@EntityGraph(attributePaths = {"organization", "user", "accessibleEstablishments"})
 	Optional<OrganizationMembership> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
+	/**
+	 * Returns the earliest active membership for a user.
+	 *
+	 * @param userId the user identifier
+	 * @return the first active membership, if present
+	 */
 	@EntityGraph(attributePaths = {"organization", "user", "accessibleEstablishments"})
 	Optional<OrganizationMembership> findFirstByUserIdAndActiveTrueOrderByCreatedAtAsc(UUID userId);
 }
