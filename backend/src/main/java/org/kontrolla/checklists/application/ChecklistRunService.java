@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -98,14 +99,13 @@ public class ChecklistRunService {
 		);
 		List<ChecklistRunStatus> normalizedStatuses = statuses == null ? List.of() : statuses.stream().filter(Objects::nonNull).distinct().toList();
 		Collection<ChecklistRunStatus> statusesForQuery = normalizedStatuses.isEmpty()
-				? List.of(ChecklistRunStatus.PENDING)
+				? EnumSet.allOf(ChecklistRunStatus.class)
 				: normalizedStatuses;
 
 		return checklistRunRepository.search(
 				establishmentId,
 				serviceArea,
 				statusesForQuery,
-				normalizedStatuses.isEmpty(),
 				effectiveAssignedUserId,
 				dueFrom,
 				dueTo,

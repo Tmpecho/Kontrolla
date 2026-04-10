@@ -33,8 +33,30 @@ const { listChecklistRunsMock, authStoreMock } = vi.hoisted(() => ({
   },
 }))
 
+async function listAllChecklistRunsFromMock(params: Record<string, unknown>): Promise<unknown[]> {
+  const allRuns: unknown[] = []
+  let page = typeof params.page === 'number' ? params.page : 0
+  let totalPages = 1
+  const size = typeof params.size === 'number' ? params.size : 100
+
+  do {
+    const response = await listChecklistRunsMock({
+      ...params,
+      page,
+      size,
+    })
+
+    allRuns.push(...response.items)
+    totalPages = response.totalPages
+    page += 1
+  } while (page < totalPages)
+
+  return allRuns
+}
+
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
   listChecklistRuns: listChecklistRunsMock,
+  listAllChecklistRuns: listAllChecklistRunsFromMock,
 }))
 
 vi.mock('@/auth/model/auth.store', () => ({
@@ -185,6 +207,14 @@ describe('IKMatChecklistsPage', () => {
     const wrapper = await mountPage()
     await flushPromises()
 
+    expect(listChecklistRunsMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_MAT',
+      statuses: ['PENDING', 'OVERDUE', 'IN_PROGRESS', 'COMPLETED'],
+      page: 0,
+      size: 100,
+    })
     expect(wrapper.text()).toContain('IK-mat Checklists')
     expect(wrapper.text()).toContain('Morning shift')
   })
@@ -244,6 +274,202 @@ describe('IKMatChecklistsPage', () => {
 
     expect(wrapper.text()).toContain('Morning shift')
     expect(wrapper.text()).toContain('Morning shift (edited)')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(2)
+  })
+
+  it('shows all in-progress runs even when they share a checklist definition group', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-older',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'IN_PROGRESS',
+          startedAt: '2026-03-26T07:30:00Z',
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T07:30:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+        {
+          id: 'run-latest',
+          checklistDefinitionId: 'definition-2',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift (edited)',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T10:00:00Z',
+          status: 'IN_PROGRESS',
+          startedAt: '2026-03-26T09:15:00Z',
+          completedAt: null,
+          completedByUserId: null,
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T09:00:00Z',
+          updatedAt: '2026-03-26T09:30:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 2,
+      totalPages: 1,
+    })
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const triageTabs = wrapper.findAll('.triage-tab')
+    await triageTabs[3]!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Morning shift')
+    expect(wrapper.text()).toContain('Morning shift (edited)')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(2)
+  })
+
+  it('shows all completed runs even when they share a checklist definition group', async () => {
+    listChecklistRunsMock.mockResolvedValue({
+      items: [
+        {
+          id: 'run-complete-1',
+          checklistDefinitionId: 'definition-1',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T08:00:00Z',
+          status: 'COMPLETED',
+          startedAt: '2026-03-26T07:30:00Z',
+          completedAt: '2026-03-26T08:10:00Z',
+          completedByUserId: 'user-1',
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T07:00:00Z',
+          updatedAt: '2026-03-26T08:10:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+        {
+          id: 'run-complete-2',
+          checklistDefinitionId: 'definition-2',
+          definitionGroupId: 'group-1',
+          establishmentId: 'est-1',
+          serviceArea: 'IK_MAT',
+          title: 'Morning shift (edited)',
+          description: 'Opening routine',
+          dueAt: '2026-03-26T10:00:00Z',
+          status: 'COMPLETED',
+          startedAt: '2026-03-26T09:15:00Z',
+          completedAt: '2026-03-26T10:05:00Z',
+          completedByUserId: 'user-1',
+          createdByUserId: 'user-1',
+          createdAt: '2026-03-26T09:00:00Z',
+          updatedAt: '2026-03-26T10:05:00Z',
+          assignments: [],
+          tasks: [],
+          events: [],
+        },
+      ],
+      page: 0,
+      size: 10,
+      totalElements: 2,
+      totalPages: 1,
+    })
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const triageTabs = wrapper.findAll('.triage-tab')
+    await triageTabs[4]!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Morning shift')
+    expect(wrapper.text()).toContain('Morning shift (edited)')
+    expect(wrapper.findAll('.run-card-stub')).toHaveLength(2)
+  })
+
+  it('aggregates checklist runs across multiple pages before filtering triage results', async () => {
+    listChecklistRunsMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'run-page-1',
+            checklistDefinitionId: 'definition-1',
+            definitionGroupId: 'group-1',
+            establishmentId: 'est-1',
+            serviceArea: 'IK_MAT',
+            title: 'Morning shift',
+            description: 'Opening routine',
+            dueAt: '2026-03-26T08:00:00Z',
+            status: 'IN_PROGRESS',
+            startedAt: '2026-03-26T07:30:00Z',
+            completedAt: null,
+            completedByUserId: null,
+            createdByUserId: 'user-1',
+            createdAt: '2026-03-26T07:00:00Z',
+            updatedAt: '2026-03-26T07:30:00Z',
+            assignments: [],
+            tasks: [],
+            events: [],
+          },
+        ],
+        page: 0,
+        size: 100,
+        totalElements: 2,
+        totalPages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'run-page-2',
+            checklistDefinitionId: 'definition-2',
+            definitionGroupId: 'group-2',
+            establishmentId: 'est-1',
+            serviceArea: 'IK_MAT',
+            title: 'Closing shift',
+            description: 'Closing routine',
+            dueAt: '2026-03-26T12:00:00Z',
+            status: 'IN_PROGRESS',
+            startedAt: '2026-03-26T11:45:00Z',
+            completedAt: null,
+            completedByUserId: null,
+            createdByUserId: 'user-1',
+            createdAt: '2026-03-26T11:00:00Z',
+            updatedAt: '2026-03-26T11:45:00Z',
+            assignments: [],
+            tasks: [],
+            events: [],
+          },
+        ],
+        page: 1,
+        size: 100,
+        totalElements: 2,
+        totalPages: 2,
+      })
+
+    const wrapper = await mountPage()
+    await flushPromises()
+
+    const triageTabs = wrapper.findAll('.triage-tab')
+    await triageTabs[3]!.trigger('click')
+    await nextTick()
+
+    expect(listChecklistRunsMock).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('Morning shift')
+    expect(wrapper.text()).toContain('Closing shift')
     expect(wrapper.findAll('.run-card-stub')).toHaveLength(2)
   })
 

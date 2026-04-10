@@ -3,12 +3,12 @@ import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
-import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
-import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
+import { listAllChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import { sortChecklistRunsByRecency } from '@/checklists/model/checklist-runs.utils'
+import type { ChecklistRun, ChecklistRunStatus } from '@/checklists/model/checklist.types'
+import { ApiError } from '@/shared/api/http'
 import ImportantDocumentsTile from '@/ik-alkohol/components/ImportantDocumentsTile.vue'
 import TemperatureTile from '@/ik-mat/components/TemperatureTile.vue'
-import type { ChecklistRun } from '@/checklists/model/checklist.types'
-import { ApiError } from '@/shared/api/http'
 import DeviationsTile from '@/shared/components/DeviationsTile.vue'
 
 const authStore = useAuthStore()
@@ -16,6 +16,7 @@ const workspaceContext = useProtectedWorkspaceContext()
 const checklistRuns = ref<ChecklistRun[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const DASHBOARD_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
 const resolvedChecklistContext = computed(() => {
   if (!authStore.isSessionReady || workspaceContext.isStartupPending.value) {
@@ -83,18 +84,18 @@ async function loadChecklistRuns(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const pages = await Promise.all(
+    const runs = await Promise.all(
       context.establishmentIds.map((establishmentId) =>
-        listChecklistRuns({
+        listAllChecklistRuns({
           organizationId: context.organizationId,
           establishmentId,
           serviceArea: 'IK_MAT',
-          size: 20,
+          statuses: DASHBOARD_STATUSES,
         }),
       ),
     )
 
-    checklistRuns.value = selectLatestChecklistRuns(pages.flatMap((page) => page.items)).slice(0, 10)
+    checklistRuns.value = sortChecklistRunsByRecency(runs.flat())
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'

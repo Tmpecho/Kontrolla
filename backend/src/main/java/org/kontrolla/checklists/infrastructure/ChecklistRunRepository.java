@@ -52,7 +52,7 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			left join run.assignments assignment
 			where run.establishment.id = :establishmentId
 			  and run.serviceArea = :serviceArea
-			  and (:statusesEmpty = true or run.status in :statuses)
+			  and run.status in :statuses
 			  and (:assignedUserId is null or assignment.assignedUser.id = :assignedUserId)
 			  and (:dueFrom is null or run.dueAt >= :dueFrom)
 			  and (:dueTo is null or run.dueAt <= :dueTo)
@@ -61,7 +61,6 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			@Param("establishmentId") UUID establishmentId,
 			@Param("serviceArea") ChecklistServiceArea serviceArea,
 			@Param("statuses") Collection<ChecklistRunStatus> statuses,
-			@Param("statusesEmpty") boolean statusesEmpty,
 			@Param("assignedUserId") UUID assignedUserId,
 			@Param("dueFrom") Instant dueFrom,
 			@Param("dueTo") Instant dueTo,

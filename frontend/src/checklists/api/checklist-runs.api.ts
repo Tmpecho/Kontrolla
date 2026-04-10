@@ -50,23 +50,46 @@ type ContextParams = {
 const getBaseUrl = (params: ContextParams) =>
   `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/checklists/runs`
 
+const getListChecklistRunsQuery = (params: ListChecklistRunsParams) => ({
+  serviceArea: params.serviceArea,
+  statuses: params.statuses,
+  assignedUserId: params.assignedUserId,
+  assignedToMe: params.assignedToMe,
+  dueFrom: params.dueFrom,
+  dueTo: params.dueTo,
+  page: params.page,
+  size: params.size,
+})
+
 // --- API Functions ---
 
 export async function listChecklistRuns(
   params: ListChecklistRunsParams,
 ): Promise<PageResponse<ChecklistRun>> {
   return requestJson<PageResponse<ChecklistRun>>(getBaseUrl(params), {
-    query: {
-      serviceArea: params.serviceArea,
-      statuses: params.statuses,
-      assignedUserId: params.assignedUserId,
-      assignedToMe: params.assignedToMe,
-      dueFrom: params.dueFrom,
-      dueTo: params.dueTo,
-      page: params.page,
-      size: params.size,
-    },
+    query: getListChecklistRunsQuery(params),
   })
+}
+
+export async function listAllChecklistRuns(params: ListChecklistRunsParams): Promise<ChecklistRun[]> {
+  const allRuns: ChecklistRun[] = []
+  let page = params.page ?? 0
+  let totalPages = 1
+  const size = params.size ?? 100
+
+  do {
+    const response = await listChecklistRuns({
+      ...params,
+      page,
+      size,
+    })
+
+    allRuns.push(...response.items)
+    totalPages = response.totalPages
+    page += 1
+  } while (page < totalPages)
+
+  return allRuns
 }
 
 export async function getChecklistRun(

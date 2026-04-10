@@ -20,11 +20,18 @@ function createLocalIsoTimestamp(
   return new Date(year, monthIndex, day, hours, minutes, 0, 0).toISOString()
 }
 
-function createChecklistRun(id: string, status: ChecklistRun['status'], dueAt: string): ChecklistRun {
+function createChecklistRun(
+  id: string,
+  status: ChecklistRun['status'],
+  dueAt: string,
+  options: {
+    definitionGroupId?: string
+  } = {},
+): ChecklistRun {
   return {
     id,
     checklistDefinitionId: `definition-${id}`,
-    definitionGroupId: `group-${id}`,
+    definitionGroupId: options.definitionGroupId ?? `group-${id}`,
     establishmentId: 'est-1',
     serviceArea: 'IK_MAT',
     title: `${id} checklist`,
@@ -264,6 +271,57 @@ describe('workspace-dashboard', () => {
       'document-expired-licence',
       'temperature-dessert',
     ])
+  })
+
+  it('counts active checklist runs separately when they share the same definition group', () => {
+    const metrics = buildIKMatServiceSummary({
+      checklistRuns: [
+        createChecklistRun('overdue-run', 'OVERDUE', createLocalIsoTimestamp(2026, 3, 5, 7, 0), {
+          definitionGroupId: 'group-shared',
+        }),
+        createChecklistRun(
+          'in-progress-run',
+          'IN_PROGRESS',
+          createLocalIsoTimestamp(2026, 3, 5, 12, 0),
+          {
+            definitionGroupId: 'group-shared',
+          },
+        ),
+      ],
+      temperatureUnits: [],
+      deviations: [],
+    }).metrics
+
+    expect(metrics[0]).toEqual({
+      label: 'Active checklist runs',
+      value: '2 runs',
+      tone: 'primary',
+    })
+  })
+
+  it('keeps overdue attention items for each run when they share the same definition group', () => {
+    const items = buildWorkspaceAttentionItems({
+      checklistRuns: [
+        createChecklistRun('late-open-1', 'OVERDUE', createLocalIsoTimestamp(2026, 3, 5, 7, 0), {
+          definitionGroupId: 'group-shared',
+        }),
+        createChecklistRun('late-open-2', 'OVERDUE', createLocalIsoTimestamp(2026, 3, 5, 8, 0), {
+          definitionGroupId: 'group-shared',
+        }),
+      ],
+      temperatureUnits: [],
+      deviationsByService: {
+        IK_MAT: [],
+        IK_ALKOHOL: [],
+      },
+      documents: [],
+      now: new Date(2026, 3, 5, 9, 0, 0),
+    })
+
+    expect(items.map((item) => item.id)).toHaveLength(2)
+    expect(items.map((item) => item.id)).toEqual(
+      expect.arrayContaining(['checklist-late-open-1', 'checklist-late-open-2']),
+    )
   })
 
   it('renders placeholders and skips unavailable document and temperature attention data', () => {
