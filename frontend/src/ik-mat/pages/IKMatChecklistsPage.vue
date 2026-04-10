@@ -205,7 +205,8 @@ function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
   }
 }
 
-function triageSourceRuns(_filter: TriageFilter): ChecklistRun[] {
+function triageSourceRuns(filter: TriageFilter): ChecklistRun[] {
+  void filter
   return allChecklistRuns.value
 }
 
