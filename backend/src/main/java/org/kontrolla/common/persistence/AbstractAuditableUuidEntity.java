@@ -8,6 +8,10 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Base JPA entity that provides a UUID identifier together with automatic
+ * creation and update timestamps.
+ */
 @Getter
 @MappedSuperclass
 public abstract class AbstractAuditableUuidEntity {

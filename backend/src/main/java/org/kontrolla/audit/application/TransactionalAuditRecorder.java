@@ -15,6 +15,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Default audit recorder that persists audit events and emits a structured log
+ * entry after transaction commit.
+ */
 @Service
 public class TransactionalAuditRecorder implements AuditRecorder {
 
@@ -25,6 +29,14 @@ public class TransactionalAuditRecorder implements AuditRecorder {
 	private final AuditRequestContextResolver auditRequestContextResolver;
 	private final ObjectMapper objectMapper;
 
+	/**
+	 * Creates an audit recorder backed by the audit event repository.
+	 *
+	 * @param auditEventRepository repository used to persist audit events
+	 * @param auditRequestContextResolver resolver that enriches records with
+	 * request context
+	 * @param objectMapper object mapper used to serialize audit payloads
+	 */
 	public TransactionalAuditRecorder(
 			AuditEventRepository auditEventRepository,
 			AuditRequestContextResolver auditRequestContextResolver,
@@ -35,12 +47,22 @@ public class TransactionalAuditRecorder implements AuditRecorder {
 		this.objectMapper = objectMapper;
 	}
 
+	/**
+	 * Records an audit event inside the caller's current transaction.
+	 *
+	 * @param auditRecord the audit record to persist
+	 */
 	@Override
 	@Transactional
 	public void record(AuditRecord auditRecord) {
 		persistAndSchedule(auditRecord);
 	}
 
+	/**
+	 * Records an audit event in a new transaction isolated from the caller.
+	 *
+	 * @param auditRecord the audit record to persist
+	 */
 	@Override
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void recordInNewTransaction(AuditRecord auditRecord) {

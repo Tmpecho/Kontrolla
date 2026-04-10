@@ -34,11 +34,13 @@ const props = withDefaults(
     isSaving?: boolean
     saveErrorMessage?: string | null
     showCloseButton?: boolean
+    variant?: 'panel' | 'sheet'
   }>(),
   {
     isSaving: false,
     saveErrorMessage: null,
     showCloseButton: false,
+    variant: 'panel',
   },
 )
 
@@ -195,7 +197,7 @@ function submitTimelineNote() {
 </script>
 
 <template>
-  <section class="detail-panel" aria-label="Selected deviation details">
+  <section class="detail-panel" :data-variant="variant" aria-label="Selected deviation details">
     <header class="detail-header">
       <div class="detail-header-main">
         <div class="detail-header-copy">
@@ -437,6 +439,12 @@ function submitTimelineNote() {
   border: 1px solid var(--color-border-muted);
   border-radius: 4px;
   background-color: var(--color-container);
+}
+
+.detail-panel[data-variant='sheet'] {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .detail-header {
@@ -747,6 +755,11 @@ function submitTimelineNote() {
 }
 
 @media (max-width: 720px) {
+  .detail-panel[data-variant='sheet'] {
+    gap: 16px;
+    padding: 20px 16px 24px;
+  }
+
   .detail-metadata,
   .edit-fieldset {
     grid-template-columns: 1fr;

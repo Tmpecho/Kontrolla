@@ -208,7 +208,7 @@ const handleTextChange = (e: Event) => {
   row-gap: 0.125rem;
   padding: 0.55rem 0.35rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 78%, white);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: color-mix(in srgb, var(--color-surface) 28%, white);
   position: relative;
 }
@@ -222,7 +222,7 @@ const handleTextChange = (e: Event) => {
 .task-indicator {
   width: 3px;
   min-height: 1.4rem;
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   margin-top: 0.125rem;
   transition: background-color 0.2s;
 }
@@ -283,7 +283,7 @@ const handleTextChange = (e: Event) => {
   align-items: center;
   padding: 0.08rem 0.32rem;
   border: 1px solid color-mix(in srgb, var(--color-critical) 35%, white);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: color-mix(in srgb, var(--color-critical) 10%, white);
   color: var(--color-critical);
   font-size: 0.58rem;
@@ -318,7 +318,7 @@ const handleTextChange = (e: Event) => {
   max-width: 100%;
   padding: 0.38rem 0.55rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: var(--color-white);
   font: 400 0.76rem var(--font-sans, inherit);
   color: var(--color-text-primary);
@@ -331,7 +331,7 @@ const handleTextChange = (e: Event) => {
 .task-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(0, 94, 184, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 .input-group {
   width: 100%;
@@ -376,7 +376,7 @@ const handleTextChange = (e: Event) => {
     align-items: start;
     padding: 0.5rem 0;
     background: transparent;
-    border-radius: 0;
+    border-radius: var(--radius-sharp);
   }
 
   .task-control {

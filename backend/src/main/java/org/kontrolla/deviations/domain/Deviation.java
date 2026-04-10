@@ -21,6 +21,9 @@ import org.kontrolla.organizations.domain.Organization;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Persisted deviation reported for an establishment.
+ */
 @Getter
 @Entity
 @Table(name = "deviations")
@@ -73,6 +76,18 @@ public class Deviation extends AbstractAuditableUuidEntity {
     protected Deviation() {
     }
 
+    /**
+     * Creates a deviation.
+     *
+     * @param organization the owning organization
+     * @param establishment the owning establishment
+     * @param createdByUser the user who reported the deviation
+     * @param assignedToUser the assigned user, if any
+     * @param title the deviation title
+     * @param description the deviation description
+     * @param severity the deviation severity
+     * @param category the deviation category
+     */
     public Deviation(
         Organization organization,
         Establishment establishment,
@@ -94,6 +109,11 @@ public class Deviation extends AbstractAuditableUuidEntity {
         this.category = category;
     }
 
+    /**
+     * Adds a timeline event to the deviation.
+     *
+     * @param event the event to append
+     */
     public void addEvent(DeviationEvent event) {
         event.attachTo(this);
         this.events.add(event);

@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Development-only bootstrapper that ensures configured non-admin users exist.
+ */
 @Component
 @Profile("dev")
 @Order(10)
@@ -26,6 +29,13 @@ public class BootstrapUserInitializer implements ApplicationRunner {
 	private final PasswordEncoder passwordEncoder;
 	private final AppSecurityProperties properties;
 
+	/**
+	 * Creates the bootstrap user initializer.
+	 *
+	 * @param userRepository repository for users
+	 * @param passwordEncoder encoder for seeded passwords
+	 * @param properties bootstrap security properties
+	 */
 	public BootstrapUserInitializer(
 			UserRepository userRepository,
 			PasswordEncoder passwordEncoder,
@@ -36,6 +46,11 @@ public class BootstrapUserInitializer implements ApplicationRunner {
 		this.properties = properties;
 	}
 
+	/**
+	 * Creates or updates configured bootstrap users in development.
+	 *
+	 * @param args application startup arguments
+	 */
 	@Override
 	@Transactional
 	public void run(org.springframework.boot.ApplicationArguments args) {

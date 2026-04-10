@@ -24,10 +24,10 @@ const form = reactive({
 const selectedFile = ref<File | null>(null)
 const auditMembers = ref<OrganizationMembership[]>([])
 const selectedAuditUserIds = ref<string[]>([])
-const validationMessage = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
 const auditMembersErrorMessage = ref<string | null>(null)
 const isSubmitting = ref(false)
+const attemptedSubmit = ref(false)
 const isLoadingAuditMembers = ref(false)
 
 const isAlcoholPage = computed(() => {
@@ -93,8 +93,38 @@ const allAuditMembersSelected = computed(() => {
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   selectedFile.value = input.files?.[0] ?? null
-  validationMessage.value = null
 }
+
+const titleError = computed(() =>
+  attemptedSubmit.value && !form.title.trim() ? 'Enter a document title.' : null,
+)
+const holderNameError = computed(() =>
+  attemptedSubmit.value && !form.holderName.trim() ? 'Enter the holder name.' : null,
+)
+const issueDateError = computed(() =>
+  attemptedSubmit.value && !form.issueDate ? 'Choose an issue date.' : null,
+)
+const renewalDateError = computed(() =>
+  attemptedSubmit.value && !form.renewalDate ? 'Choose a renewal date.' : null,
+)
+const fileError = computed(() => {
+  if (!attemptedSubmit.value) {
+    return null
+  }
+
+  if (!selectedFile.value) {
+    return 'Choose a PDF file to upload.'
+  }
+
+  const fileName = selectedFile.value.name.toLowerCase()
+  const contentType = selectedFile.value.type.toLowerCase()
+
+  if (contentType !== 'application/pdf' && !fileName.endsWith('.pdf')) {
+    return 'Only PDF files are supported.'
+  }
+
+  return null
+})
 
 function formatMemberName(member: OrganizationMembership): string {
   return `${member.userFirstName} ${member.userLastName}`.trim() || member.userEmail
@@ -144,32 +174,8 @@ async function loadAuditMembers() {
   }
 }
 
-function validateForm() {
-  if (
-    !form.title.trim() ||
-    !form.holderName.trim() ||
-    !form.issueDate ||
-    !form.renewalDate
-  ) {
-    validationMessage.value = 'Complete all fields before uploading.'
-    return false
-  }
-
-  if (!selectedFile.value) {
-    validationMessage.value = 'Choose a PDF file to upload.'
-    return false
-  }
-
-  const fileName = selectedFile.value.name.toLowerCase()
-  const contentType = selectedFile.value.type.toLowerCase()
-
-  if (contentType !== 'application/pdf' && !fileName.endsWith('.pdf')) {
-    validationMessage.value = 'Only PDF files are supported.'
-    return false
-  }
-
-  validationMessage.value = null
-  return true
+function clearFieldFeedback(): void {
+  errorMessage.value = null
 }
 
 async function submitForm() {
@@ -177,7 +183,15 @@ async function submitForm() {
     return
   }
 
-  if (!validateForm()) {
+  attemptedSubmit.value = true
+
+  if (
+    titleError.value ||
+    holderNameError.value ||
+    issueDateError.value ||
+    renewalDateError.value ||
+    fileError.value
+  ) {
     return
   }
 
@@ -220,13 +234,15 @@ watch([organizationId, establishmentId], () => {
 </script>
 
 <template>
-  <div class="upload-page">
-    <header class="page-header">
-      <h1>Upload new document</h1>
-      <p class="page-subtitle">{{ pageSubtitle }}</p>
+  <div class="upload-page app-page">
+    <header class="page-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">Upload new document</h1>
+        <p class="page-subtitle app-page-subtitle">{{ pageSubtitle }}</p>
+      </div>
     </header>
 
-    <section v-if="missingContextMessage" class="placeholder-panel">
+    <section v-if="missingContextMessage" class="placeholder-panel app-panel">
       <h2>Upload unavailable</h2>
       <p>{{ missingContextMessage }}</p>
 
@@ -235,16 +251,20 @@ watch([organizationId, establishmentId], () => {
       </RouterLink>
     </section>
 
-    <form v-else class="upload-form" @submit.prevent="submitForm">
+    <form v-else class="upload-form app-panel" @submit.prevent="submitForm">
       <div class="form-grid">
         <label class="field">
           <span class="field-label">Document title</span>
           <input
             v-model="form.title"
             class="field-input"
+            :class="{ 'field-input-error': Boolean(titleError) }"
+            :aria-invalid="Boolean(titleError)"
             type="text"
             maxlength="255"
+            @input="clearFieldFeedback"
           />
+          <span v-if="titleError" class="field-error">{{ titleError }}</span>
         </label>
 
         <label class="field">
@@ -252,29 +272,52 @@ watch([organizationId, establishmentId], () => {
           <input
             v-model="form.holderName"
             class="field-input"
+            :class="{ 'field-input-error': Boolean(holderNameError) }"
+            :aria-invalid="Boolean(holderNameError)"
             type="text"
             maxlength="255"
+            @input="clearFieldFeedback"
           />
+          <span v-if="holderNameError" class="field-error">{{ holderNameError }}</span>
         </label>
 
         <label class="field">
           <span class="field-label">Issue date</span>
-          <input v-model="form.issueDate" class="field-input" type="date" />
+          <input
+            v-model="form.issueDate"
+            class="field-input"
+            :class="{ 'field-input-error': Boolean(issueDateError) }"
+            :aria-invalid="Boolean(issueDateError)"
+            type="date"
+            @input="clearFieldFeedback"
+          />
+          <span v-if="issueDateError" class="field-error">{{ issueDateError }}</span>
         </label>
 
         <label class="field">
           <span class="field-label">Renewal date</span>
-          <input v-model="form.renewalDate" class="field-input" type="date" />
+          <input
+            v-model="form.renewalDate"
+            class="field-input"
+            :class="{ 'field-input-error': Boolean(renewalDateError) }"
+            :aria-invalid="Boolean(renewalDateError)"
+            type="date"
+            @input="clearFieldFeedback"
+          />
+          <span v-if="renewalDateError" class="field-error">{{ renewalDateError }}</span>
         </label>
 
         <label class="field field-file">
           <span class="field-label">PDF file</span>
           <input
             class="field-input field-input-file"
+            :class="{ 'field-input-error': Boolean(fileError) }"
+            :aria-invalid="Boolean(fileError)"
             type="file"
             accept="application/pdf,.pdf"
             @change="onFileChange"
           />
+          <span v-if="fileError" class="field-error">{{ fileError }}</span>
           <span class="field-help">
             {{ selectedFile ? selectedFile.name : 'Select a PDF file to upload.' }}
           </span>
@@ -323,10 +366,6 @@ watch([organizationId, establishmentId], () => {
           </div>
         </fieldset>
       </div>
-
-      <p v-if="validationMessage" class="feedback-message feedback-message-error">
-        {{ validationMessage }}
-      </p>
       <p v-if="errorMessage" class="feedback-message feedback-message-error">
         {{ errorMessage }}
       </p>
@@ -345,12 +384,6 @@ watch([organizationId, establishmentId], () => {
 </template>
 
 <style scoped>
-.upload-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .page-header,
 .placeholder-panel {
   display: flex;
@@ -363,9 +396,6 @@ watch([organizationId, establishmentId], () => {
   flex-direction: column;
   gap: 16px;
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .page-header h1,
@@ -381,11 +411,13 @@ watch([organizationId, establishmentId], () => {
   max-width: 64ch;
 }
 
+.placeholder-panel h2 {
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
+}
+
 .placeholder-panel {
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .form-grid {
@@ -397,7 +429,7 @@ watch([organizationId, establishmentId], () => {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
 .field-file {
@@ -420,9 +452,9 @@ watch([organizationId, establishmentId], () => {
 
 .field-label {
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-label);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--field-label-letter-spacing);
   text-transform: uppercase;
 }
 
@@ -443,28 +475,43 @@ watch([organizationId, establishmentId], () => {
 
 .field-input {
   width: 100%;
-  padding: 0.875rem 0.75rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-white);
+  min-height: var(--field-min-height);
+  padding: var(--field-padding-y) var(--field-padding-x);
+  border: 1px solid var(--field-border-color);
+  border-radius: var(--field-radius);
+  background-color: var(--field-background);
   color: var(--color-text-primary);
   font: inherit;
   box-sizing: border-box;
 }
 
 .field-input:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-  border-color: transparent;
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+
+.field-input-error {
+  border-color: var(--color-critical);
+}
+
+.field-input-error:focus {
+  border-color: var(--color-critical);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-critical) 18%, transparent);
 }
 
 .field-input-file {
-  padding: 0.75rem;
+  padding: 0.75rem var(--field-padding-x);
 }
 
 .field-help {
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-body-sm);
+}
+
+.field-error {
+  color: var(--color-critical);
+  font-size: var(--font-size-body-sm);
 }
 
 .audit-member-list {
@@ -500,6 +547,8 @@ watch([organizationId, establishmentId], () => {
 
 .feedback-message-error {
   color: var(--color-critical);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body);
 }
 
 .form-actions {
@@ -514,7 +563,7 @@ watch([organizationId, establishmentId], () => {
   margin-top: 8px;
   text-decoration: none;
   padding: 0.875rem 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-primary);
   color: var(--color-white);
   font-size: 0.875rem;

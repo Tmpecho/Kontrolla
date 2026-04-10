@@ -25,6 +25,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Persisted document metadata together with assigned audit acknowledgements.
+ */
 @Getter
 @Entity
 @Table(name = "documents")
@@ -84,6 +87,21 @@ public class Document extends AbstractAuditableUuidEntity {
   protected Document() {
   }
 
+  /**
+   * Creates a document metadata record.
+   *
+   * @param organization the owning organization
+   * @param establishment the owning establishment
+   * @param createdByUser the user who created the document
+   * @param serviceArea the document service area
+   * @param title the document title
+   * @param holderName the document holder name
+   * @param issueDate the issue date
+   * @param renewalDate the renewal date
+   * @param fileName the stored file name
+   * @param contentType the file content type
+   * @param fileSizeBytes the file size in bytes
+   */
   public Document(
       Organization organization,
       Establishment establishment,
@@ -110,10 +128,25 @@ public class Document extends AbstractAuditableUuidEntity {
     this.fileSizeBytes = fileSizeBytes;
   }
 
+  /**
+   * Calculates the current status of the document using the default warning
+   * threshold.
+   *
+   * @param today the current date
+   * @return the calculated document status
+   */
   public DocumentStatus getStatus(LocalDate today) {
     return getStatus(today, DEFAULT_EXPIRY_WARNING_DAYS);
   }
 
+  /**
+   * Calculates the current status of the document using a custom warning
+   * threshold.
+   *
+   * @param today the current date
+   * @param warningDays the number of days before renewal to report expiring status
+   * @return the calculated document status
+   */
   public DocumentStatus getStatus(LocalDate today, int warningDays) {
     if (warningDays < 0) {
       throw new IllegalArgumentException("warningDays must be non-negative");
@@ -130,10 +163,20 @@ public class Document extends AbstractAuditableUuidEntity {
     return DocumentStatus.VALID;
   }
 
+  /**
+   * Returns immutable audit assignments for the document.
+   *
+   * @return the assigned audit acknowledgements
+   */
   public List<DocumentAuditAssignment> getAuditAssignments() {
     return List.copyOf(auditAssignments);
   }
 
+  /**
+   * Replaces audit assignments so they match the supplied users.
+   *
+   * @param users the users that should remain assigned
+   */
   public void replaceAuditAssignments(List<User> users) {
     Set<UUID> nextUserIds = users.stream()
         .map(User::getId)
@@ -154,12 +197,23 @@ public class Document extends AbstractAuditableUuidEntity {
     }
   }
 
+  /**
+   * Finds the audit assignment for a specific user.
+   *
+   * @param userId the user identifier
+   * @return the matching assignment, if present
+   */
   public Optional<DocumentAuditAssignment> findAuditAssignment(UUID userId) {
     return auditAssignments.stream()
         .filter(assignment -> assignment.getUser().getId().equals(userId))
         .findFirst();
   }
 
+  /**
+   * Indicates whether all assigned audits have been acknowledged.
+   *
+   * @return {@code true} when all assignments are acknowledged
+   */
   public boolean isAuditReady() {
     return auditAssignments.stream().allMatch(DocumentAuditAssignment::isAcknowledged);
   }

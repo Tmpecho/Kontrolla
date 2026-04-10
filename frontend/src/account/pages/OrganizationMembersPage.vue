@@ -68,6 +68,7 @@ const savingMembershipId = ref<string | null>(null)
 const isCreateComposerOpen = ref(false)
 const latestInvite = ref<ManagedOrganizationMemberProvision | null>(null)
 const showInactiveMembers = ref(false)
+const attemptedCreateSubmit = ref(false)
 const createDraft = ref<MemberProvisionDraft>({
   mode: 'existing_user',
   existingUserId: '',
@@ -119,6 +120,38 @@ const canSubmitNewMember = computed(() => {
     createDraft.value.lastName.trim().length > 0 &&
     createDraft.value.email.trim().length > 0
   )
+})
+
+const existingUserIdError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'existing_user') {
+    return null
+  }
+
+  return createDraft.value.existingUserId.trim() ? null : 'Enter an existing user ID.'
+})
+
+const inviteFirstNameError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'new_member') {
+    return null
+  }
+
+  return createDraft.value.firstName.trim() ? null : 'Enter the first name.'
+})
+
+const inviteLastNameError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'new_member') {
+    return null
+  }
+
+  return createDraft.value.lastName.trim() ? null : 'Enter the last name.'
+})
+
+const inviteEmailError = computed(() => {
+  if (!attemptedCreateSubmit.value || createDraft.value.mode !== 'new_member') {
+    return null
+  }
+
+  return createDraft.value.email.trim() ? null : 'Enter the email address.'
 })
 
 function toEditableMembership(member: OrganizationMembership): EditableMembership {
@@ -177,6 +210,7 @@ async function loadMembers(): Promise<void> {
 }
 
 function resetCreateDraft(): void {
+  attemptedCreateSubmit.value = false
   createDraft.value = {
     mode: 'existing_user',
     existingUserId: '',
@@ -201,6 +235,7 @@ async function handleCreateMember(): Promise<void> {
   const organizationId = resolvedOrganizationId.value
 
   if (!organizationId || !canSubmitNewMember.value) {
+    attemptedCreateSubmit.value = true
     return
   }
 
@@ -304,27 +339,36 @@ watch(showInactiveMembers, () => {
 watch(resolvedEstablishmentId, () => {
   void loadMembers()
 })
+
+watch(
+  () => createDraft.value.mode,
+  () => {
+    attemptedCreateSubmit.value = false
+  },
+)
 </script>
 
 <template>
-  <div class="directory-page">
-    <section v-if="!resolvedOrganizationId" class="notice-panel">
+  <div class="directory-page app-page">
+    <section v-if="!resolvedOrganizationId" class="notice-panel app-panel">
       <h2>Organization context required</h2>
       <p>This page needs an organization context before members can be managed.</p>
     </section>
 
-    <section v-else-if="!canManageMembers" class="notice-panel">
+    <section v-else-if="!canManageMembers" class="notice-panel app-panel">
       <h2>Member management restricted</h2>
       <p>Only organization owners and admins can view and change member roles.</p>
     </section>
 
     <template v-else>
-      <header class="page-header">
-        <h1>Organization members</h1>
-        <p class="page-copy">
-          Manage staff access, member roles, and organization membership for
-          {{ resolvedOrganizationName }}.
-        </p>
+      <header class="page-header app-page-header">
+        <div class="app-page-header-copy">
+          <h1 class="app-page-title">Organization members</h1>
+          <p class="page-copy app-page-subtitle">
+            Manage staff access, member roles, and organization membership for
+            {{ resolvedOrganizationName }}.
+          </p>
+        </div>
       </header>
 
       <p v-if="successMessage" class="feedback-message feedback-message-success">
@@ -345,7 +389,7 @@ watch(resolvedEstablishmentId, () => {
       </div>
 
       <div class="content-grid">
-        <section class="directory-panel">
+        <section class="directory-panel app-panel">
           <header class="directory-header">
             <div>
               <h2>Members</h2>
@@ -379,7 +423,7 @@ watch(resolvedEstablishmentId, () => {
           </header>
 
           <p v-if="isLoading" class="state-message">Loading members...</p>
-          <p v-else-if="members.length === 0" class="state-message">
+          <p v-else-if="members.length === 0 && !isCreateComposerOpen" class="state-message">
             {{
               showInactiveMembers
                 ? 'No members found for this organization yet.'
@@ -413,7 +457,11 @@ watch(resolvedEstablishmentId, () => {
               <div class="cell composer-fields" role="cell">
                 <label class="form-field">
                   <span class="field-label">Provision mode</span>
-                  <select v-model="createDraft.mode" class="field-input field-input-table">
+                  <select
+                    v-model="createDraft.mode"
+                    class="field-input field-input-table"
+                    @change="attemptedCreateSubmit = false"
+                  >
                     <option value="existing_user">Existing user</option>
                     <option value="new_member">Invite new member</option>
                   </select>
@@ -424,9 +472,13 @@ watch(resolvedEstablishmentId, () => {
                   <input
                     v-model="createDraft.existingUserId"
                     class="field-input field-input-table"
+                    :class="{ 'field-input-error': Boolean(existingUserIdError) }"
+                    :aria-invalid="Boolean(existingUserIdError)"
                     type="text"
                     placeholder="Paste the user's UUID"
+                    @input="attemptedCreateSubmit = false"
                   />
+                  <span v-if="existingUserIdError" class="field-error">{{ existingUserIdError }}</span>
                 </label>
 
                 <template v-else>
@@ -435,27 +487,39 @@ watch(resolvedEstablishmentId, () => {
                     <input
                       v-model="createDraft.firstName"
                       class="field-input field-input-table"
+                      :class="{ 'field-input-error': Boolean(inviteFirstNameError) }"
+                      :aria-invalid="Boolean(inviteFirstNameError)"
                       type="text"
                       placeholder="First name"
+                      @input="attemptedCreateSubmit = false"
                     />
+                    <span v-if="inviteFirstNameError" class="field-error">{{ inviteFirstNameError }}</span>
                   </label>
                   <label class="form-field">
                     <span class="field-label">Last name</span>
                     <input
                       v-model="createDraft.lastName"
                       class="field-input field-input-table"
+                      :class="{ 'field-input-error': Boolean(inviteLastNameError) }"
+                      :aria-invalid="Boolean(inviteLastNameError)"
                       type="text"
                       placeholder="Last name"
+                      @input="attemptedCreateSubmit = false"
                     />
+                    <span v-if="inviteLastNameError" class="field-error">{{ inviteLastNameError }}</span>
                   </label>
                   <label class="form-field">
                     <span class="field-label">Email</span>
                     <input
                       v-model="createDraft.email"
                       class="field-input field-input-table"
+                      :class="{ 'field-input-error': Boolean(inviteEmailError) }"
+                      :aria-invalid="Boolean(inviteEmailError)"
                       type="email"
                       placeholder="name@company.com"
+                      @input="attemptedCreateSubmit = false"
                     />
+                    <span v-if="inviteEmailError" class="field-error">{{ inviteEmailError }}</span>
                   </label>
                 </template>
               </div>
@@ -492,7 +556,7 @@ watch(resolvedEstablishmentId, () => {
                 <button
                   type="submit"
                   class="primary-button"
-                  :disabled="!canSubmitNewMember || isCreatingMember"
+                  :disabled="isCreatingMember"
                 >
                   {{ isCreatingMember ? 'Provisioning...' : 'Create member' }}
                 </button>
@@ -610,9 +674,9 @@ watch(resolvedEstablishmentId, () => {
 .panel-kicker,
 .field-label {
   color: var(--color-text-secondary);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  letter-spacing: var(--field-label-letter-spacing);
   text-transform: uppercase;
 }
 
@@ -627,8 +691,7 @@ watch(resolvedEstablishmentId, () => {
 }
 
 .page-copy {
-  color: var(--color-text-secondary);
-  font-size: 1.05rem;
+  font-size: var(--font-size-body);
   line-height: 1.45;
 }
 
@@ -641,15 +704,16 @@ watch(resolvedEstablishmentId, () => {
 .notice-panel {
   gap: 18px;
   padding: 20px;
-  border: 1px solid #e6e8ef;
-  border-radius: 6px;
-  background-color: #fbfbfd;
+  border-radius: var(--radius-sharp);
+}
+
+.notice-panel {
+  background-color: var(--color-container);
 }
 
 .directory-header h2 {
-  font-size: 1.75rem;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
 }
 
 .form-field {
@@ -661,9 +725,9 @@ watch(resolvedEstablishmentId, () => {
 .field-input {
   min-height: 44px;
   padding: 0.8rem 0.9rem;
-  border: 1px solid #cfd5e3;
-  border-radius: 2px;
-  background-color: #fff;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sharp);
+  background-color: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
   box-sizing: border-box;
@@ -674,11 +738,26 @@ watch(resolvedEstablishmentId, () => {
   outline-offset: -2px;
 }
 
+.field-input-error {
+  border-color: var(--color-critical);
+}
+
+.field-input-error:focus {
+  outline: none;
+  border-color: var(--color-critical);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-critical) 18%, transparent);
+}
+
+.field-error {
+  color: var(--color-critical);
+  font-size: var(--font-size-body-sm);
+}
+
 .field-hint,
 .directory-header p,
 .state-message {
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .status-toggle,
@@ -693,7 +772,7 @@ watch(resolvedEstablishmentId, () => {
 .secondary-button,
 .icon-button {
   min-height: 42px;
-  border-radius: 2px;
+  border-radius: var(--radius-sharp);
   font: inherit;
   cursor: pointer;
 }
@@ -701,22 +780,31 @@ watch(resolvedEstablishmentId, () => {
 .primary-button {
   border: 0;
   padding: 0.85rem 1rem;
-  background-color: #1557b0;
-  color: #fff;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   font-weight: 600;
 }
 
+.primary-button:hover {
+  background-color: var(--color-primary-strong);
+}
+
 .secondary-button {
-  border: 1px solid #d5dae6;
+  border: 1px solid var(--color-border-muted);
   padding: 0.72rem 0.95rem;
-  background-color: #fff;
+  background-color: var(--color-white);
   color: var(--color-text-primary);
+}
+
+.secondary-button:hover,
+.icon-button:hover {
+  background-color: var(--color-surface);
 }
 
 .icon-button {
   width: 42px;
-  border: 1px solid #d5dae6;
-  background-color: #fff;
+  border: 1px solid var(--color-border-muted);
+  background-color: var(--color-white);
   color: var(--color-text-primary);
 }
 
@@ -738,13 +826,14 @@ watch(resolvedEstablishmentId, () => {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .directory-table-shell {
   overflow: hidden;
-  border: 1px solid #e1e5ef;
-  border-radius: 4px;
-  background-color: #fff;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sharp);
+  background-color: var(--color-white);
 }
 
 .directory-table {
@@ -753,13 +842,13 @@ watch(resolvedEstablishmentId, () => {
 }
 
 .directory-table-head {
-  background-color: #f4f5f8;
-  border-bottom: 1px solid #e1e5ef;
+  background-color: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border-muted);
 }
 
 .directory-table-head span {
   padding: 14px 16px;
-  color: #6a7488;
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -767,15 +856,19 @@ watch(resolvedEstablishmentId, () => {
 }
 
 .directory-table-row {
-  border-bottom: 1px solid #edf0f6;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 70%, white);
 }
 
 .directory-table-row[data-self-member='true'] {
-  background: linear-gradient(90deg, #fff4dd 0%, #fff9ef 100%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-warning-soft) 92%, white) 0%,
+    color-mix(in srgb, var(--color-warning-soft) 60%, white) 100%
+  );
 }
 
 .directory-table-row-create {
-  background-color: #f8f9fc;
+  background-color: var(--color-surface);
 }
 
 .directory-table-row:last-child {
@@ -816,7 +909,6 @@ watch(resolvedEstablishmentId, () => {
 
 .member-copy span,
 .pending-note {
-  /* color: #6a7488; */
   font-size: 0.84rem;
   overflow-wrap: anywhere;
 }
@@ -825,10 +917,10 @@ watch(resolvedEstablishmentId, () => {
   display: inline-flex;
   align-items: center;
   padding: 0.22rem 0.52rem;
-  border: 1px solid #e9f1f7;
-  border-radius: 999px;
-  background-color: #2274a5;
-  color: #ffffff;
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  color: var(--color-white);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -836,7 +928,7 @@ watch(resolvedEstablishmentId, () => {
 }
 
 .self-warning {
-  color: #8a5a00;
+  color: var(--color-warning-strong);
   font-weight: 600;
 }
 
@@ -853,9 +945,9 @@ watch(resolvedEstablishmentId, () => {
   min-height: 3em;
   width: 100%;
   padding: 0.72rem 0.8rem;
-  border: 1px dashed #d4ae3d;
-  border-radius: 4px;
-  background-color: #fff8de;
+  border: 1px dashed var(--color-warning-border);
+  border-radius: var(--radius-xs);
+  background-color: var(--color-warning-soft);
   box-sizing: border-box;
 }
 
@@ -906,9 +998,8 @@ watch(resolvedEstablishmentId, () => {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 999px;
-  background-color: #d4d9e4;
-  transition: background-color 0.2s ease;
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-border-strong) 55%, white);
 }
 
 .switch-track::after {
@@ -919,15 +1010,12 @@ watch(resolvedEstablishmentId, () => {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background-color: #fff;
+  background-color: var(--color-white);
   box-shadow: 0 1px 4px rgba(28, 36, 52, 0.22);
-  transition:
-    transform 0.2s ease,
-    background-color 0.2s ease;
 }
 
 .switch-control input:checked + .switch-track {
-  background-color: #3b82f6;
+  background-color: var(--color-info-strong);
 }
 
 .switch-control input:checked + .switch-track::after {
@@ -944,9 +1032,9 @@ watch(resolvedEstablishmentId, () => {
   align-items: center;
   min-height: 22px;
   padding: 0 8px;
-  border-radius: 999px;
-  background-color: #fde9e8;
-  color: #b33c36;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-critical-soft);
+  color: var(--color-critical-strong);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -954,13 +1042,13 @@ watch(resolvedEstablishmentId, () => {
 }
 
 .status-pill[data-active='true'] {
-  background-color: #e3f6e7;
-  color: #287d3c;
+  background-color: var(--color-success-soft);
+  color: var(--color-success-strong);
 }
 
 .status-pill[data-saving='true'] {
-  background-color: #e8eefc;
-  color: #284c93;
+  background-color: var(--color-info-soft);
+  color: var(--color-info-strong);
 }
 
 .pending-note {
@@ -969,7 +1057,7 @@ watch(resolvedEstablishmentId, () => {
 
 .feedback-message {
   padding: 12px 14px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .feedback-message-success {
@@ -986,9 +1074,9 @@ watch(resolvedEstablishmentId, () => {
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem;
-  border: 1px solid #d8deea;
-  border-radius: 4px;
-  background-color: #f7f9fc;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-xs);
+  background-color: var(--color-surface);
 }
 
 .invite-link-panel strong {
@@ -1014,15 +1102,150 @@ watch(resolvedEstablishmentId, () => {
     flex-direction: column;
     align-items: start;
   }
+
+  .directory-actions {
+    width: 100%;
+  }
 }
 
 @media (max-width: 980px) {
   .directory-table-shell {
-    overflow-x: auto;
+    overflow: visible;
+    border: 0;
+    background: transparent;
   }
 
-  .directory-table {
-    min-width: 760px;
+  .directory-table-head {
+    display: none;
+  }
+
+  .directory-table,
+  .directory-table-row,
+  .directory-table-row-create {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directory-table-row,
+  .directory-table-row-create {
+    gap: 0;
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-sharp);
+    background: var(--color-white);
+    overflow: hidden;
+  }
+
+  .directory-table-row + .directory-table-row,
+  .directory-table-row-create + .directory-table-row {
+    margin-top: 12px;
+  }
+
+  .directory-table-row-create {
+    margin-bottom: 12px;
+  }
+
+  .directory-table-row[data-self-member='true'] {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning-soft) 92%, white) 0%,
+      color-mix(in srgb, var(--color-warning-soft) 60%, white) 100%
+    );
+  }
+
+  .cell {
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border-muted) 70%, white);
+  }
+
+  .directory-table-row .cell:last-child,
+  .directory-table-row-create .cell:last-child {
+    border-bottom: 0;
+  }
+
+  .cell::before {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-label);
+    font-weight: 600;
+    letter-spacing: var(--field-label-letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .directory-table-row .cell:nth-child(1)::before,
+  .directory-table-row-create .cell:nth-child(1)::before {
+    content: 'Member details';
+  }
+
+  .directory-table-row .cell:nth-child(2)::before,
+  .directory-table-row-create .cell:nth-child(2)::before {
+    content: 'Role';
+  }
+
+  .directory-table-row .cell:nth-child(3)::before,
+  .directory-table-row-create .cell:nth-child(3)::before {
+    content: 'Status';
+  }
+
+  .directory-table-row-create .cell:nth-child(4)::before {
+    content: 'Actions';
+  }
+
+  .composer-fields,
+  .composer-actions,
+  .status-cell,
+  .actions-cell {
+    align-items: stretch;
+  }
+
+  .composer-actions .primary-button,
+  .composer-actions .secondary-button,
+  .directory-actions .primary-button,
+  .directory-actions .secondary-button {
+    width: 100%;
+  }
+
+  .switch-field {
+    width: 100%;
+  }
+
+  .blocked-field {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .directory-page {
+    gap: 20px;
+  }
+
+  .directory-panel,
+  .notice-panel,
+  .invite-link-panel {
+    padding: 16px;
+  }
+
+  .directory-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .directory-actions .icon-button {
+    width: 100%;
+  }
+
+  .member-copy strong {
+    font-size: var(--font-size-body);
+  }
+
+  .member-copy span,
+  .pending-note,
+  .state-message,
+  .directory-header p {
+    font-size: var(--font-size-body-sm);
+  }
+
+  .composer-fields {
+    gap: 10px;
   }
 }
 </style>

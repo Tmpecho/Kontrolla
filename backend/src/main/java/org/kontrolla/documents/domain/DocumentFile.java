@@ -11,6 +11,9 @@ import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
+/**
+ * Persisted binary file content for a document.
+ */
 @Getter
 @Entity
 @Table(name = "document_files")
@@ -28,11 +31,22 @@ public class DocumentFile {
   protected DocumentFile() {
   }
 
+  /**
+   * Creates stored file content for a document.
+   *
+   * @param documentId the document identifier
+   * @param content the binary file content
+   */
   public DocumentFile(UUID documentId, byte[] content) {
     this.documentId = documentId;
     this.content = content;
   }
 
+  /**
+   * Replaces the stored file content.
+   *
+   * @param content the replacement file content
+   */
   public void replaceContent(byte[] content) {
     this.content = content;
   }

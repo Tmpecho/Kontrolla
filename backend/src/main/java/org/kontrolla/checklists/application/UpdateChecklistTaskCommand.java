@@ -5,6 +5,15 @@ import org.kontrolla.checklists.domain.ChecklistVerificationResult;
 
 import java.math.BigDecimal;
 
+/**
+ * Command for updating a single checklist task execution.
+ *
+ * @param executionStatus the new execution status
+ * @param comment the task comment
+ * @param verificationResult the verification result, if applicable
+ * @param measuredValue the measured value, if applicable
+ * @param enteredText the entered text, if applicable
+ */
 public record UpdateChecklistTaskCommand(
 		ChecklistTaskExecutionStatus executionStatus,
 		String comment,

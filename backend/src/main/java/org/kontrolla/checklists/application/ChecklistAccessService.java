@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Centralizes checklist read, management, and execution access rules.
+ */
 @Service
 public class ChecklistAccessService {
 
@@ -28,6 +31,13 @@ public class ChecklistAccessService {
 	private final EstablishmentService establishmentService;
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 
+	/**
+	 * Creates the checklist access service.
+	 *
+	 * @param organizationAccessService service for organization access checks
+	 * @param establishmentService service for establishment access and lookup
+	 * @param organizationMembershipRepository repository for organization memberships
+	 */
 	public ChecklistAccessService(
 			OrganizationAccessService organizationAccessService,
 			EstablishmentService establishmentService,
@@ -38,6 +48,13 @@ public class ChecklistAccessService {
 		this.organizationMembershipRepository = organizationMembershipRepository;
 	}
 
+	/**
+	 * Requires read access to checklist data for an establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 */
 	@Transactional(readOnly = true)
 	public void requireChecklistReadAccess(
 			UUID organizationId,
@@ -47,11 +64,24 @@ public class ChecklistAccessService {
 		establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 	}
 
+	/**
+	 * Requires checklist management access at organization scope.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param currentUser the authenticated user
+	 */
 	@Transactional(readOnly = true)
 	public void requireChecklistManagementAccess(UUID organizationId, CurrentUser currentUser) {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 	}
 
+	/**
+	 * Requires checklist management access for a specific establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 */
 	@Transactional(readOnly = true)
 	public void requireChecklistManagementAccess(
 			UUID organizationId,
@@ -62,6 +92,13 @@ public class ChecklistAccessService {
 		organizationAccessService.requireEstablishmentAccess(currentUser, organizationId, establishmentId);
 	}
 
+	/**
+	 * Requires access to execute a checklist run.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param checklistRun the checklist run
+	 * @param currentUser the authenticated user
+	 */
 	@Transactional(readOnly = true)
 	public void requireChecklistExecutionAccess(
 			UUID organizationId,
@@ -87,6 +124,15 @@ public class ChecklistAccessService {
 		}
 	}
 
+	/**
+	 * Indicates whether the current user can manage checklist operations for an
+	 * establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @return {@code true} when management access is allowed
+	 */
 	@Transactional(readOnly = true)
 	public boolean canManageChecklistOperations(UUID organizationId, UUID establishmentId, CurrentUser currentUser) {
 		if (currentUser.isPlatformAdmin()) {
@@ -102,6 +148,14 @@ public class ChecklistAccessService {
 				&& membership.hasEstablishmentAccess(establishmentId);
 	}
 
+	/**
+	 * Requires permission to filter assignments for another user.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param assignedUserId the user being filtered for
+	 * @param currentUser the authenticated user
+	 */
 	@Transactional(readOnly = true)
 	public void requireAssignmentFilterAccess(
 			UUID organizationId,
@@ -120,11 +174,21 @@ public class ChecklistAccessService {
 		}
 	}
 
+	/**
+	 * Creates a standardized not-found exception for checklist runs.
+	 *
+	 * @return the checklist run not-found exception
+	 */
 	@Transactional(readOnly = true)
 	public ResourceNotFoundException checklistRunNotFound() {
 		return new ResourceNotFoundException("checklist_run_not_found", "Checklist run not found");
 	}
 
+	/**
+	 * Creates a standardized not-found exception for checklist run assignments.
+	 *
+	 * @return the checklist assignment not-found exception
+	 */
 	@Transactional(readOnly = true)
 	public ResourceNotFoundException checklistAssignmentNotFound() {
 		return new ResourceNotFoundException("checklist_run_assignment_not_found", "Checklist run assignment not found");

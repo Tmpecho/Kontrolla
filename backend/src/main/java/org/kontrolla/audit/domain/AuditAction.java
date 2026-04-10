@@ -1,5 +1,8 @@
 package org.kontrolla.audit.domain;
 
+/**
+ * Enumerates the domain actions that can produce audit events.
+ */
 public enum AuditAction {
 
 	AUTH_LOGIN,

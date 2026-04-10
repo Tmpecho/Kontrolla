@@ -7,6 +7,7 @@ defineProps<{
   autocomplete?: string
   placeholder?: string
   hint?: string
+  error?: string | null
 }>()
 
 defineEmits(['update:modelValue'])
@@ -20,7 +21,7 @@ defineEmits(['update:modelValue'])
         <slot name="aside"></slot>
       </div>
     </div>
-    
+
     <textarea
       v-if="type === 'text-area'"
       :id="id"
@@ -28,8 +29,9 @@ defineEmits(['update:modelValue'])
       @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
       :autocomplete="autocomplete"
       :placeholder="placeholder"
+      :aria-invalid="Boolean(error)"
       class="input-field textarea-field"
-      required
+      :class="{ 'input-field-error': Boolean(error) }"
     ></textarea>
     <input
       v-else
@@ -39,9 +41,11 @@ defineEmits(['update:modelValue'])
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       :autocomplete="autocomplete"
       :placeholder="placeholder"
+      :aria-invalid="Boolean(error)"
       class="input-field"
-      required
+      :class="{ 'input-field-error': Boolean(error) }"
     />
+    <p v-if="error" class="input-error">{{ error }}</p>
     <p v-if="hint" class="input-hint">{{ hint }}</p>
   </div>
 </template>
@@ -51,39 +55,48 @@ defineEmits(['update:modelValue'])
   display: flex;
   flex-direction: column;
   width: 100%;
+  gap: 0.5rem;
 }
 
 .label-wrapper {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 0.5rem;
 }
 
 .input-label {
-  font-size: 0.75rem;
+  font-size: var(--font-size-label);
   font-weight: 600;
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--field-label-letter-spacing);
 }
 
 .input-field {
-  background-color: var(--color-container);
-  border: none;
-  border-bottom: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  padding: 0.875rem 0.5rem;
-  font-size: 1rem;
+  min-height: var(--field-min-height);
+  background-color: var(--field-background);
+  border: 1px solid var(--field-border-color);
+  border-radius: var(--field-radius);
+  padding: var(--field-padding-y) var(--field-padding-x);
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
   width: 100%;
   box-sizing: border-box;
 }
 
 .input-field:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-  border-bottom-color: transparent;
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+
+.input-field-error {
+  border-color: var(--color-critical);
+}
+
+.input-field-error:focus {
+  border-color: var(--color-critical);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-critical) 18%, transparent);
 }
 
 .textarea-field {
@@ -91,10 +104,17 @@ defineEmits(['update:modelValue'])
   resize: vertical;
 }
 
+.input-error,
 .input-hint {
-  font-size: 0.875rem;
+  font-size: var(--font-size-body-sm);
+  margin: 0;
+}
+
+.input-hint {
   color: var(--color-text-secondary);
-  margin: 0.5rem 0 0 0;
-  padding-left: 0.25rem;
+}
+
+.input-error {
+  color: var(--color-critical);
 }
 </style>

@@ -186,9 +186,6 @@ watch(
       </div>
     </div>
 
-    <OrganizationSwitcher class="mobile-organization-switcher" variant="panel" />
-    <EstablishmentSwitcher class="mobile-establishment-switcher" variant="panel" />
-
     <div class="right-container icons-container">
       <OrganizationSwitcher class="desktop-organization-switcher" />
       <EstablishmentSwitcher class="desktop-establishment-switcher" />
@@ -251,14 +248,6 @@ watch(
   justify-content: space-between;
   padding: 14px 30px;
   background-color: var(--color-white);
-}
-
-.mobile-establishment-switcher {
-  display: none;
-}
-
-.mobile-organization-switcher {
-  display: none;
 }
 
 .left-container {
@@ -414,17 +403,13 @@ watch(
   }
 
   .desktop-service-links,
-  .desktop-organization-switcher,
-  .desktop-establishment-switcher,
-  .icon-wrapper-notifications {
+  .desktop-service-links {
     display: none;
   }
 
-  .mobile-organization-switcher,
-  .mobile-establishment-switcher {
-    display: flex;
-    width: 100%;
-    order: 3;
+  .desktop-organization-switcher,
+  .desktop-establishment-switcher {
+    display: none;
   }
 
   .left-container {

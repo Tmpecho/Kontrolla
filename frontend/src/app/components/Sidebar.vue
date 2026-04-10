@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
+import OrganizationSwitcher from '@/app/components/OrganizationSwitcher.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
 
 defineOptions({
@@ -308,6 +310,11 @@ async function onLogout() {
         <p>{{ displayEstablishmentName }}</p>
       </div>
 
+      <div v-if="variant === 'mobile'" class="mobile-switchers">
+        <OrganizationSwitcher variant="panel" />
+        <EstablishmentSwitcher variant="panel" />
+      </div>
+
       <nav v-if="variant === 'mobile'" aria-label="Services" class="navigation-group">
         <p class="nav-group-label">Services</p>
         <ul>
@@ -444,6 +451,12 @@ async function onLogout() {
   gap: 8px;
 }
 
+.mobile-switchers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .nav-group-label {
   margin: 0;
   color: var(--color-text-secondary);
@@ -559,5 +572,31 @@ async function onLogout() {
 
 .sidebar-action-signout {
   color: var(--color-critical);
+}
+
+@media (max-width: 720px) {
+  .sidebar-container[data-variant='mobile'] .navigation-group {
+    gap: 6px;
+  }
+
+  .sidebar-container[data-variant='mobile'] .navigation-group ul {
+    gap: 2px;
+  }
+
+  .sidebar-container[data-variant='mobile'] .nav-link-main {
+    padding: 8px 12px;
+    color: var(--color-text-secondary);
+    font-size: small;
+    font-weight: 400;
+  }
+
+  .sidebar-container[data-variant='mobile'] .nav-link-main[data-active='true'] {
+    color: var(--color-text-primary);
+    font-weight: 500;
+  }
+
+  .sidebar-container[data-variant='mobile'] .subservices .nav-link {
+    padding-left: 12px;
+  }
 }
 </style>

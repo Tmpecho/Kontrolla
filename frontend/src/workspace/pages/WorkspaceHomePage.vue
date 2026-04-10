@@ -481,10 +481,12 @@ watch(
 </script>
 
 <template>
-  <div class="workspace-page">
-    <section class="workspace-header">
-      <h1>Workspace</h1>
-      <p>Jump into the right service quickly and keep track of the small set of items that need attention now.</p>
+  <div class="workspace-page app-page">
+    <section class="workspace-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">Workspace</h1>
+        <p class="app-page-subtitle">Jump into the right service quickly and keep track of the small set of items that need attention now.</p>
+      </div>
     </section>
 
     <section class="workspace-section">
@@ -598,7 +600,6 @@ watch(
   gap: 12px;
 }
 
-.workspace-header h1,
 .workspace-header p,
 .section-header h2,
 .section-subtitle,
@@ -623,15 +624,6 @@ watch(
   color: var(--color-text-secondary);
 }
 
-.workspace-header {
-  gap: 8px;
-}
-
-.workspace-header h1 {
-  font-size: 2rem;
-  line-height: 1.05;
-}
-
 .workspace-header p {
   max-width: 62ch;
 }
@@ -649,7 +641,7 @@ watch(
   gap: 14px;
   padding: 20px 22px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: var(--radius-fluid-md);
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
   color: inherit;
@@ -686,7 +678,7 @@ watch(
 
 .service-tile-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: clamp(1.35rem, 1.2rem + 0.5vw, 1.5rem);
 }
 
 .service-description {
@@ -756,11 +748,11 @@ watch(
 }
 
 .service-metric[data-tone='warning'] .service-metric-value {
-  color: #b45309;
+  color: var(--color-warning-strong);
 }
 
 .service-metric[data-tone='critical'] .service-metric-value {
-  color: #b91c1c;
+  color: var(--color-critical-strong);
 }
 
 .service-note {
@@ -777,7 +769,7 @@ watch(
 
 .attention-surface {
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: var(--radius-fluid-md);
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
   overflow: hidden;
@@ -848,11 +840,11 @@ watch(
 }
 
 .attention-link[data-tone='warning'] .attention-service {
-  color: #b45309;
+  color: var(--color-warning-strong);
 }
 
 .attention-link[data-tone='critical'] .attention-service {
-  color: #b91c1c;
+  color: var(--color-critical-strong);
 }
 
 .attention-empty-state {
@@ -861,7 +853,7 @@ watch(
 
 .quick-actions-surface {
   border: 1px solid var(--color-border-muted);
-  border-radius: 1cqh;
+  border-radius: var(--radius-fluid-md);
   background-color: var(--color-container);
   box-shadow: var(--shadow-elevated);
   overflow: hidden;

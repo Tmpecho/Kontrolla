@@ -16,6 +16,9 @@ import org.kontrolla.iam.domain.User;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+/**
+ * Schedule configuration used to generate checklist runs from a checklist definition.
+ */
 @Getter
 @Entity
 @Table(name = "checklist_schedules")
@@ -70,6 +73,20 @@ public class ChecklistSchedule extends AbstractAuditableUuidEntity {
 	protected ChecklistSchedule() {
 	}
 
+	/**
+	 * Creates a checklist schedule.
+	 *
+	 * @param scheduleType schedule recurrence type
+	 * @param startDate first active date for the schedule
+	 * @param endDate optional final active date
+	 * @param dueTime time of day when checklist runs become due
+	 * @param weekdayMask bitmask describing active weekdays
+	 * @param dayOfMonth day of month used by monthly schedules
+	 * @param timezone timezone used to evaluate the schedule
+	 * @param active whether the schedule is active
+	 * @param createdByUser user who created the schedule
+	 * @param updatedByUser user who last updated the schedule
+	 */
 	public ChecklistSchedule(
 			ChecklistScheduleType scheduleType,
 			LocalDate startDate,

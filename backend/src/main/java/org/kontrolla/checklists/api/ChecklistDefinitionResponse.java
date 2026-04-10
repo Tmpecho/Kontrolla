@@ -16,6 +16,26 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Response payload describing a checklist definition and its configured tasks and schedules.
+ *
+ * @param id identifier of the checklist definition
+ * @param definitionGroupId identifier shared across versioned definitions
+ * @param versionNumber version number of this definition
+ * @param establishmentId establishment that owns the definition
+ * @param serviceArea service area covered by the checklist
+ * @param title checklist title
+ * @param description checklist description
+ * @param status current definition status
+ * @param effectiveFrom instant when this definition version became effective
+ * @param effectiveTo instant when this definition version stopped being effective
+ * @param createdByUserId user who created the definition
+ * @param updatedByUserId user who last updated the definition
+ * @param createdAt creation timestamp
+ * @param updatedAt last update timestamp
+ * @param tasks task definitions included in the checklist
+ * @param schedules schedules attached to the checklist
+ */
 public record ChecklistDefinitionResponse(
 		UUID id,
 		UUID definitionGroupId,
@@ -35,6 +55,12 @@ public record ChecklistDefinitionResponse(
 		List<ChecklistScheduleResponse> schedules
 ) {
 
+	/**
+	 * Maps a checklist definition entity to an API response.
+	 *
+	 * @param checklistDefinition checklist definition entity to convert
+	 * @return the mapped response
+	 */
 	public static ChecklistDefinitionResponse from(ChecklistDefinition checklistDefinition) {
 		return new ChecklistDefinitionResponse(
 				checklistDefinition.getId(),
@@ -61,6 +87,19 @@ public record ChecklistDefinitionResponse(
 		);
 	}
 
+	/**
+	 * Response payload describing a single task definition within a checklist definition.
+	 *
+	 * @param id identifier of the task definition
+	 * @param title task title
+	 * @param details optional task details
+	 * @param taskKind type of task to perform
+	 * @param required whether the task is required
+	 * @param sortOrder display order of the task
+	 * @param measurementUnit measurement unit for measurement tasks
+	 * @param minimumAllowedValue lower accepted measured value
+	 * @param maximumAllowedValue upper accepted measured value
+	 */
 	public record ChecklistTaskDefinitionResponse(
 			UUID id,
 			String title,
@@ -88,6 +127,21 @@ public record ChecklistDefinitionResponse(
 		}
 	}
 
+	/**
+	 * Response payload describing a checklist schedule.
+	 *
+	 * @param id identifier of the schedule
+	 * @param scheduleType schedule recurrence type
+	 * @param startDate first active date for the schedule
+	 * @param endDate optional final active date
+	 * @param dueTime time of day when checklist runs become due
+	 * @param weekdayMask bitmask describing active weekdays
+	 * @param dayOfMonth day of month used by monthly schedules
+	 * @param timezone timezone used to evaluate the schedule
+	 * @param active whether the schedule is active
+	 * @param createdByUserId user who created the schedule
+	 * @param updatedByUserId user who last updated the schedule
+	 */
 	public record ChecklistScheduleResponse(
 			UUID id,
 			ChecklistScheduleType scheduleType,

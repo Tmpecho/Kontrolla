@@ -43,6 +43,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Spring Security configuration for JWT authentication, CSRF, and CORS.
+ */
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -50,16 +53,35 @@ public class SecurityConfig {
 	private final AppSecurityProperties properties;
 	private final ObjectMapper objectMapper;
 
+	/**
+	 * Creates the security configuration.
+	 *
+	 * @param properties security properties
+	 * @param objectMapper object mapper used for problem responses
+	 */
 	public SecurityConfig(AppSecurityProperties properties, ObjectMapper objectMapper) {
 		this.properties = properties;
 		this.objectMapper = objectMapper;
 	}
 
+	/**
+	 * Configures the CSRF token repository used by the application.
+	 *
+	 * @return the CSRF token repository
+	 */
 	@Bean
 	CsrfTokenRepository csrfTokenRepository() {
 		return CookieCsrfTokenRepository.withHttpOnlyFalse();
 	}
 
+	/**
+	 * Builds the main Spring Security filter chain.
+	 *
+	 * @param http the HTTP security builder
+	 * @param csrfTokenRepository the CSRF token repository
+	 * @return the configured security filter chain
+	 * @throws Exception when security configuration fails
+	 */
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http, CsrfTokenRepository csrfTokenRepository) throws Exception {
 		return http
@@ -98,6 +120,11 @@ public class SecurityConfig {
 				.build();
 	}
 
+	/**
+	 * Configures CORS based on application properties.
+	 *
+	 * @return the CORS configuration source
+	 */
 	@Bean
 	CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
@@ -111,11 +138,21 @@ public class SecurityConfig {
 		return source;
 	}
 
+	/**
+	 * Provides the password encoder used for account passwords.
+	 *
+	 * @return the password encoder
+	 */
 	@Bean
 	PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
 
+	/**
+	 * Configures the JWT decoder used to validate access tokens.
+	 *
+	 * @return the JWT decoder
+	 */
 	@Bean
 	JwtDecoder jwtDecoder() {
 		byte[] secret = properties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8);
@@ -128,6 +165,11 @@ public class SecurityConfig {
 		return jwtDecoder;
 	}
 
+	/**
+	 * Configures the JWT encoder used to issue access tokens.
+	 *
+	 * @return the JWT encoder
+	 */
 	@Bean
 	JwtEncoder jwtEncoder() {
 		byte[] secret = properties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8);

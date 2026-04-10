@@ -20,6 +20,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 
+/**
+ * REST API for authentication, invitation acceptance, CSRF bootstrapping, and
+ * self-service account endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -29,6 +33,14 @@ public class AuthController {
 	private final AppSecurityProperties securityProperties;
 	private final CsrfTokenRepository csrfTokenRepository;
 
+	/**
+	 * Creates the auth controller.
+	 *
+	 * @param accountService service for profile and password changes
+	 * @param authService service for login, refresh, logout, and invites
+	 * @param securityProperties security properties used for cookies
+	 * @param csrfTokenRepository repository for CSRF token management
+	 */
 	public AuthController(
 			AccountService accountService,
 			AuthService authService,
@@ -41,6 +53,13 @@ public class AuthController {
 		this.csrfTokenRepository = csrfTokenRepository;
 	}
 
+	/**
+	 * Authenticates a user and issues access and refresh tokens.
+	 *
+	 * @param httpRequest the incoming HTTP request
+	 * @param request the login payload
+	 * @return the login response with tokens and user context
+	 */
 	@PostMapping("/login")
 	public ResponseEntity<LoginResponse> login(HttpServletRequest httpRequest, @Valid @RequestBody LoginRequest request) {
 		AuthSession session = authService.login(request.email(), request.password(), httpRequest.getRemoteAddr());
@@ -55,6 +74,12 @@ public class AuthController {
 								UserAppContextResponse.from(session.appContext())));
 	}
 
+	/**
+	 * Refreshes an authenticated session using the refresh-token cookie.
+	 *
+	 * @param request the incoming HTTP request
+	 * @return the refreshed login response
+	 */
 	@PostMapping("/refresh")
 	public ResponseEntity<LoginResponse> refresh(HttpServletRequest request) {
 		AuthSession session = authService.refresh(extractRefreshCookie(request), request.getRemoteAddr());
@@ -69,6 +94,12 @@ public class AuthController {
 								UserAppContextResponse.from(session.appContext())));
 	}
 
+	/**
+	 * Logs out the current session by revoking the refresh-token cookie.
+	 *
+	 * @param request the incoming HTTP request
+	 * @return a no-content response
+	 */
 	@PostMapping("/logout")
 	public ResponseEntity<Void> logout(HttpServletRequest request) {
 		authService.logout(extractRefreshCookie(request));
@@ -77,17 +108,36 @@ public class AuthController {
 				.build();
 	}
 
+	/**
+	 * Returns public details for an invite token.
+	 *
+	 * @param token the invite token
+	 * @return the invite details response
+	 */
 	@GetMapping("/invitations/{token}")
 	public InviteDetailsResponse getInvite(@PathVariable String token) {
 		return InviteDetailsResponse.from(authService.getInviteDetails(token));
 	}
 
+	/**
+	 * Accepts an invite token and sets the invited user's password.
+	 *
+	 * @param token the invite token
+	 * @param request the accept-invite payload
+	 */
 	@PostMapping("/invitations/{token}/accept")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void acceptInvite(@PathVariable String token, @Valid @RequestBody AcceptInviteRequest request) {
 		authService.acceptInvite(token, request.password());
 	}
 
+	/**
+	 * Returns or creates a CSRF token for SPA bootstrap.
+	 *
+	 * @param request the incoming HTTP request
+	 * @param response the outgoing HTTP response
+	 * @return the CSRF token response
+	 */
 	@GetMapping("/csrf")
 	public CsrfTokenResponse csrf(HttpServletRequest request, HttpServletResponse response) {
 		CsrfToken csrfToken = csrfTokenRepository.loadToken(request);
@@ -98,11 +148,24 @@ public class AuthController {
 		return CsrfTokenResponse.from(csrfToken);
 	}
 
+	/**
+	 * Returns the current authenticated user.
+	 *
+	 * @param currentUser the authenticated principal
+	 * @return the user response
+	 */
 	@GetMapping("/me")
 	public UserResponse me(@AuthenticationPrincipal CurrentUser currentUser) {
 		return UserResponse.from(authService.getCurrentUser(currentUser));
 	}
 
+	/**
+	 * Updates the current user's profile.
+	 *
+	 * @param currentUser the authenticated principal
+	 * @param request the profile update payload
+	 * @return the updated user response
+	 */
 	@PutMapping("/me")
 	public UserResponse updateMyProfile(
 			@AuthenticationPrincipal CurrentUser currentUser,
@@ -117,6 +180,13 @@ public class AuthController {
 		);
 	}
 
+	/**
+	 * Changes the current user's password.
+	 *
+	 * @param currentUser the authenticated principal
+	 * @param request the password change payload
+	 * @return a no-content response
+	 */
 	@PutMapping("/me/password")
 	public ResponseEntity<Void> changeMyPassword(
 			@AuthenticationPrincipal CurrentUser currentUser,

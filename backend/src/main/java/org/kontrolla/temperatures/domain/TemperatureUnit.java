@@ -22,6 +22,10 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Persisted temperature-controlled unit that belongs to an establishment and
+ * stores allowed temperature bounds.
+ */
 @Getter
 @Entity
 @Table(name = "temperature_units")
@@ -68,6 +72,18 @@ public class TemperatureUnit extends AbstractAuditableUuidEntity {
   protected TemperatureUnit() {
   }
 
+  /**
+   * Creates a temperature unit.
+   *
+   * @param organization the owning organization
+   * @param establishment the owning establishment
+   * @param name the unit name
+   * @param location the unit location
+   * @param type the unit type
+   * @param dueByTime the daily deadline for logging a reading
+   * @param minimumTemperature the minimum allowed temperature in Celsius
+   * @param maximumTemperature the maximum allowed temperature in Celsius
+   */
   public TemperatureUnit(
       Organization organization,
       Establishment establishment,
@@ -88,11 +104,22 @@ public class TemperatureUnit extends AbstractAuditableUuidEntity {
     this.maximumTemperature = maximumTemperature;
   }
 
+  /**
+   * Attaches a temperature log to this unit.
+   *
+   * @param log the log entry to add
+   */
   public void addLog(TemperatureLog log) {
     log.attachTo(this);
     logs.add(log);
   }
 
+  /**
+   * Checks whether a temperature falls within the configured allowed range.
+   *
+   * @param temperatureCelsius the temperature to evaluate
+   * @return {@code true} when the temperature is within range
+   */
   public boolean isWithinRange(BigDecimal temperatureCelsius) {
     return temperatureCelsius.compareTo(minimumTemperature) >= 0
         && temperatureCelsius.compareTo(maximumTemperature) <= 0;

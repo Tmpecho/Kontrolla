@@ -12,6 +12,9 @@ import org.kontrolla.iam.domain.User;
 
 import java.time.Instant;
 
+/**
+ * Persisted acknowledgement assignment linking a document to a user.
+ */
 @Getter
 @Entity
 @Table(name = "document_audit_assignments")
@@ -31,6 +34,11 @@ public class DocumentAuditAssignment extends AbstractAuditableUuidEntity {
   protected DocumentAuditAssignment() {
   }
 
+  /**
+   * Creates an audit assignment for a user.
+   *
+   * @param user the assigned user
+   */
   public DocumentAuditAssignment(User user) {
     this.user = user;
   }
@@ -39,12 +47,23 @@ public class DocumentAuditAssignment extends AbstractAuditableUuidEntity {
     this.document = document;
   }
 
+  /**
+   * Marks the assignment as acknowledged if it has not already been
+   * acknowledged.
+   *
+   * @param acknowledgedAt the acknowledgement timestamp
+   */
   public void acknowledge(Instant acknowledgedAt) {
     if (this.acknowledgedAt == null) {
       this.acknowledgedAt = acknowledgedAt;
     }
   }
 
+  /**
+   * Indicates whether the assignment has been acknowledged.
+   *
+   * @return {@code true} when acknowledged
+   */
   public boolean isAcknowledged() {
     return acknowledgedAt != null;
   }

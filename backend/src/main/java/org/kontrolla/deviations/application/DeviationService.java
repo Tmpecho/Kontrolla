@@ -36,6 +36,10 @@ import java.util.UUID;
 
 //TODO create EstablishmentAccess class
 
+/**
+ * Handles deviation reporting, assignment, status changes, and timeline
+ * updates.
+ */
 @Service
 public class DeviationService {
 
@@ -46,6 +50,17 @@ public class DeviationService {
 	private final OrganizationMembershipRepository organizationMembershipRepository;
 	private final NotificationService notificationService;
 
+	/**
+	 * Creates a deviation service backed by access, persistence, and
+	 * notification services.
+	 *
+	 * @param deviationRepository repository for deviations
+	 * @param organizationAccessService service for organization access checks
+	 * @param establishmentService service for establishment access and lookup
+	 * @param userAccessService service for resolving users
+	 * @param organizationMembershipRepository repository for membership lookups
+	 * @param notificationService service for sending deviation notifications
+	 */
 	public DeviationService(
 			DeviationRepository deviationRepository,
 			OrganizationAccessService organizationAccessService,
@@ -62,6 +77,15 @@ public class DeviationService {
 		this.notificationService = notificationService;
 	}
 
+	/**
+	 * Lists deviations for a single establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @param pageable pagination information
+	 * @return a page of deviations
+	 */
 	@Transactional(readOnly = true)
 	public Page<Deviation> listDeviationsByEstablishmentId(
 			UUID organizationId,
@@ -73,6 +97,15 @@ public class DeviationService {
 		return deviationRepository.findByEstablishmentIdAndOrganizationId(establishmentId, organizationId, pageable);
 	}
 
+	/**
+	 * Lists deviations across an organization for users with organization-wide
+	 * operational access.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param currentUser the authenticated user
+	 * @param pageable pagination information
+	 * @return a page of deviations
+	 */
 	@Transactional(readOnly = true)
 	public Page<Deviation> listDeviationsByOrganizationId(
 			UUID organizationId,
@@ -84,6 +117,18 @@ public class DeviationService {
 		return deviationRepository.findByOrganizationId(organizationId, pageable);
 	}
 
+	/**
+	 * Creates a new deviation for an establishment.
+	 *
+	 * @param currentUser the authenticated user
+	 * @param title the deviation title
+	 * @param description the deviation description
+	 * @param category the deviation category
+	 * @param severity the deviation severity
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @return the created deviation
+	 */
 	@Transactional
 	public Deviation createDeviation(
 			CurrentUser currentUser,
@@ -120,6 +165,15 @@ public class DeviationService {
 		return deviationRepository.save(deviation);
 	}
 
+	/**
+	 * Returns a single deviation by id after access validation.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param deviationId the deviation identifier
+	 * @param currentUser the authenticated user
+	 * @return the requested deviation
+	 */
 	@Transactional(readOnly = true)
 	public Deviation getDeviation(
 			UUID organizationId,
@@ -131,6 +185,16 @@ public class DeviationService {
 		return findDeviationOrThrow(organizationId, establishmentId, deviationId);
 	}
 
+	/**
+	 * Assigns a deviation to a user with access to the establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param deviationId the deviation identifier
+	 * @param assignedUserId the user to assign
+	 * @param currentUser the authenticated user
+	 * @return the updated deviation
+	 */
 	@Transactional
 	public Deviation assignDeviation(
 			UUID organizationId,
@@ -173,6 +237,16 @@ public class DeviationService {
 		return deviationRepository.save(deviation);
 	}
 
+	/**
+	 * Updates the status of a deviation and records a timeline event.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param deviationId the deviation identifier
+	 * @param status the new deviation status
+	 * @param currentUser the authenticated user
+	 * @return the updated deviation
+	 */
 	@Transactional
 	public Deviation updateDeviationStatus(
 			UUID organizationId,
@@ -211,6 +285,19 @@ public class DeviationService {
 		return deviationRepository.save(deviation);
 	}
 
+	/**
+	 * Updates deviation details and records which fields changed.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param deviationId the deviation identifier
+	 * @param title the new title
+	 * @param description the new description
+	 * @param severity the new severity
+	 * @param category the new category
+	 * @param currentUser the authenticated user
+	 * @return the updated deviation
+	 */
 	@Transactional
 	public Deviation updateDeviationDetails(
 			UUID organizationId,
@@ -262,6 +349,16 @@ public class DeviationService {
 		return deviationRepository.save(deviation);
 	}
 
+	/**
+	 * Adds a free-form timeline note to a deviation.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param deviationId the deviation identifier
+	 * @param note the note to append
+	 * @param currentUser the authenticated user
+	 * @return the updated deviation
+	 */
 	@Transactional
 	public Deviation addTimelineNote(
 			UUID organizationId,

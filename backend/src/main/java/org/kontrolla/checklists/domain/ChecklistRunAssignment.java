@@ -13,6 +13,9 @@ import org.kontrolla.iam.domain.User;
 
 import java.time.Instant;
 
+/**
+ * Assignment of a checklist run to a specific user.
+ */
 @Getter
 @Entity
 @Table(
@@ -42,6 +45,13 @@ public class ChecklistRunAssignment extends AbstractAuditableUuidEntity {
 	protected ChecklistRunAssignment() {
 	}
 
+	/**
+	 * Creates a checklist run assignment.
+	 *
+	 * @param assignedUser user assigned to the run
+	 * @param assignedByUser user who created the assignment
+	 * @param assignedAt assignment timestamp
+	 */
 	public ChecklistRunAssignment(User assignedUser, User assignedByUser, Instant assignedAt) {
 		this.assignedUser = assignedUser;
 		this.assignedByUser = assignedByUser;

@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * A scheduled or manually created checklist run derived from a checklist definition.
+ */
 @Getter
 @Entity
 @Table(name = "checklist_runs")
@@ -95,6 +98,19 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 	protected ChecklistRun() {
 	}
 
+	/**
+	 * Creates a checklist run snapshot from a checklist definition.
+	 *
+	 * @param checklistDefinition source checklist definition
+	 * @param definitionGroupId identifier shared across definition versions
+	 * @param establishment establishment that owns the run
+	 * @param serviceArea service area covered by the run
+	 * @param titleSnapshot title copied from the source definition
+	 * @param descriptionSnapshot description copied from the source definition
+	 * @param dueAt due timestamp for the run
+	 * @param status initial run status
+	 * @param createdByUser user who created the run
+	 */
 	public ChecklistRun(
 			ChecklistDefinition checklistDefinition,
 			UUID definitionGroupId,
@@ -117,16 +133,31 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 		this.createdByUser = createdByUser;
 	}
 
+	/**
+	 * Replaces all task executions attached to this run.
+	 *
+	 * @param taskExecutions replacement task executions
+	 */
 	public void replaceTaskExecutions(Collection<ChecklistTaskExecution> taskExecutions) {
 		this.taskExecutions.clear();
 		taskExecutions.forEach(this::addTaskExecution);
 	}
 
+	/**
+	 * Adds a task execution to this run.
+	 *
+	 * @param taskExecution task execution to add
+	 */
 	public void addTaskExecution(ChecklistTaskExecution taskExecution) {
 		taskExecution.attachTo(this);
 		this.taskExecutions.add(taskExecution);
 	}
 
+	/**
+	 * Rebuilds task executions by snapshotting the supplied definition tasks.
+	 *
+	 * @param tasks task definitions to snapshot
+	 */
 	public void snapshotTasksFromDefinition(List<ChecklistTaskDefinition> tasks) {
 		this.taskExecutions.clear();
 		tasks.stream()
@@ -134,20 +165,40 @@ public class ChecklistRun extends AbstractAuditableUuidEntity {
 				.forEach(this::addTaskExecution);
 	}
 
+	/**
+	 * Replaces all assignments attached to this run.
+	 *
+	 * @param assignments replacement assignments
+	 */
 	public void replaceAssignments(Collection<ChecklistRunAssignment> assignments) {
 		this.assignments.clear();
 		assignments.forEach(this::addAssignment);
 	}
 
+	/**
+	 * Adds an assignment to this run.
+	 *
+	 * @param assignment assignment to add
+	 */
 	public void addAssignment(ChecklistRunAssignment assignment) {
 		assignment.attachTo(this);
 		this.assignments.add(assignment);
 	}
 
+	/**
+	 * Removes an assignment from this run.
+	 *
+	 * @param assignment assignment to remove
+	 */
 	public void removeAssignment(ChecklistRunAssignment assignment) {
 		this.assignments.remove(assignment);
 	}
 
+	/**
+	 * Adds an event to this run.
+	 *
+	 * @param event event to append
+	 */
 	public void addEvent(ChecklistRunEvent event) {
 		event.attachTo(this);
 		this.events.add(event);

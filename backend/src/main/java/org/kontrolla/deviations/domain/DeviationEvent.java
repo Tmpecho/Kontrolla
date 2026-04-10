@@ -14,6 +14,9 @@ import org.kontrolla.iam.domain.User;
 
 import java.time.Instant;
 
+/**
+ * Persisted timeline event associated with a deviation.
+ */
 @Getter
 @Entity
 @Table(name = "deviation_events")
@@ -40,6 +43,14 @@ public class DeviationEvent extends AbstractAuditableUuidEntity {
 	protected DeviationEvent() {
 	}
 
+	/**
+	 * Creates a deviation timeline event.
+	 *
+	 * @param eventType the type of event
+	 * @param actorUser the user responsible for the event, if any
+	 * @param occurredAt when the event occurred
+	 * @param note the timeline note
+	 */
 	public DeviationEvent(DeviationEventType eventType, User actorUser, Instant occurredAt, String note) {
 		this.eventType = eventType;
 		this.actorUser = actorUser;

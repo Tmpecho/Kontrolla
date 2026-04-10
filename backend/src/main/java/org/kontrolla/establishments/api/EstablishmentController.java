@@ -14,16 +14,34 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/**
+ * REST API for listing, creating, and reading establishments together with
+ * serving-hours configuration.
+ */
 @RestController
 @RequestMapping("/api/v1/organizations/{organizationId}/establishments")
 public class EstablishmentController {
 
 	private final EstablishmentService establishmentService;
 
+	/**
+	 * Creates a controller backed by the establishment service.
+	 *
+	 * @param establishmentService service handling establishment operations
+	 */
 	public EstablishmentController(EstablishmentService establishmentService) {
 		this.establishmentService = establishmentService;
 	}
 
+	/**
+	 * Lists establishments within an organization that are accessible to the
+	 * current user.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param currentUser the authenticated user
+	 * @param pageable pagination information
+	 * @return a page of establishment responses
+	 */
 	@GetMapping
 	public PageResponse<EstablishmentResponse> listEstablishments(
 			@PathVariable UUID organizationId,
@@ -36,6 +54,14 @@ public class EstablishmentController {
 		);
 	}
 
+	/**
+	 * Creates a new establishment in an organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param currentUser the authenticated user
+	 * @param request the request payload
+	 * @return the created establishment response
+	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public EstablishmentResponse createEstablishment(
@@ -53,6 +79,14 @@ public class EstablishmentController {
 		return EstablishmentResponse.from(establishment);
 	}
 
+	/**
+	 * Returns a single establishment by id.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @return the establishment response
+	 */
 	@GetMapping("/{establishmentId}")
 	public EstablishmentResponse getEstablishment(
 			@PathVariable UUID organizationId,
@@ -62,6 +96,14 @@ public class EstablishmentController {
 		return EstablishmentResponse.from(establishmentService.getEstablishment(organizationId, establishmentId, currentUser));
 	}
 
+	/**
+	 * Returns serving hours for every weekday for an establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @return the serving-hours responses
+	 */
 	@GetMapping("/{establishmentId}/serving-hours")
 	public java.util.List<ServingHoursDayResponse> getServingHours(
 			@PathVariable UUID organizationId,
@@ -74,6 +116,15 @@ public class EstablishmentController {
 				.toList();
 	}
 
+	/**
+	 * Updates serving hours for every weekday for an establishment.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @param request the serving-hours update payload
+	 * @return the updated serving-hours responses
+	 */
 	@PutMapping("/{establishmentId}/serving-hours")
 	public java.util.List<ServingHoursDayResponse> updateServingHours(
 			@PathVariable UUID organizationId,

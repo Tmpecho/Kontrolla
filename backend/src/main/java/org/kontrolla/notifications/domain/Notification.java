@@ -13,6 +13,9 @@ import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Persisted notification delivered to a user and optionally marked as read.
+ */
 @Getter
 @Entity
 @Table(name = "notifications")
@@ -58,6 +61,19 @@ public class Notification extends AbstractAuditableUuidEntity {
 	protected Notification() {
 	}
 
+	/**
+	 * Creates a notification for a recipient.
+	 *
+	 * @param recipientUserId the recipient user identifier
+	 * @param organizationId the related organization identifier
+	 * @param establishmentId the related establishment identifier
+	 * @param serviceArea the functional service area
+	 * @param type the notification type
+	 * @param title the notification title
+	 * @param message the notification message
+	 * @param resourceType the related resource type
+	 * @param resourceId the related resource identifier
+	 */
 	public Notification(
 			UUID recipientUserId,
 			UUID organizationId,
@@ -80,6 +96,11 @@ public class Notification extends AbstractAuditableUuidEntity {
 		this.resourceId = resourceId;
 	}
 
+	/**
+	 * Marks the notification as read if it has not already been marked.
+	 *
+	 * @param readAt the time the notification was read
+	 */
 	public void markRead(Instant readAt) {
 		if (this.readAt == null) {
 			this.readAt = readAt;

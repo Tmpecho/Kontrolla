@@ -1,11 +1,12 @@
 <script setup lang="ts">
 defineProps<{
+  disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
 }>()
 </script>
 
 <template>
-  <button :type="type || 'button'" class="button">
+  <button :type="type || 'button'" :disabled="disabled" class="button">
     <slot></slot>
   </button>
 </template>
@@ -30,6 +31,11 @@ defineProps<{
 
 .button:hover {
   background-color: color-mix(in srgb, var(--color-primary) 88%, black);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .button:focus {

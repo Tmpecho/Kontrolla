@@ -14,6 +14,10 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Persisted audit event containing the resolved context of a security- or
+ * business-relevant action.
+ */
 @Getter
 @Entity
 @Table(name = "audit_events")
@@ -80,6 +84,25 @@ public class AuditEvent {
 	protected AuditEvent() {
 	}
 
+	/**
+	 * Creates an audit event ready for persistence.
+	 *
+	 * @param action the audited action
+	 * @param outcome the outcome of the action
+	 * @param occurredAt when the action occurred
+	 * @param actorType the type of actor responsible for the action
+	 * @param actorUserId the acting user id, if available
+	 * @param actorEmail the acting user email, if available
+	 * @param organizationId the organization associated with the event, if any
+	 * @param targetType the type of target resource, if any
+	 * @param targetId the target resource id, if any
+	 * @param requestMethod the HTTP request method, if available
+	 * @param requestPath the HTTP request path, if available
+	 * @param clientIp the client IP address, if available
+	 * @param userAgent the user agent string, if available
+	 * @param resultCode the application result code
+	 * @param metadataJson the serialized metadata payload
+	 */
 	public AuditEvent(
 			AuditAction action,
 			AuditOutcome outcome,

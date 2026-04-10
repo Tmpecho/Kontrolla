@@ -13,15 +13,32 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.Clock;
 import java.time.Instant;
 
+/**
+ * Enriches audit records with request and security-context information captured
+ * from the current thread.
+ */
 @Component
 public class AuditRequestContextResolver {
 
 	private final Clock clock;
 
+	/**
+	 * Creates a resolver that timestamps audit events using the shared
+	 * application clock.
+	 *
+	 * @param clock the clock used when resolving audit event timestamps
+	 */
 	public AuditRequestContextResolver(Clock clock) {
 		this.clock = clock;
 	}
 
+	/**
+	 * Resolves a raw audit record into a fully populated record ready for
+	 * persistence.
+	 *
+	 * @param auditRecord the source audit record
+	 * @return the resolved audit record with contextual request information
+	 */
 	public ResolvedAuditRecord resolve(AuditRecord auditRecord) {
 		HttpServletRequest request = currentRequest();
 		CurrentUser currentUser = currentUser();

@@ -8,6 +8,16 @@ import org.kontrolla.temperatures.domain.TemperatureUnitType;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 
+/**
+ * Request payload for creating a temperature unit.
+ *
+ * @param name the unit name
+ * @param location the unit location within the establishment
+ * @param type the type of unit
+ * @param dueByTime the daily deadline for logging a reading
+ * @param minimumTemperature the minimum allowed temperature in Celsius
+ * @param maximumTemperature the maximum allowed temperature in Celsius
+ */
 public record CreateTemperatureUnitRequest(
     @NotBlank @Size(max = 255) String name,
     @NotBlank @Size(max = 255) String location,

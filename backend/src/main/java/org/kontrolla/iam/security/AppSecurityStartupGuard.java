@@ -7,6 +7,10 @@ import org.springframework.core.env.Environment;
 
 import java.util.Arrays;
 
+/**
+ * Prevents insecure bootstrap and JWT configurations from starting outside
+ * development mode.
+ */
 @Configuration
 @Order(0)
 public class AppSecurityStartupGuard {
@@ -16,6 +20,12 @@ public class AppSecurityStartupGuard {
 	private final Environment environment;
 	private final AppSecurityProperties properties;
 
+	/**
+	 * Creates the startup guard.
+	 *
+	 * @param environment the Spring environment
+	 * @param properties the application security properties
+	 */
 	public AppSecurityStartupGuard(Environment environment, AppSecurityProperties properties) {
 		this.environment = environment;
 		this.properties = properties;

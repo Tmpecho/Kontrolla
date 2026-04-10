@@ -212,4 +212,39 @@ describe('NotificationsPopup', () => {
     expect(document.body.textContent).toContain('Unable to mark this notification as read.')
     expect(document.body.querySelector('.notification-read-button')).not.toBeNull()
   })
+
+  it('renders a back button that closes the notifications view', async () => {
+    listNotificationsMock.mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 5,
+      totalElements: 0,
+      totalPages: 0,
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/app/notifications', name: 'notifications', component: { template: '<div />' } }],
+    })
+    router.push({ name: 'notifications' })
+    await router.isReady()
+
+    const { default: NotificationsPopup } = await import('@/app/components/NotificationsPopup.vue')
+    const wrapper = mount(NotificationsPopup, {
+      attachTo: document.body,
+      props: {
+        open: true,
+      },
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    ;(document.body.querySelector('.notifications-back-button') as HTMLButtonElement).click()
+    await flushPromises()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
 })

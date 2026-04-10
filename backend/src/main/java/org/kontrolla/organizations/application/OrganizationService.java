@@ -32,6 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Handles organization lifecycle operations and membership management.
+ */
 @Service
 public class OrganizationService {
 
@@ -44,6 +47,19 @@ public class OrganizationService {
   private final OrganizationAccessService organizationAccessService;
   private final AuditRecorder auditRecorder;
 
+  /**
+   * Creates the organization service with persistence, access, invite, and
+   * audit dependencies.
+   *
+   * @param organizationRepository repository for organizations
+   * @param membershipRepository repository for memberships
+   * @param establishmentRepository repository for establishments
+   * @param userRepository repository for users
+   * @param userAdministrationService service for managed user creation
+   * @param userInviteService service for issuing invites
+   * @param organizationAccessService service for organization access checks
+   * @param auditRecorder recorder for organization audit events
+   */
   public OrganizationService(
       OrganizationRepository organizationRepository,
       OrganizationMembershipRepository membershipRepository,
@@ -64,17 +80,37 @@ public class OrganizationService {
     this.auditRecorder = auditRecorder;
   }
 
+  /**
+   * Creates a new organization.
+   *
+   * @param name the organization name
+   * @param status the initial organization status
+   * @return the created organization
+   */
   @Transactional
   public Organization createOrganization(String name, OrganizationStatus status) {
     Organization organization = new Organization(name, status);
     return organizationRepository.save(organization);
   }
 
+  /**
+   * Lists organizations.
+   *
+   * @param pageable pagination information
+   * @return a page of organizations
+   */
   @Transactional(readOnly = true)
   public Page<Organization> listOrganizations(Pageable pageable) {
     return organizationRepository.findAll(pageable);
   }
 
+  /**
+   * Returns a single organization after validating read access.
+   *
+   * @param organizationId the organization identifier
+   * @param currentUser the authenticated user
+   * @return the requested organization
+   */
   @Transactional(readOnly = true)
   public Organization getOrganization(UUID organizationId, CurrentUser currentUser) {
     Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
@@ -82,6 +118,17 @@ public class OrganizationService {
     return organization;
   }
 
+  /**
+   * Lists memberships for an organization, optionally filtered by
+   * establishment access and inactive state.
+   *
+   * @param organizationId the organization identifier
+   * @param currentUser the authenticated user
+   * @param pageable pagination information
+   * @param includeInactive whether inactive memberships should be included
+   * @param establishmentId optional establishment filter
+   * @return a page of memberships
+   */
   @Transactional(readOnly = true)
   public Page<OrganizationMembership> listMemberships(
       UUID organizationId,
@@ -114,6 +161,18 @@ public class OrganizationService {
     return membershipRepository.findByOrganizationIdAndActiveTrue(organizationId, pageable);
   }
 
+  /**
+   * Adds an existing user as a member of an organization.
+   *
+   * @param organizationId the organization identifier
+   * @param userId the user identifier
+   * @param role the organization role
+   * @param active whether the membership is active
+   * @param allEstablishments whether all-establishment access is requested
+   * @param establishmentIds explicit establishment scope, if any
+   * @param currentUser the authenticated user
+   * @return the created membership
+   */
   @Transactional
   public OrganizationMembership addMembership(
       UUID organizationId,
@@ -153,6 +212,21 @@ public class OrganizationService {
     return membership;
   }
 
+  /**
+   * Creates a managed user, adds an organization membership, and issues an
+   * invite.
+   *
+   * @param organizationId the organization identifier
+   * @param email the invited user's email
+   * @param firstName the invited user's first name
+   * @param lastName the invited user's last name
+   * @param role the organization role
+   * @param active whether the membership is active
+   * @param allEstablishments whether all-establishment access is requested
+   * @param establishmentIds explicit establishment scope, if any
+   * @param currentUser the authenticated user
+   * @return the membership and invite metadata
+   */
   @Transactional
   public ManagedMembershipProvision createManagedMembership(
       UUID organizationId,
@@ -190,6 +264,19 @@ public class OrganizationService {
     return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
   }
 
+  /**
+   * Updates role, active state, and establishment scope for an existing
+   * membership.
+   *
+   * @param organizationId the organization identifier
+   * @param membershipId the membership identifier
+   * @param role the new organization role
+   * @param active the new active state
+   * @param allEstablishments whether all-establishment access is requested
+   * @param establishmentIds explicit establishment scope, if any
+   * @param currentUser the authenticated user
+   * @return the updated membership
+   */
   @Transactional
   public OrganizationMembership updateMembership(
       UUID organizationId,

@@ -4,6 +4,15 @@ import org.kontrolla.iam.application.InviteDetails;
 
 import java.time.Instant;
 
+/**
+ * API response exposing public information about an invitation.
+ *
+ * @param email the invited email address
+ * @param firstName the invited user's first name
+ * @param lastName the invited user's last name
+ * @param organizationName the invited organization name
+ * @param expiresAt when the invitation expires
+ */
 public record InviteDetailsResponse(
 		String email,
 		String firstName,
@@ -12,6 +21,12 @@ public record InviteDetailsResponse(
 		Instant expiresAt
 ) {
 
+	/**
+	 * Maps invite details to the API response shape.
+	 *
+	 * @param inviteDetails the invite details to map
+	 * @return the mapped response
+	 */
 	public static InviteDetailsResponse from(InviteDetails inviteDetails) {
 		return new InviteDetailsResponse(
 				inviteDetails.email(),

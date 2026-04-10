@@ -12,6 +12,10 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+/**
+ * Scheduled maintenance job that generates upcoming checklist runs and marks
+ * overdue runs.
+ */
 @Component
 @Profile("!test")
 public class ChecklistRunMaintenanceScheduler {
@@ -25,6 +29,14 @@ public class ChecklistRunMaintenanceScheduler {
 	private final ChecklistSchedulerService checklistSchedulerService;
 	private final ChecklistRunService checklistRunService;
 
+	/**
+	 * Creates the checklist maintenance scheduler.
+	 *
+	 * @param establishmentRepository repository for establishments
+	 * @param userRepository repository for users
+	 * @param checklistSchedulerService service for scheduled run generation
+	 * @param checklistRunService service for checklist run lifecycle updates
+	 */
 	public ChecklistRunMaintenanceScheduler(
 			EstablishmentRepository establishmentRepository,
 			UserRepository userRepository,
@@ -37,6 +49,10 @@ public class ChecklistRunMaintenanceScheduler {
 		this.checklistRunService = checklistRunService;
 	}
 
+	/**
+	 * Performs periodic run generation and overdue maintenance for active
+	 * establishments.
+	 */
 	@Scheduled(initialDelayString = "${app.checklists.overdue.initial-delay-ms:30000}", fixedDelayString = "${app.checklists.overdue.fixed-delay-ms:300000}")
 	public void maintainChecklistRuns() {
 		Instant now = Instant.now();
