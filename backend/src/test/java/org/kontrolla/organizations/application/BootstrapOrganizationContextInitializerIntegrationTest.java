@@ -8,6 +8,7 @@ import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
+import org.kontrolla.establishments.infrastructure.EstablishmentServingHoursRepository;
 import org.kontrolla.iam.domain.GlobalRole;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
@@ -18,6 +19,9 @@ import org.kontrolla.organizations.infrastructure.OrganizationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,6 +71,9 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 
 	@Autowired
 	private DeviationRepository deviationRepository;
+
+	@Autowired
+	private EstablishmentServingHoursRepository establishmentServingHoursRepository;
 
 	@Test
 	void bootstrapDevelopmentTeamIsCreatedWithExpectedRoles() {
@@ -189,6 +196,22 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 				configuredOrganization.getId(),
 				org.springframework.data.domain.PageRequest.of(0, 20)
 		).getTotalElements()).isGreaterThanOrEqualTo(5);
+		assertThat(establishmentServingHoursRepository.findByEstablishmentIdOrderByDayOfWeekAsc(restaurant.getId()))
+				.hasSize(7)
+				.anySatisfy(hours -> {
+					assertThat(hours.getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+					assertThat(hours.isClosed()).isFalse();
+					assertThat(hours.getOpensAt()).isEqualTo(LocalTime.of(11, 0));
+					assertThat(hours.getClosesAt()).isEqualTo(LocalTime.of(22, 0));
+				});
+		assertThat(establishmentServingHoursRepository.findByEstablishmentIdOrderByDayOfWeekAsc(bar.getId()))
+				.hasSize(7)
+				.anySatisfy(hours -> {
+					assertThat(hours.getDayOfWeek()).isEqualTo(DayOfWeek.FRIDAY);
+					assertThat(hours.isClosed()).isFalse();
+					assertThat(hours.getOpensAt()).isEqualTo(LocalTime.of(16, 0));
+					assertThat(hours.getClosesAt()).isEqualTo(LocalTime.of(2, 0));
+				});
 
 		Organization curatedOrganization = organizationRepository.findByNameIgnoreCase("Nordic Table Group").orElseThrow();
 		var curatedBar = establishmentRepository.findFirstByOrganizationIdAndNameIgnoreCase(

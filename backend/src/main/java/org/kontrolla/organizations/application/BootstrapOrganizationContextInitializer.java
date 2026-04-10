@@ -31,9 +31,11 @@ import org.kontrolla.documents.domain.DocumentServiceArea;
 import org.kontrolla.documents.infrastructure.DocumentFileRepository;
 import org.kontrolla.documents.infrastructure.DocumentRepository;
 import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.domain.EstablishmentServingHours;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
+import org.kontrolla.establishments.infrastructure.EstablishmentServingHoursRepository;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.AppSecurityProperties;
@@ -101,6 +103,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private final DocumentRepository documentRepository;
 	private final DocumentFileRepository documentFileRepository;
 	private final TemperatureUnitRepository temperatureUnitRepository;
+	private final EstablishmentServingHoursRepository establishmentServingHoursRepository;
 	private final AppSecurityProperties properties;
 	private final PasswordEncoder passwordEncoder;
 
@@ -116,6 +119,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			DocumentRepository documentRepository,
 			DocumentFileRepository documentFileRepository,
 			TemperatureUnitRepository temperatureUnitRepository,
+			EstablishmentServingHoursRepository establishmentServingHoursRepository,
 			AppSecurityProperties properties,
 			PasswordEncoder passwordEncoder
 	) {
@@ -130,6 +134,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		this.documentRepository = documentRepository;
 		this.documentFileRepository = documentFileRepository;
 		this.temperatureUnitRepository = temperatureUnitRepository;
+		this.establishmentServingHoursRepository = establishmentServingHoursRepository;
 		this.properties = properties;
 		this.passwordEncoder = passwordEncoder;
 	}
@@ -239,6 +244,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 
 		bootstrapTemperatureUnits(organization, bootstrapEstablishments);
 		bootstrapDocuments(organization, bootstrapEstablishments);
+		bootstrapServingHours(bootstrapEstablishments);
 
 		checklistActor.ifPresent(actor -> {
 			bootstrapChecklistRuns(organization, bootstrapEstablishments, actor);
@@ -752,6 +758,39 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		}
 	}
 
+	private void bootstrapServingHours(List<Establishment> establishments) {
+		for (Establishment establishment : establishments) {
+			if (establishment.getStatus() != EstablishmentStatus.ACTIVE) {
+				continue;
+			}
+
+			buildServingHoursSeeds(establishment.getType()).forEach(seed ->
+					upsertServingHours(establishment, seed)
+			);
+		}
+	}
+
+	private void upsertServingHours(Establishment establishment, BootstrapServingHoursSeed seed) {
+		establishmentServingHoursRepository.findByEstablishmentIdAndDayOfWeek(
+				establishment.getId(),
+				seed.dayOfWeek()
+		).ifPresentOrElse(existing -> existing.update(
+				seed.closed(),
+				seed.opensAt(),
+				seed.closesAt()
+		), () -> {
+			EstablishmentServingHours created = new EstablishmentServingHours(
+					establishment,
+					seed.dayOfWeek(),
+					seed.closed(),
+					seed.opensAt(),
+					seed.closesAt()
+			);
+			establishmentServingHoursRepository.save(created);
+			log.info("Created bootstrap serving hours for {} on {}", establishment.getName(), seed.dayOfWeek());
+		});
+	}
+
 	private void upsertTemperatureUnit(
 			Organization organization,
 			Establishment establishment,
@@ -960,6 +999,60 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 					)
 			);
 		};
+	}
+
+	private List<BootstrapServingHoursSeed> buildServingHoursSeeds(EstablishmentType type) {
+		return switch (type) {
+			case BAR -> List.of(
+					openHours(DayOfWeek.MONDAY, 16, 0, 23, 0),
+					openHours(DayOfWeek.TUESDAY, 16, 0, 23, 0),
+					openHours(DayOfWeek.WEDNESDAY, 16, 0, 23, 30),
+					openHours(DayOfWeek.THURSDAY, 16, 0, 0, 30),
+					openHours(DayOfWeek.FRIDAY, 16, 0, 2, 0),
+					openHours(DayOfWeek.SATURDAY, 15, 0, 2, 0),
+					closedHours(DayOfWeek.SUNDAY)
+			);
+			case CAFE -> List.of(
+					openHours(DayOfWeek.MONDAY, 7, 30, 18, 0),
+					openHours(DayOfWeek.TUESDAY, 7, 30, 18, 0),
+					openHours(DayOfWeek.WEDNESDAY, 7, 30, 18, 0),
+					openHours(DayOfWeek.THURSDAY, 7, 30, 18, 0),
+					openHours(DayOfWeek.FRIDAY, 7, 30, 18, 0),
+					openHours(DayOfWeek.SATURDAY, 9, 0, 16, 0),
+					closedHours(DayOfWeek.SUNDAY)
+			);
+			case OTHER -> List.of(
+					openHours(DayOfWeek.MONDAY, 9, 0, 17, 0),
+					openHours(DayOfWeek.TUESDAY, 9, 0, 17, 0),
+					openHours(DayOfWeek.WEDNESDAY, 9, 0, 17, 0),
+					openHours(DayOfWeek.THURSDAY, 9, 0, 17, 0),
+					openHours(DayOfWeek.FRIDAY, 9, 0, 17, 0),
+					closedHours(DayOfWeek.SATURDAY),
+					closedHours(DayOfWeek.SUNDAY)
+			);
+			case RESTAURANT -> List.of(
+					openHours(DayOfWeek.MONDAY, 11, 0, 22, 0),
+					openHours(DayOfWeek.TUESDAY, 11, 0, 22, 0),
+					openHours(DayOfWeek.WEDNESDAY, 11, 0, 22, 0),
+					openHours(DayOfWeek.THURSDAY, 11, 0, 22, 0),
+					openHours(DayOfWeek.FRIDAY, 11, 0, 23, 0),
+					openHours(DayOfWeek.SATURDAY, 12, 0, 23, 0),
+					openHours(DayOfWeek.SUNDAY, 12, 0, 21, 0)
+			);
+		};
+	}
+
+	private BootstrapServingHoursSeed openHours(DayOfWeek dayOfWeek, int opensHour, int opensMinute, int closesHour, int closesMinute) {
+		return new BootstrapServingHoursSeed(
+				dayOfWeek,
+				false,
+				LocalTime.of(opensHour, opensMinute),
+				LocalTime.of(closesHour, closesMinute)
+		);
+	}
+
+	private BootstrapServingHoursSeed closedHours(DayOfWeek dayOfWeek) {
+		return new BootstrapServingHoursSeed(dayOfWeek, true, null, null);
 	}
 
 	private byte[] buildSamplePdf(String title, DocumentServiceArea serviceArea) {
@@ -1797,6 +1890,14 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			String name,
 			EstablishmentType type,
 			EstablishmentStatus status
+	) {
+	}
+
+	private record BootstrapServingHoursSeed(
+			DayOfWeek dayOfWeek,
+			boolean closed,
+			LocalTime opensAt,
+			LocalTime closesAt
 	) {
 	}
 
