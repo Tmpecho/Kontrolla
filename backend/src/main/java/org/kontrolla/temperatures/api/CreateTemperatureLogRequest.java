@@ -1,7 +1,6 @@
 package org.kontrolla.temperatures.api;
 
 import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -13,8 +12,4 @@ import java.time.Instant;
  * @param note optional note associated with the reading
  */
 public record CreateTemperatureLogRequest(
-    @NotNull BigDecimal temperatureCelsius,
-    @NotNull Instant measuredAt,
-    String note
-) {
-}
+    @NotNull BigDecimal temperatureCelsius, @NotNull Instant measuredAt, String note) {}

@@ -6,15 +6,12 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import lombok.Getter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import org.kontrolla.iam.domain.User;
 
-import java.time.Instant;
-
-/**
- * Persisted acknowledgement assignment linking a document to a user.
- */
+/** Persisted acknowledgement assignment linking a document to a user. */
 @Getter
 @Entity
 @Table(name = "document_audit_assignments")
@@ -31,8 +28,7 @@ public class DocumentAuditAssignment extends AbstractAuditableUuidEntity {
   @Column(name = "acknowledged_at")
   private Instant acknowledgedAt;
 
-  protected DocumentAuditAssignment() {
-  }
+  protected DocumentAuditAssignment() {}
 
   /**
    * Creates an audit assignment for a user.
@@ -48,8 +44,7 @@ public class DocumentAuditAssignment extends AbstractAuditableUuidEntity {
   }
 
   /**
-   * Marks the assignment as acknowledged if it has not already been
-   * acknowledged.
+   * Marks the assignment as acknowledged if it has not already been acknowledged.
    *
    * @param acknowledgedAt the acknowledgement timestamp
    */

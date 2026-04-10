@@ -58,6 +58,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      - name: Run backend formatting check
+        run: ./gradlew spotlessCheck --no-daemon
+
       - name: Run backend tests with coverage
         run: ./gradlew test jacocoTestReport --no-daemon
 

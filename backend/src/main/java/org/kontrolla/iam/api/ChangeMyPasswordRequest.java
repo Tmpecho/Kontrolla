@@ -10,7 +10,5 @@ import jakarta.validation.constraints.Size;
  * @param newPassword the replacement password
  */
 public record ChangeMyPasswordRequest(
-		@NotBlank @Size(min = 8, max = 200) String currentPassword,
-		@NotBlank @Size(min = 8, max = 200) String newPassword
-) {
-}
+    @NotBlank @Size(min = 8, max = 200) String currentPassword,
+    @NotBlank @Size(min = 8, max = 200) String newPassword) {}

@@ -1,11 +1,10 @@
 package org.kontrolla.temperatures.application;
 
-import org.kontrolla.iam.domain.User;
-import org.kontrolla.temperatures.domain.TemperatureLog;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import org.kontrolla.iam.domain.User;
+import org.kontrolla.temperatures.domain.TemperatureLog;
 
 /**
  * Application-layer view of a logged temperature reading.
@@ -17,12 +16,7 @@ import java.util.UUID;
  * @param loggedByName display name of the user who recorded the reading
  */
 public record TemperatureLogEntryView(
-    UUID id,
-    Instant measuredAt,
-    BigDecimal temperatureCelsius,
-    String note,
-    String loggedByName
-) {
+    UUID id, Instant measuredAt, BigDecimal temperatureCelsius, String note, String loggedByName) {
 
   /**
    * Maps a temperature log entity to the application view model.
@@ -36,8 +30,7 @@ public record TemperatureLogEntryView(
         log.getMeasuredAt(),
         log.getTemperatureCelsius(),
         log.getNote(),
-        formatUserDisplayName(log.getLoggedByUser())
-    );
+        formatUserDisplayName(log.getLoggedByUser()));
   }
 
   private static String formatUserDisplayName(User user) {

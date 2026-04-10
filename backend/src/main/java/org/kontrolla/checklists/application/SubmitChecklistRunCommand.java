@@ -7,7 +7,4 @@ import java.util.List;
  *
  * @param tasks the submitted task execution updates
  */
-public record SubmitChecklistRunCommand(
-		List<ChecklistRunTaskExecutionInput> tasks
-) {
-}
+public record SubmitChecklistRunCommand(List<ChecklistRunTaskExecutionInput> tasks) {}

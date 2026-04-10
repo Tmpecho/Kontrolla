@@ -10,7 +10,4 @@ import jakarta.validation.constraints.Size;
  * @param lastName the new last name
  */
 public record UpdateMyProfileRequest(
-		@NotBlank @Size(max = 255) String firstName,
-		@NotBlank @Size(max = 255) String lastName
-) {
-}
+    @NotBlank @Size(max = 255) String firstName, @NotBlank @Size(max = 255) String lastName) {}

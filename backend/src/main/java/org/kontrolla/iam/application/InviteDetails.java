@@ -12,10 +12,4 @@ import java.time.Instant;
  * @param expiresAt when the invitation expires
  */
 public record InviteDetails(
-		String email,
-		String firstName,
-		String lastName,
-		String organizationName,
-		Instant expiresAt
-) {
-}
+    String email, String firstName, String lastName, String organizationName, Instant expiresAt) {}

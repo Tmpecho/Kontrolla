@@ -1,9 +1,8 @@
 package org.kontrolla.checklists.application;
 
-import org.kontrolla.checklists.domain.ChecklistScheduleType;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
+import org.kontrolla.checklists.domain.ChecklistScheduleType;
 
 /**
  * Application input describing one checklist schedule.
@@ -18,13 +17,11 @@ import java.time.LocalTime;
  * @param active whether the schedule is active
  */
 public record ChecklistDefinitionScheduleInput(
-		ChecklistScheduleType scheduleType,
-		LocalDate startDate,
-		LocalDate endDate,
-		LocalTime dueTime,
-		Integer weekdayMask,
-		Integer dayOfMonth,
-		String timezone,
-		Boolean active
-) {
-}
+    ChecklistScheduleType scheduleType,
+    LocalDate startDate,
+    LocalDate endDate,
+    LocalTime dueTime,
+    Integer weekdayMask,
+    Integer dayOfMonth,
+    String timezone,
+    Boolean active) {}

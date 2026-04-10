@@ -1,9 +1,8 @@
 package org.kontrolla.temperatures.application;
 
-import org.kontrolla.temperatures.domain.TemperatureUnitType;
-
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import org.kontrolla.temperatures.domain.TemperatureUnitType;
 
 /**
  * Command for creating a temperature-controlled unit for an establishment.
@@ -21,6 +20,4 @@ public record CreateTemperatureUnitCommand(
     TemperatureUnitType type,
     LocalTime dueByTime,
     BigDecimal minimumTemperature,
-    BigDecimal maximumTemperature
-) {
-}
+    BigDecimal maximumTemperature) {}

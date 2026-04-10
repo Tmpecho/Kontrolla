@@ -1,9 +1,8 @@
 package org.kontrolla.establishments.api;
 
-import org.kontrolla.establishments.application.ServingHoursDayView;
-
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import org.kontrolla.establishments.application.ServingHoursDayView;
 
 /**
  * API response describing serving hours for a single weekday.
@@ -14,11 +13,7 @@ import java.time.LocalTime;
  * @param closesAt the closing time, if open
  */
 public record ServingHoursDayResponse(
-    DayOfWeek dayOfWeek,
-    boolean closed,
-    LocalTime opensAt,
-    LocalTime closesAt
-) {
+    DayOfWeek dayOfWeek, boolean closed, LocalTime opensAt, LocalTime closesAt) {
 
   /**
    * Maps an application view to the API response shape.
@@ -28,10 +23,6 @@ public record ServingHoursDayResponse(
    */
   public static ServingHoursDayResponse from(ServingHoursDayView view) {
     return new ServingHoursDayResponse(
-        view.dayOfWeek(),
-        view.closed(),
-        view.opensAt(),
-        view.closesAt()
-    );
+        view.dayOfWeek(), view.closed(), view.opensAt(), view.closesAt());
   }
 }

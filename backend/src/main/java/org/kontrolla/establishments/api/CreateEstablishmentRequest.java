@@ -14,8 +14,6 @@ import org.kontrolla.establishments.domain.EstablishmentType;
  * @param status the initial establishment status
  */
 public record CreateEstablishmentRequest(
-		@NotBlank @Size(max = 255) String name,
-		@NotNull EstablishmentType type,
-		EstablishmentStatus status
-) {
-}
+    @NotBlank @Size(max = 255) String name,
+    @NotNull EstablishmentType type,
+    EstablishmentStatus status) {}

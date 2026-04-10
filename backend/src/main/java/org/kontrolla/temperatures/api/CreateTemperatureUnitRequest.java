@@ -3,10 +3,9 @@ package org.kontrolla.temperatures.api;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.kontrolla.temperatures.domain.TemperatureUnitType;
-
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import org.kontrolla.temperatures.domain.TemperatureUnitType;
 
 /**
  * Request payload for creating a temperature unit.
@@ -24,6 +23,4 @@ public record CreateTemperatureUnitRequest(
     @NotNull TemperatureUnitType type,
     @NotNull LocalTime dueByTime,
     @NotNull BigDecimal minimumTemperature,
-    @NotNull BigDecimal maximumTemperature
-) {
-}
+    @NotNull BigDecimal maximumTemperature) {}

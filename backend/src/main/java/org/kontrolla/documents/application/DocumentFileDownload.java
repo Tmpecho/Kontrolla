@@ -9,9 +9,4 @@ package org.kontrolla.documents.application;
  * @param content the raw file content
  */
 public record DocumentFileDownload(
-    String fileName,
-    String contentType,
-    long fileSizeBytes,
-    byte[] content
-) {
-}
+    String fileName, String contentType, long fileSizeBytes, byte[] content) {}

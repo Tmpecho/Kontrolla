@@ -11,7 +11,4 @@ import org.kontrolla.organizations.domain.OrganizationStatus;
  * @param status the initial organization status
  */
 public record CreateOrganizationRequest(
-		@NotBlank @Size(max = 255) String name,
-		OrganizationStatus status
-) {
-}
+    @NotBlank @Size(max = 255) String name, OrganizationStatus status) {}

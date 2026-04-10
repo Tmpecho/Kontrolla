@@ -1,10 +1,9 @@
 package org.kontrolla.organizations.api;
 
 import jakarta.validation.constraints.NotNull;
-import org.kontrolla.organizations.domain.OrganizationRole;
-
 import java.util.List;
 import java.util.UUID;
+import org.kontrolla.organizations.domain.OrganizationRole;
 
 /**
  * Request payload for updating an organization membership.
@@ -15,9 +14,7 @@ import java.util.UUID;
  * @param establishmentIds explicit establishment scope, if any
  */
 public record UpdateMembershipRequest(
-		@NotNull OrganizationRole role,
-		@NotNull Boolean active,
-		Boolean allEstablishments,
-		List<UUID> establishmentIds
-) {
-}
+    @NotNull OrganizationRole role,
+    @NotNull Boolean active,
+    Boolean allEstablishments,
+    List<UUID> establishmentIds) {}

@@ -11,20 +11,19 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.organizations.domain.Organization;
 
-import java.math.BigDecimal;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Persisted temperature-controlled unit that belongs to an establishment and
- * stores allowed temperature bounds.
+ * Persisted temperature-controlled unit that belongs to an establishment and stores allowed
+ * temperature bounds.
  */
 @Getter
 @Entity
@@ -69,8 +68,7 @@ public class TemperatureUnit extends AbstractAuditableUuidEntity {
   @OrderBy("measuredAt DESC")
   private final List<TemperatureLog> logs = new ArrayList<>();
 
-  protected TemperatureUnit() {
-  }
+  protected TemperatureUnit() {}
 
   /**
    * Creates a temperature unit.
@@ -92,8 +90,7 @@ public class TemperatureUnit extends AbstractAuditableUuidEntity {
       TemperatureUnitType type,
       LocalTime dueByTime,
       BigDecimal minimumTemperature,
-      BigDecimal maximumTemperature
-  ) {
+      BigDecimal maximumTemperature) {
     this.organization = organization;
     this.establishment = establishment;
     this.name = name;

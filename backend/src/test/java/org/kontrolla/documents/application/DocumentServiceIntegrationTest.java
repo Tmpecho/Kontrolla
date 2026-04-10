@@ -1,5 +1,12 @@
 package org.kontrolla.documents.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.common.exception.ApplicationException;
@@ -30,44 +37,27 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Clock;
-import java.time.LocalDate;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 @SpringBootTest
 @ActiveProfiles("test")
 class DocumentServiceIntegrationTest {
 
-  @Autowired
-  private DocumentService documentService;
+  @Autowired private DocumentService documentService;
 
-  @Autowired
-  private DocumentRepository documentRepository;
+  @Autowired private DocumentRepository documentRepository;
 
-  @Autowired
-  private DocumentFileRepository documentFileRepository;
+  @Autowired private DocumentFileRepository documentFileRepository;
 
-  @Autowired
-  private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-  @Autowired
-  private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-  @Autowired
-  private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-  @Autowired
-  private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-  @Autowired
-  private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
-  @Autowired
-  private Clock clock;
+  @Autowired private Clock clock;
 
   @BeforeEach
   void setUp() {
@@ -82,20 +72,20 @@ class DocumentServiceIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
     LocalDate today = LocalDate.now(clock);
 
-    Document createdDocument = documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "  Alcohol service licence  ",
-        "  Oslo Municipality  ",
-        today.minusDays(365),
-        today.plusDays(7),
-        null,
-        " alcohol-service-licence.pdf ",
-        "application/pdf",
-        pdfBytes("license-v1"),
-        currentUser(manager)
-    );
+    Document createdDocument =
+        documentService.createDocument(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "  Alcohol service licence  ",
+            "  Oslo Municipality  ",
+            today.minusDays(365),
+            today.plusDays(7),
+            null,
+            " alcohol-service-licence.pdf ",
+            "application/pdf",
+            pdfBytes("license-v1"),
+            currentUser(manager));
     documentService.createDocument(
         organization.getId(),
         establishment.getId(),
@@ -108,53 +98,48 @@ class DocumentServiceIntegrationTest {
         "haccp-binder.pdf",
         "application/pdf",
         pdfBytes("haccp-v1"),
-        currentUser(manager)
-    );
+        currentUser(manager));
 
-    Document updatedDocument = documentService.updateDocument(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "  Alcohol service licence 2026  ",
-        "  Oslo Municipality Licensing  ",
-        today.minusDays(365),
-        today.plusDays(45),
-        null,
-        currentUser(manager)
-    );
+    Document updatedDocument =
+        documentService.updateDocument(
+            organization.getId(),
+            establishment.getId(),
+            createdDocument.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "  Alcohol service licence 2026  ",
+            "  Oslo Municipality Licensing  ",
+            today.minusDays(365),
+            today.plusDays(45),
+            null,
+            currentUser(manager));
 
-    Document replacedFileDocument = documentService.replaceDocumentFile(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        "alcohol-service-licence-2026.pdf",
-        "application/pdf",
-        pdfBytes("license-v2"),
-        currentUser(manager)
-    );
+    Document replacedFileDocument =
+        documentService.replaceDocumentFile(
+            organization.getId(),
+            establishment.getId(),
+            createdDocument.getId(),
+            "alcohol-service-licence-2026.pdf",
+            "application/pdf",
+            pdfBytes("license-v2"),
+            currentUser(manager));
 
-    DocumentFileDownload downloadedFile = documentService.getDocumentFile(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        currentUser(manager)
-    );
+    DocumentFileDownload downloadedFile =
+        documentService.getDocumentFile(
+            organization.getId(),
+            establishment.getId(),
+            createdDocument.getId(),
+            currentUser(manager));
 
-    Page<Document> alkoholDocuments = documentService.listDocuments(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        currentUser(manager),
-        PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "renewalDate"))
-    );
+    Page<Document> alkoholDocuments =
+        documentService.listDocuments(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            currentUser(manager),
+            PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "renewalDate")));
 
     documentService.deleteDocument(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        currentUser(manager)
-    );
+        organization.getId(), establishment.getId(), createdDocument.getId(), currentUser(manager));
 
     assertThat(updatedDocument.getTitle()).isEqualTo("Alcohol service licence 2026");
     assertThat(updatedDocument.getHolderName()).isEqualTo("Oslo Municipality Licensing");
@@ -166,7 +151,8 @@ class DocumentServiceIntegrationTest {
     assertThat(downloadedFile.content()).isEqualTo(pdfBytes("license-v2"));
     assertThat(alkoholDocuments.getContent()).hasSize(1);
     assertThat(alkoholDocuments.getContent().getFirst().getId()).isEqualTo(createdDocument.getId());
-    assertThat(alkoholDocuments.getContent().getFirst().getCreatedByUser().getId()).isEqualTo(manager.getId());
+    assertThat(alkoholDocuments.getContent().getFirst().getCreatedByUser().getId())
+        .isEqualTo(manager.getId());
     assertThat(documentRepository.findAll()).hasSize(1);
     assertThat(documentRepository.findById(createdDocument.getId())).isEmpty();
     assertThat(documentFileRepository.findById(createdDocument.getId())).isEmpty();
@@ -181,50 +167,52 @@ class DocumentServiceIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
     LocalDate today = LocalDate.now(clock);
 
-    assertThatThrownBy(() -> documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Responsible service certificate",
-        "Lina Dahl",
-        today,
-        today.minusDays(1),
-        null,
-        "responsible-service-certificate.pdf",
-        "application/pdf",
-        pdfBytes("certificate"),
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                documentService.createDocument(
+                    organization.getId(),
+                    establishment.getId(),
+                    DocumentServiceArea.IK_ALKOHOL,
+                    "Responsible service certificate",
+                    "Lina Dahl",
+                    today,
+                    today.minusDays(1),
+                    null,
+                    "responsible-service-certificate.pdf",
+                    "application/pdf",
+                    pdfBytes("certificate"),
+                    currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Renewal date cannot be before issue date");
 
-    Document createdDocument = documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Responsible service certificate",
-        "Lina Dahl",
-        today.minusDays(180),
-        today.plusDays(5),
-        null,
-        "responsible-service-certificate.pdf",
-        "application/pdf",
-        pdfBytes("certificate"),
-        currentUser(manager)
-    );
+    Document createdDocument =
+        documentService.createDocument(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "Responsible service certificate",
+            "Lina Dahl",
+            today.minusDays(180),
+            today.plusDays(5),
+            null,
+            "responsible-service-certificate.pdf",
+            "application/pdf",
+            pdfBytes("certificate"),
+            currentUser(manager));
 
-    assertThatThrownBy(() -> documentService.updateDocument(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Responsible service certificate",
-        "Lina Dahl",
-        today,
-        today.minusDays(2),
-        null,
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                documentService.updateDocument(
+                    organization.getId(),
+                    establishment.getId(),
+                    createdDocument.getId(),
+                    DocumentServiceArea.IK_ALKOHOL,
+                    "Responsible service certificate",
+                    "Lina Dahl",
+                    today,
+                    today.minusDays(2),
+                    null,
+                    currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Renewal date cannot be before issue date");
   }
@@ -239,65 +227,73 @@ class DocumentServiceIntegrationTest {
     createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
     LocalDate today = LocalDate.now(clock);
 
-    Document createdDocument = documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Age control routine acknowledgement",
-        "Bar team",
-        today.minusDays(90),
-        today.plusDays(30),
-        null,
-        "age-control.pdf",
-        "application/pdf",
-        pdfBytes("age-control"),
-        currentUser(manager)
-    );
+    Document createdDocument =
+        documentService.createDocument(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "Age control routine acknowledgement",
+            "Bar team",
+            today.minusDays(90),
+            today.plusDays(30),
+            null,
+            "age-control.pdf",
+            "application/pdf",
+            pdfBytes("age-control"),
+            currentUser(manager));
 
-    assertThatThrownBy(() -> documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Staff permit register",
-        "People operations",
-        today.minusDays(180),
-        today.plusDays(10),
-        null,
-        "staff-register.pdf",
-        "application/pdf",
-        pdfBytes("staff-register"),
-        currentUser(employee)
-    )).isInstanceOf(ForbiddenException.class);
+    assertThatThrownBy(
+            () ->
+                documentService.createDocument(
+                    organization.getId(),
+                    establishment.getId(),
+                    DocumentServiceArea.IK_ALKOHOL,
+                    "Staff permit register",
+                    "People operations",
+                    today.minusDays(180),
+                    today.plusDays(10),
+                    null,
+                    "staff-register.pdf",
+                    "application/pdf",
+                    pdfBytes("staff-register"),
+                    currentUser(employee)))
+        .isInstanceOf(ForbiddenException.class);
 
-    assertThatThrownBy(() -> documentService.updateDocument(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Updated title",
-        "Updated holder",
-        today.minusDays(90),
-        today.plusDays(40),
-        null,
-        currentUser(employee)
-    )).isInstanceOf(ForbiddenException.class);
+    assertThatThrownBy(
+            () ->
+                documentService.updateDocument(
+                    organization.getId(),
+                    establishment.getId(),
+                    createdDocument.getId(),
+                    DocumentServiceArea.IK_ALKOHOL,
+                    "Updated title",
+                    "Updated holder",
+                    today.minusDays(90),
+                    today.plusDays(40),
+                    null,
+                    currentUser(employee)))
+        .isInstanceOf(ForbiddenException.class);
 
-    assertThatThrownBy(() -> documentService.replaceDocumentFile(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        "replacement.pdf",
-        "application/pdf",
-        pdfBytes("replacement"),
-        currentUser(employee)
-    )).isInstanceOf(ForbiddenException.class);
+    assertThatThrownBy(
+            () ->
+                documentService.replaceDocumentFile(
+                    organization.getId(),
+                    establishment.getId(),
+                    createdDocument.getId(),
+                    "replacement.pdf",
+                    "application/pdf",
+                    pdfBytes("replacement"),
+                    currentUser(employee)))
+        .isInstanceOf(ForbiddenException.class);
 
-    assertThatThrownBy(() -> documentService.deleteDocument(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        currentUser(employee)
-    )).isInstanceOf(ForbiddenException.class);
+    assertThatThrownBy(
+            () ->
+                documentService.deleteDocument(
+                    organization.getId(),
+                    establishment.getId(),
+                    createdDocument.getId(),
+                    currentUser(employee)))
+        .isInstanceOf(ForbiddenException.class);
   }
 
   @Test
@@ -312,34 +308,34 @@ class DocumentServiceIntegrationTest {
     createMembership(organization, secondReader, OrganizationRole.ORG_EMPLOYEE, true);
     LocalDate today = LocalDate.now(clock);
 
-    Document document = documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Responsible service handbook",
-        "Bar team",
-        today.minusDays(60),
-        today.plusDays(30),
-        java.util.List.of(firstReader.getId(), secondReader.getId()),
-        "responsible-service.pdf",
-        "application/pdf",
-        pdfBytes("audit-handbook"),
-        currentUser(manager)
-    );
+    Document document =
+        documentService.createDocument(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "Responsible service handbook",
+            "Bar team",
+            today.minusDays(60),
+            today.plusDays(30),
+            java.util.List.of(firstReader.getId(), secondReader.getId()),
+            "responsible-service.pdf",
+            "application/pdf",
+            pdfBytes("audit-handbook"),
+            currentUser(manager));
 
-    Document afterFirstAcknowledgement = documentService.acknowledgeDocumentAudit(
-        organization.getId(),
-        establishment.getId(),
-        document.getId(),
-        currentUser(firstReader)
-    );
+    Document afterFirstAcknowledgement =
+        documentService.acknowledgeDocumentAudit(
+            organization.getId(),
+            establishment.getId(),
+            document.getId(),
+            currentUser(firstReader));
 
-    Document afterSecondAcknowledgement = documentService.acknowledgeDocumentAudit(
-        organization.getId(),
-        establishment.getId(),
-        document.getId(),
-        currentUser(secondReader)
-    );
+    Document afterSecondAcknowledgement =
+        documentService.acknowledgeDocumentAudit(
+            organization.getId(),
+            establishment.getId(),
+            document.getId(),
+            currentUser(secondReader));
 
     assertThat(document.getAuditAssignments()).hasSize(2);
     assertThat(afterFirstAcknowledgement.findAuditAssignment(firstReader.getId()))
@@ -357,7 +353,8 @@ class DocumentServiceIntegrationTest {
   @Test
   void nonAssignedUserCannotAcknowledgeDocumentAudit() {
     User manager = createUser("documents-audit-manager-2@example.com", "Manager", "Audit", true);
-    User assignedReader = createUser("documents-audit-reader-3@example.com", "Nora", "Hansen", true);
+    User assignedReader =
+        createUser("documents-audit-reader-3@example.com", "Nora", "Hansen", true);
     User outsiderReader = createUser("documents-audit-outsider@example.com", "Elias", "Berg", true);
     Organization organization = createOrganization("Kontrolla Document Audit Access");
     Establishment establishment = createEstablishment(organization, "Audit Bar");
@@ -366,27 +363,29 @@ class DocumentServiceIntegrationTest {
     createMembership(organization, outsiderReader, OrganizationRole.ORG_EMPLOYEE, true);
     LocalDate today = LocalDate.now(clock);
 
-    Document document = documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Responsible service handbook",
-        "Bar team",
-        today.minusDays(60),
-        today.plusDays(30),
-        java.util.List.of(assignedReader.getId()),
-        "responsible-service.pdf",
-        "application/pdf",
-        pdfBytes("audit-handbook"),
-        currentUser(manager)
-    );
+    Document document =
+        documentService.createDocument(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "Responsible service handbook",
+            "Bar team",
+            today.minusDays(60),
+            today.plusDays(30),
+            java.util.List.of(assignedReader.getId()),
+            "responsible-service.pdf",
+            "application/pdf",
+            pdfBytes("audit-handbook"),
+            currentUser(manager));
 
-    assertThatThrownBy(() -> documentService.acknowledgeDocumentAudit(
-        organization.getId(),
-        establishment.getId(),
-        document.getId(),
-        currentUser(outsiderReader)
-    )).isInstanceOf(ForbiddenException.class);
+    assertThatThrownBy(
+            () ->
+                documentService.acknowledgeDocumentAudit(
+                    organization.getId(),
+                    establishment.getId(),
+                    document.getId(),
+                    currentUser(outsiderReader)))
+        .isInstanceOf(ForbiddenException.class);
   }
 
   @Test
@@ -397,47 +396,49 @@ class DocumentServiceIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
     LocalDate today = LocalDate.now(clock);
 
-    assertThatThrownBy(() -> documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Incident reporting routine sign-off",
-        "Shift supervisors",
-        today.minusDays(30),
-        today.plusDays(30),
-        null,
-        "incident-report.txt",
-        "text/plain",
-        "plain-text".getBytes(StandardCharsets.UTF_8),
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                documentService.createDocument(
+                    organization.getId(),
+                    establishment.getId(),
+                    DocumentServiceArea.IK_ALKOHOL,
+                    "Incident reporting routine sign-off",
+                    "Shift supervisors",
+                    today.minusDays(30),
+                    today.plusDays(30),
+                    null,
+                    "incident-report.txt",
+                    "text/plain",
+                    "plain-text".getBytes(StandardCharsets.UTF_8),
+                    currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Only PDF files are supported");
 
-    Document createdDocument = documentService.createDocument(
-        organization.getId(),
-        establishment.getId(),
-        DocumentServiceArea.IK_ALKOHOL,
-        "Incident reporting routine sign-off",
-        "Shift supervisors",
-        today.minusDays(30),
-        today.plusDays(30),
-        null,
-        "incident-report.pdf",
-        "application/pdf",
-        pdfBytes("incident-report"),
-        currentUser(manager)
-    );
+    Document createdDocument =
+        documentService.createDocument(
+            organization.getId(),
+            establishment.getId(),
+            DocumentServiceArea.IK_ALKOHOL,
+            "Incident reporting routine sign-off",
+            "Shift supervisors",
+            today.minusDays(30),
+            today.plusDays(30),
+            null,
+            "incident-report.pdf",
+            "application/pdf",
+            pdfBytes("incident-report"),
+            currentUser(manager));
 
-    assertThatThrownBy(() -> documentService.replaceDocumentFile(
-        organization.getId(),
-        establishment.getId(),
-        createdDocument.getId(),
-        "incident-report.txt",
-        "text/plain",
-        "plain-text".getBytes(StandardCharsets.UTF_8),
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                documentService.replaceDocumentFile(
+                    organization.getId(),
+                    establishment.getId(),
+                    createdDocument.getId(),
+                    "incident-report.txt",
+                    "text/plain",
+                    "plain-text".getBytes(StandardCharsets.UTF_8),
+                    currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Only PDF files are supported");
   }
@@ -453,17 +454,15 @@ class DocumentServiceIntegrationTest {
   }
 
   private Establishment createEstablishment(Organization organization, String name) {
-    Establishment establishment = new Establishment(
-        organization,
-        name,
-        EstablishmentType.BAR,
-        EstablishmentStatus.ACTIVE
-    );
+    Establishment establishment =
+        new Establishment(organization, name, EstablishmentType.BAR, EstablishmentStatus.ACTIVE);
     return establishmentRepository.saveAndFlush(establishment);
   }
 
-  private void createMembership(Organization organization, User user, OrganizationRole role, boolean active) {
-    OrganizationMembership membership = new OrganizationMembership(organization, user, role, active);
+  private void createMembership(
+      Organization organization, User user, OrganizationRole role, boolean active) {
+    OrganizationMembership membership =
+        new OrganizationMembership(organization, user, role, active);
     organizationMembershipRepository.saveAndFlush(membership);
   }
 

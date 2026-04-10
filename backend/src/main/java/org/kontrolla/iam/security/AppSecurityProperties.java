@@ -1,5 +1,8 @@
 package org.kontrolla.iam.security;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
@@ -7,144 +10,111 @@ import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.organizations.domain.OrganizationStatus;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Centralized security and development bootstrap configuration properties.
- */
+/** Centralized security and development bootstrap configuration properties. */
 @Getter
 @ConfigurationProperties(prefix = "app.security")
 public class AppSecurityProperties {
 
-	private final Jwt jwt = new Jwt();
-	private final Refresh refresh = new Refresh();
-	private final Invite invite = new Invite();
-	private final AuthThrottling authThrottling = new AuthThrottling();
-	private final Cors cors = new Cors();
-	private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
-	private final BootstrapUser bootstrapUser = new BootstrapUser();
-	private final List<BootstrapUser> bootstrapEmployees = new ArrayList<>();
-	private final BootstrapOrganization bootstrapOrganization = new BootstrapOrganization();
-	private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
-	private final List<BootstrapEstablishment> bootstrapEstablishments = new ArrayList<>();
+  private final Jwt jwt = new Jwt();
+  private final Refresh refresh = new Refresh();
+  private final Invite invite = new Invite();
+  private final AuthThrottling authThrottling = new AuthThrottling();
+  private final Cors cors = new Cors();
+  private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
+  private final BootstrapUser bootstrapUser = new BootstrapUser();
+  private final List<BootstrapUser> bootstrapEmployees = new ArrayList<>();
+  private final BootstrapOrganization bootstrapOrganization = new BootstrapOrganization();
+  private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
+  private final List<BootstrapEstablishment> bootstrapEstablishments = new ArrayList<>();
 
-	/**
-	 * JWT issuance and validation settings.
-	 */
-	@Setter
-	@Getter
-	public static class Jwt {
+  /** JWT issuance and validation settings. */
+  @Setter
+  @Getter
+  public static class Jwt {
 
-		private String issuer;
-		private String audience;
-		private String secret;
-		private Duration accessTokenTtl = Duration.ofMinutes(15);
+    private String issuer;
+    private String audience;
+    private String secret;
+    private Duration accessTokenTtl = Duration.ofMinutes(15);
+  }
 
-	}
+  /** Refresh-token cookie settings. */
+  @Setter
+  @Getter
+  public static class Refresh {
 
-	/**
-	 * Refresh-token cookie settings.
-	 */
-	@Setter
-	@Getter
-	public static class Refresh {
+    private String cookieName = "kontrolla_refresh_token";
+    private String cookiePath = "/api/v1/auth";
+    private String sameSite = "Lax";
+    private boolean secureCookie;
+    private Duration ttl = Duration.ofDays(14);
+  }
 
-		private String cookieName = "kontrolla_refresh_token";
-		private String cookiePath = "/api/v1/auth";
-		private String sameSite = "Lax";
-		private boolean secureCookie;
-		private Duration ttl = Duration.ofDays(14);
+  /** Invitation token and URL settings. */
+  @Setter
+  @Getter
+  public static class Invite {
 
-	}
+    private Duration tokenTtl = Duration.ofDays(7);
+    private String frontendBaseUrl = "http://localhost:5173";
+    private boolean exposeInviteUrlInResponse;
+  }
 
-	/**
-	 * Invitation token and URL settings.
-	 */
-	@Setter
-	@Getter
-	public static class Invite {
+  /** Authentication throttling settings. */
+  @Setter
+  @Getter
+  public static class AuthThrottling {
 
-		private Duration tokenTtl = Duration.ofDays(7);
-		private String frontendBaseUrl = "http://localhost:5173";
-		private boolean exposeInviteUrlInResponse;
+    private int maxFailedAttempts = 5;
+    private Duration lockoutDuration = Duration.ofMinutes(10);
+  }
 
-	}
+  /** CORS settings for frontend origins. */
+  @Setter
+  @Getter
+  public static class Cors {
 
-	/**
-	 * Authentication throttling settings.
-	 */
-	@Setter
-	@Getter
-	public static class AuthThrottling {
+    private List<String> allowedOrigins = new ArrayList<>(List.of("http://localhost:5173"));
+  }
 
-		private int maxFailedAttempts = 5;
-		private Duration lockoutDuration = Duration.ofMinutes(10);
+  /** Development bootstrap platform-admin user settings. */
+  @Setter
+  @Getter
+  public static class BootstrapAdmin {
 
-	}
+    private String email;
+    private String password;
+    private String firstName = "Platform";
+    private String lastName = "Admin";
+  }
 
-	/**
-	 * CORS settings for frontend origins.
-	 */
-	@Setter
-	@Getter
-	public static class Cors {
+  /** Development bootstrap non-admin user settings. */
+  @Setter
+  @Getter
+  public static class BootstrapUser {
 
-		private List<String> allowedOrigins = new ArrayList<>(List.of("http://localhost:5173"));
+    private String email;
+    private String password;
+    private String firstName = "Demo";
+    private String lastName = "User";
+  }
 
-	}
+  /** Development bootstrap organization settings. */
+  @Setter
+  @Getter
+  public static class BootstrapOrganization {
 
-	/**
-	 * Development bootstrap platform-admin user settings.
-	 */
-	@Setter
-	@Getter
-	public static class BootstrapAdmin {
+    private String name = "Demo Organization";
+    private OrganizationStatus status = OrganizationStatus.ACTIVE;
+  }
 
-		private String email;
-		private String password;
-		private String firstName = "Platform";
-		private String lastName = "Admin";
+  /** Development bootstrap establishment settings. */
+  @Setter
+  @Getter
+  public static class BootstrapEstablishment {
 
-	}
-
-	/**
-	 * Development bootstrap non-admin user settings.
-	 */
-	@Setter
-	@Getter
-	public static class BootstrapUser {
-
-		private String email;
-		private String password;
-		private String firstName = "Demo";
-		private String lastName = "User";
-
-	}
-
-	/**
-	 * Development bootstrap organization settings.
-	 */
-	@Setter
-	@Getter
-	public static class BootstrapOrganization {
-
-		private String name = "Demo Organization";
-		private OrganizationStatus status = OrganizationStatus.ACTIVE;
-
-	}
-
-	/**
-	 * Development bootstrap establishment settings.
-	 */
-	@Setter
-	@Getter
-	public static class BootstrapEstablishment {
-
-		private String name = "Demo Establishment";
-		private EstablishmentType type = EstablishmentType.RESTAURANT;
-		private EstablishmentStatus status = EstablishmentStatus.ACTIVE;
-
-	}
+    private String name = "Demo Establishment";
+    private EstablishmentType type = EstablishmentType.RESTAURANT;
+    private EstablishmentStatus status = EstablishmentStatus.ACTIVE;
+  }
 }

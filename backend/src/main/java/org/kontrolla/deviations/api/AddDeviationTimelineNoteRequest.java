@@ -8,7 +8,4 @@ import jakarta.validation.constraints.Size;
  *
  * @param note the note to append to the timeline
  */
-public record AddDeviationTimelineNoteRequest(
-		@NotBlank @Size(max = 2000) String note
-) {
-}
+public record AddDeviationTimelineNoteRequest(@NotBlank @Size(max = 2000) String note) {}

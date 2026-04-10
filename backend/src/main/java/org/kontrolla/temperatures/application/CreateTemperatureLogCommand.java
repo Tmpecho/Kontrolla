@@ -11,8 +11,4 @@ import java.time.Instant;
  * @param note optional note explaining the reading
  */
 public record CreateTemperatureLogCommand(
-    BigDecimal temperatureCelsius,
-    Instant measuredAt,
-    String note
-) {
-}
+    BigDecimal temperatureCelsius, Instant measuredAt, String note) {}

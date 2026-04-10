@@ -1,7 +1,16 @@
 package org.kontrolla.checklists.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.checklists.application.ChecklistDefinitionService;
@@ -35,234 +44,245 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class ChecklistRunListingIntegrationTest {
 
-	@Autowired
-	private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-	@Autowired
-	private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-	@Autowired
-	private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-	@Autowired
-	private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-	@Autowired
-	private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-	@Autowired
-	private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-	@Autowired
-	private ChecklistDefinitionService checklistDefinitionService;
+  @Autowired private ChecklistDefinitionService checklistDefinitionService;
 
-	@Autowired
-	private ChecklistRunRepository checklistRunRepository;
+  @Autowired private ChecklistRunRepository checklistRunRepository;
 
-	@Autowired
-	private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
-	@BeforeEach
-	void setUp() {
-		testDataCleaner.clearAll();
-	}
+  @BeforeEach
+  void setUp() {
+    testDataCleaner.clearAll();
+  }
 
-	@Test
-	void omittedStatusesReturnsChecklistRunsAcrossAllStatuses() throws Exception {
-		User manager = createUser("listing-manager@example.com");
-		Organization organization = createOrganization("Checklist Listing Org");
-		Establishment establishment = createEstablishment(organization, "Checklist Listing Restaurant");
-		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+  @Test
+  void omittedStatusesReturnsChecklistRunsAcrossAllStatuses() throws Exception {
+    User manager = createUser("listing-manager@example.com");
+    Organization organization = createOrganization("Checklist Listing Org");
+    Establishment establishment = createEstablishment(organization, "Checklist Listing Restaurant");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
 
-		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T08:00:00Z"), ChecklistRunStatus.PENDING);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T09:00:00Z"), ChecklistRunStatus.IN_PROGRESS);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T10:00:00Z"), ChecklistRunStatus.COMPLETED);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T11:00:00Z"), ChecklistRunStatus.OVERDUE);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T12:00:00Z"), ChecklistRunStatus.CANCELLED);
+    ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T08:00:00Z"),
+        ChecklistRunStatus.PENDING);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T09:00:00Z"),
+        ChecklistRunStatus.IN_PROGRESS);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T10:00:00Z"),
+        ChecklistRunStatus.COMPLETED);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T11:00:00Z"),
+        ChecklistRunStatus.OVERDUE);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T12:00:00Z"),
+        ChecklistRunStatus.CANCELLED);
 
-		String accessToken = login("listing-manager@example.com", "password123");
+    String accessToken = login("listing-manager@example.com", "password123");
 
-		MvcResult result = mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/checklists/runs?serviceArea=IK_MAT"
-						.formatted(organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-				.andExpect(status().isOk())
-				.andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(
+                get("/api/v1/organizations/%s/establishments/%s/checklists/runs?serviceArea=IK_MAT"
+                        .formatted(organization.getId(), establishment.getId()))
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+            .andExpect(status().isOk())
+            .andReturn();
 
-		List<String> returnedStatuses = extractItemValues(result, "status");
+    List<String> returnedStatuses = extractItemValues(result, "status");
 
-		assertThat(returnedStatuses).containsExactlyInAnyOrder(
-				"PENDING",
-				"IN_PROGRESS",
-				"COMPLETED",
-				"OVERDUE",
-				"CANCELLED"
-		);
-	}
+    assertThat(returnedStatuses)
+        .containsExactlyInAnyOrder("PENDING", "IN_PROGRESS", "COMPLETED", "OVERDUE", "CANCELLED");
+  }
 
-	@Test
-	void explicitStatusesRestrictChecklistRunListing() throws Exception {
-		User manager = createUser("listing-filter-manager@example.com");
-		Organization organization = createOrganization("Checklist Listing Filter Org");
-		Establishment establishment = createEstablishment(organization, "Checklist Listing Filter Restaurant");
-		createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
+  @Test
+  void explicitStatusesRestrictChecklistRunListing() throws Exception {
+    User manager = createUser("listing-filter-manager@example.com");
+    Organization organization = createOrganization("Checklist Listing Filter Org");
+    Establishment establishment =
+        createEstablishment(organization, "Checklist Listing Filter Restaurant");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER);
 
-		ChecklistDefinition definition = createDefinition(organization, establishment, manager);
-		ChecklistRun pendingRun = createRun(
-				definition,
-				establishment,
-				manager,
-				Instant.parse("2026-04-07T08:00:00Z"),
-				ChecklistRunStatus.PENDING
-		);
-		ChecklistRun overdueRun = createRun(
-				definition,
-				establishment,
-				manager,
-				Instant.parse("2026-04-07T09:00:00Z"),
-				ChecklistRunStatus.OVERDUE
-		);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T10:00:00Z"), ChecklistRunStatus.COMPLETED);
-		createRun(definition, establishment, manager, Instant.parse("2026-04-07T11:00:00Z"), ChecklistRunStatus.CANCELLED);
+    ChecklistDefinition definition = createDefinition(organization, establishment, manager);
+    ChecklistRun pendingRun =
+        createRun(
+            definition,
+            establishment,
+            manager,
+            Instant.parse("2026-04-07T08:00:00Z"),
+            ChecklistRunStatus.PENDING);
+    ChecklistRun overdueRun =
+        createRun(
+            definition,
+            establishment,
+            manager,
+            Instant.parse("2026-04-07T09:00:00Z"),
+            ChecklistRunStatus.OVERDUE);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T10:00:00Z"),
+        ChecklistRunStatus.COMPLETED);
+    createRun(
+        definition,
+        establishment,
+        manager,
+        Instant.parse("2026-04-07T11:00:00Z"),
+        ChecklistRunStatus.CANCELLED);
 
-		String accessToken = login("listing-filter-manager@example.com", "password123");
+    String accessToken = login("listing-filter-manager@example.com", "password123");
 
-		MvcResult result = mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/checklists/runs?serviceArea=IK_MAT&statuses=PENDING&statuses=OVERDUE"
-						.formatted(organization.getId(), establishment.getId()))
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-				.andExpect(status().isOk())
-				.andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(
+                get("/api/v1/organizations/%s/establishments/%s/checklists/runs?serviceArea=IK_MAT&statuses=PENDING&statuses=OVERDUE"
+                        .formatted(organization.getId(), establishment.getId()))
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+            .andExpect(status().isOk())
+            .andReturn();
 
-		List<String> returnedStatuses = extractItemValues(result, "status");
-		List<String> returnedIds = extractItemValues(result, "id");
+    List<String> returnedStatuses = extractItemValues(result, "status");
+    List<String> returnedIds = extractItemValues(result, "id");
 
-		assertThat(returnedStatuses).containsExactlyInAnyOrder("PENDING", "OVERDUE");
-		assertThat(returnedIds).containsExactlyInAnyOrder(
-				pendingRun.getId().toString(),
-				overdueRun.getId().toString()
-		);
-	}
+    assertThat(returnedStatuses).containsExactlyInAnyOrder("PENDING", "OVERDUE");
+    assertThat(returnedIds)
+        .containsExactlyInAnyOrder(pendingRun.getId().toString(), overdueRun.getId().toString());
+  }
 
-	private List<String> extractItemValues(MvcResult result, String fieldName) throws Exception {
-		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString()).get("items");
-		return java.util.stream.StreamSupport.stream(items.spliterator(), false)
-				.map(item -> item.get(fieldName).asText())
-				.toList();
-	}
+  private List<String> extractItemValues(MvcResult result, String fieldName) throws Exception {
+    JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString()).get("items");
+    return java.util.stream.StreamSupport.stream(items.spliterator(), false)
+        .map(item -> item.get(fieldName).asText())
+        .toList();
+  }
 
-	private ChecklistDefinition createDefinition(Organization organization, Establishment establishment, User manager) {
-		return checklistDefinitionService.createChecklistDefinition(
-				organization.getId(),
-				establishment.getId(),
-				ChecklistServiceArea.IK_MAT,
-				"Morning shift",
-				"Opening routine",
-				List.of(new ChecklistDefinitionService.ChecklistTaskInput(
-						"Check fridge temperature",
-						"Record the opening fridge reading",
-						ChecklistTaskKind.ACTION,
-						true,
-						0,
-						null,
-						null,
-						null
-				)),
-				List.of(),
-				currentUser(manager)
-		);
-	}
+  private ChecklistDefinition createDefinition(
+      Organization organization, Establishment establishment, User manager) {
+    return checklistDefinitionService.createChecklistDefinition(
+        organization.getId(),
+        establishment.getId(),
+        ChecklistServiceArea.IK_MAT,
+        "Morning shift",
+        "Opening routine",
+        List.of(
+            new ChecklistDefinitionService.ChecklistTaskInput(
+                "Check fridge temperature",
+                "Record the opening fridge reading",
+                ChecklistTaskKind.ACTION,
+                true,
+                0,
+                null,
+                null,
+                null)),
+        List.of(),
+        currentUser(manager));
+  }
 
-	private ChecklistRun createRun(
-			ChecklistDefinition definition,
-			Establishment establishment,
-			User manager,
-			Instant dueAt,
-			ChecklistRunStatus status
-	) {
-		ChecklistRun run = new ChecklistRun(
-				definition,
-				definition.getDefinitionGroupId(),
-				establishment,
-				definition.getServiceArea(),
-				definition.getTitle(),
-				definition.getDescription(),
-				dueAt,
-				status,
-				manager
-		);
-		run.snapshotTasksFromDefinition(definition.getTasks());
-		return checklistRunRepository.saveAndFlush(run);
-	}
+  private ChecklistRun createRun(
+      ChecklistDefinition definition,
+      Establishment establishment,
+      User manager,
+      Instant dueAt,
+      ChecklistRunStatus status) {
+    ChecklistRun run =
+        new ChecklistRun(
+            definition,
+            definition.getDefinitionGroupId(),
+            establishment,
+            definition.getServiceArea(),
+            definition.getTitle(),
+            definition.getDescription(),
+            dueAt,
+            status,
+            manager);
+    run.snapshotTasksFromDefinition(definition.getTasks());
+    return checklistRunRepository.saveAndFlush(run);
+  }
 
-	private User createUser(String email) {
-		User user = new User(
-				email,
-				"Test",
-				"User",
-				passwordEncoder.encode("password123"),
-				true,
-				Set.of()
-		);
-		return userRepository.saveAndFlush(user);
-	}
+  private User createUser(String email) {
+    User user =
+        new User(email, "Test", "User", passwordEncoder.encode("password123"), true, Set.of());
+    return userRepository.saveAndFlush(user);
+  }
 
-	private Organization createOrganization(String name) {
-		Organization organization = new Organization(name, OrganizationStatus.ACTIVE);
-		return organizationRepository.saveAndFlush(organization);
-	}
+  private Organization createOrganization(String name) {
+    Organization organization = new Organization(name, OrganizationStatus.ACTIVE);
+    return organizationRepository.saveAndFlush(organization);
+  }
 
-	private Establishment createEstablishment(Organization organization, String name) {
-		Establishment establishment = new Establishment(
-				organization,
-				name,
-				EstablishmentType.RESTAURANT,
-				EstablishmentStatus.ACTIVE
-		);
-		return establishmentRepository.saveAndFlush(establishment);
-	}
+  private Establishment createEstablishment(Organization organization, String name) {
+    Establishment establishment =
+        new Establishment(
+            organization, name, EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE);
+    return establishmentRepository.saveAndFlush(establishment);
+  }
 
-	private void createMembership(Organization organization, User user, OrganizationRole role) {
-		organizationMembershipRepository.saveAndFlush(new OrganizationMembership(organization, user, role, true));
-	}
+  private void createMembership(Organization organization, User user, OrganizationRole role) {
+    organizationMembershipRepository.saveAndFlush(
+        new OrganizationMembership(organization, user, role, true));
+  }
 
-	private CurrentUser currentUser(User user) {
-		return new CurrentUser(user.getId(), user.getEmail(), user.getGlobalRoles());
-	}
+  private CurrentUser currentUser(User user) {
+    return new CurrentUser(user.getId(), user.getEmail(), user.getGlobalRoles());
+  }
 
-	private String login(String email, String password) throws Exception {
-		String response = mockMvc.perform(post("/api/v1/auth/login")
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
+  private String login(String email, String password) throws Exception {
+    String response =
+        mockMvc
+            .perform(
+                post("/api/v1/auth/login")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
 								{
 								  "email": "%s",
 								  "password": "%s"
 								}
-								""".formatted(email, password)))
-				.andExpect(status().isOk())
-				.andReturn()
-				.getResponse()
-				.getContentAsString();
+								"""
+                            .formatted(email, password)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
 
-		JsonNode json = objectMapper.readTree(response);
-		return json.get("accessToken").asText();
-	}
+    JsonNode json = objectMapper.readTree(response);
+    return json.get("accessToken").asText();
+  }
 }

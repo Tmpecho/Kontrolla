@@ -2,6 +2,14 @@ package org.kontrolla.iam.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.HttpCookie;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.establishments.domain.Establishment;
@@ -23,131 +31,126 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.net.CookieManager;
-import java.net.CookiePolicy;
-import java.net.HttpCookie;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.Set;
-
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class AuthCsrfFlowIntegrationTest {
 
-	@LocalServerPort
-	private int port;
+  @LocalServerPort private int port;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-	@Autowired
-	private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-	@Autowired
-	private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-	@Autowired
-	private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-	@Autowired
-	private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-	@Autowired
-	private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-	@Autowired
-	private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
-	@BeforeEach
-	void setUp() {
-		testDataCleaner.clearAll();
-	}
+  @BeforeEach
+  void setUp() {
+    testDataCleaner.clearAll();
+  }
 
-	@Test
-	void csrfEndpointReturnsTokenBootstrapPayload() throws Exception {
-		HttpClientWithCookies client = newClient();
+  @Test
+  void csrfEndpointReturnsTokenBootstrapPayload() throws Exception {
+    HttpClientWithCookies client = newClient();
 
-		HttpResponse<String> csrfResponse = client.httpClient().send(
-				HttpRequest.newBuilder(uri("/api/v1/auth/csrf"))
-						.GET()
-						.build(),
-				HttpResponse.BodyHandlers.ofString()
-		);
+    HttpResponse<String> csrfResponse =
+        client
+            .httpClient()
+            .send(
+                HttpRequest.newBuilder(uri("/api/v1/auth/csrf")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
 
-		org.assertj.core.api.Assertions.assertThat(csrfResponse.statusCode()).isEqualTo(200);
+    org.assertj.core.api.Assertions.assertThat(csrfResponse.statusCode()).isEqualTo(200);
 
-		JsonNode csrfJson = objectMapper.readTree(csrfResponse.body());
-		HttpCookie csrfCookie = client.cookieManager().getCookieStore().get(uri("/")).stream()
-				.filter(cookie -> "XSRF-TOKEN".equals(cookie.getName()))
-				.findFirst()
-				.orElseThrow();
+    JsonNode csrfJson = objectMapper.readTree(csrfResponse.body());
+    HttpCookie csrfCookie =
+        client.cookieManager().getCookieStore().get(uri("/")).stream()
+            .filter(cookie -> "XSRF-TOKEN".equals(cookie.getName()))
+            .findFirst()
+            .orElseThrow();
 
-		org.assertj.core.api.Assertions.assertThat(csrfJson.get("token").asText()).isEqualTo(csrfCookie.getValue());
-		org.assertj.core.api.Assertions.assertThat(csrfJson.get("headerName").asText()).isEqualTo("X-XSRF-TOKEN");
-		org.assertj.core.api.Assertions.assertThat(csrfJson.get("parameterName").asText()).isEqualTo("_csrf");
-	}
+    org.assertj.core.api.Assertions.assertThat(csrfJson.get("token").asText())
+        .isEqualTo(csrfCookie.getValue());
+    org.assertj.core.api.Assertions.assertThat(csrfJson.get("headerName").asText())
+        .isEqualTo("X-XSRF-TOKEN");
+    org.assertj.core.api.Assertions.assertThat(csrfJson.get("parameterName").asText())
+        .isEqualTo("_csrf");
+  }
 
-	@Test
-	void loginSucceedsWithFetchedCsrfCookieAndHeader() throws Exception {
-		createUserWithOrganizationContext("alice@example.com", "password123");
-		HttpClientWithCookies client = newClient();
+  @Test
+  void loginSucceedsWithFetchedCsrfCookieAndHeader() throws Exception {
+    createUserWithOrganizationContext("alice@example.com", "password123");
+    HttpClientWithCookies client = newClient();
 
-		HttpResponse<String> csrfResponse = client.httpClient().send(
-				HttpRequest.newBuilder(uri("/api/v1/auth/csrf"))
-						.GET()
-						.build(),
-				HttpResponse.BodyHandlers.ofString()
-		);
-		JsonNode csrfJson = objectMapper.readTree(csrfResponse.body());
-		String csrfToken = csrfJson.get("token").asText();
-		String csrfHeaderName = csrfJson.get("headerName").asText();
+    HttpResponse<String> csrfResponse =
+        client
+            .httpClient()
+            .send(
+                HttpRequest.newBuilder(uri("/api/v1/auth/csrf")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+    JsonNode csrfJson = objectMapper.readTree(csrfResponse.body());
+    String csrfToken = csrfJson.get("token").asText();
+    String csrfHeaderName = csrfJson.get("headerName").asText();
 
-		HttpResponse<String> loginResponse = client.httpClient().send(
-				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
-						.header("Content-Type", "application/json")
-						.header(csrfHeaderName, csrfToken)
-						.POST(HttpRequest.BodyPublishers.ofString("""
+    HttpResponse<String> loginResponse =
+        client
+            .httpClient()
+            .send(
+                HttpRequest.newBuilder(uri("/api/v1/auth/login"))
+                    .header("Content-Type", "application/json")
+                    .header(csrfHeaderName, csrfToken)
+                    .POST(
+                        HttpRequest.BodyPublishers.ofString(
+                            """
 								{
 								  "email": "alice@example.com",
 								  "password": "password123"
 								}
 								"""))
-						.build(),
-				HttpResponse.BodyHandlers.ofString()
-		);
+                    .build(),
+                HttpResponse.BodyHandlers.ofString());
 
-		org.assertj.core.api.Assertions.assertThat(loginResponse.statusCode()).isEqualTo(200);
-		org.assertj.core.api.Assertions.assertThat(loginResponse.headers().allValues("set-cookie"))
-				.anyMatch(headerValue -> headerValue.startsWith("kontrolla_refresh_token="));
-		org.assertj.core.api.Assertions.assertThat(objectMapper.readTree(loginResponse.body()).at("/user/email").asText())
-				.isEqualTo("alice@example.com");
-	}
+    org.assertj.core.api.Assertions.assertThat(loginResponse.statusCode()).isEqualTo(200);
+    org.assertj.core.api.Assertions.assertThat(loginResponse.headers().allValues("set-cookie"))
+        .anyMatch(headerValue -> headerValue.startsWith("kontrolla_refresh_token="));
+    org.assertj.core.api.Assertions.assertThat(
+            objectMapper.readTree(loginResponse.body()).at("/user/email").asText())
+        .isEqualTo("alice@example.com");
+  }
 
-	private void createUserWithOrganizationContext(String email, String password) {
-		User user = userRepository.saveAndFlush(
-				new User(email, "Alice", "Example", passwordEncoder.encode(password), true, Set.of()));
-		Organization organization = organizationRepository.saveAndFlush(
-				new Organization("Alice Organization", OrganizationStatus.ACTIVE));
-		establishmentRepository.saveAndFlush(
-				new Establishment(organization, "Alice Establishment", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
-		organizationMembershipRepository.saveAndFlush(
-				new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
-	}
+  private void createUserWithOrganizationContext(String email, String password) {
+    User user =
+        userRepository.saveAndFlush(
+            new User(email, "Alice", "Example", passwordEncoder.encode(password), true, Set.of()));
+    Organization organization =
+        organizationRepository.saveAndFlush(
+            new Organization("Alice Organization", OrganizationStatus.ACTIVE));
+    establishmentRepository.saveAndFlush(
+        new Establishment(
+            organization,
+            "Alice Establishment",
+            EstablishmentType.RESTAURANT,
+            EstablishmentStatus.ACTIVE));
+    organizationMembershipRepository.saveAndFlush(
+        new OrganizationMembership(organization, user, OrganizationRole.ORG_MANAGER, true));
+  }
 
-	private HttpClientWithCookies newClient() {
-		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
-		HttpClient httpClient = HttpClient.newBuilder()
-				.cookieHandler(cookieManager)
-				.build();
-		return new HttpClientWithCookies(httpClient, cookieManager);
-	}
+  private HttpClientWithCookies newClient() {
+    CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+    HttpClient httpClient = HttpClient.newBuilder().cookieHandler(cookieManager).build();
+    return new HttpClientWithCookies(httpClient, cookieManager);
+  }
 
-	private URI uri(String path) {
-		return URI.create("http://localhost:" + port + path);
-	}
+  private URI uri(String path) {
+    return URI.create("http://localhost:" + port + path);
+  }
 
-	private record HttpClientWithCookies(HttpClient httpClient, CookieManager cookieManager) {
-	}
+  private record HttpClientWithCookies(HttpClient httpClient, CookieManager cookieManager) {}
 }

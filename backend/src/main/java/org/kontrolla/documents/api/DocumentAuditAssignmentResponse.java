@@ -1,9 +1,8 @@
 package org.kontrolla.documents.api;
 
-import org.kontrolla.documents.domain.DocumentAuditAssignment;
-
 import java.time.Instant;
 import java.util.UUID;
+import org.kontrolla.documents.domain.DocumentAuditAssignment;
 
 /**
  * API response describing a document audit assignment.
@@ -19,8 +18,7 @@ public record DocumentAuditAssignmentResponse(
     String userEmail,
     String userFirstName,
     String userLastName,
-    Instant acknowledgedAt
-) {
+    Instant acknowledgedAt) {
 
   /**
    * Maps an audit assignment entity to the API response shape.
@@ -34,7 +32,6 @@ public record DocumentAuditAssignmentResponse(
         assignment.getUser().getEmail(),
         assignment.getUser().getFirstName(),
         assignment.getUser().getLastName(),
-        assignment.getAcknowledgedAt()
-    );
+        assignment.getAcknowledgedAt());
   }
 }

@@ -10,10 +10,8 @@ package org.kontrolla.iam.api;
  * @param appContext the resolved application context
  */
 public record LoginResponse(
-		AuthUserResponse user,
-		String accessToken,
-		String tokenType,
-		long expiresIn,
-		UserAppContextResponse appContext
-) {
-}
+    AuthUserResponse user,
+    String accessToken,
+    String tokenType,
+    long expiresIn,
+    UserAppContextResponse appContext) {}

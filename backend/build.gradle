@@ -1,6 +1,7 @@
 plugins {
 	id 'java'
 	id 'jacoco'
+	id 'com.diffplug.spotless' version '7.2.1'
 	id 'org.springframework.boot' version '3.5.12'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -23,6 +24,13 @@ configurations {
 
 repositories {
 	mavenCentral()
+}
+
+spotless {
+	java {
+		target 'src/*/java/**/*.java'
+		googleJavaFormat('1.28.0')
+	}
 }
 
 dependencies {

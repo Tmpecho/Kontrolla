@@ -1,9 +1,8 @@
 package org.kontrolla.checklists.application;
 
+import java.util.List;
 import org.kontrolla.checklists.domain.ChecklistDefinitionStatus;
 import org.kontrolla.checklists.domain.ChecklistServiceArea;
-
-import java.util.List;
 
 /**
  * Command for creating a new version of an existing checklist definition.
@@ -16,11 +15,9 @@ import java.util.List;
  * @param schedules the schedule definitions
  */
 public record UpdateChecklistDefinitionCommand(
-		ChecklistServiceArea serviceArea,
-		String title,
-		String description,
-		ChecklistDefinitionStatus status,
-		List<ChecklistDefinitionTaskInput> tasks,
-		List<ChecklistDefinitionScheduleInput> schedules
-) {
-}
+    ChecklistServiceArea serviceArea,
+    String title,
+    String description,
+    ChecklistDefinitionStatus status,
+    List<ChecklistDefinitionTaskInput> tasks,
+    List<ChecklistDefinitionScheduleInput> schedules) {}

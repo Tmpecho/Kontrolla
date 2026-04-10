@@ -3,11 +3,10 @@ package org.kontrolla.documents.api;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.kontrolla.documents.domain.DocumentServiceArea;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.kontrolla.documents.domain.DocumentServiceArea;
 
 /**
  * Request payload for updating document metadata.
@@ -25,6 +24,4 @@ public record UpdateDocumentRequest(
     @NotBlank @Size(max = 255) String holderName,
     @NotNull LocalDate issueDate,
     @NotNull LocalDate renewalDate,
-    List<UUID> auditUserIds
-) {
-}
+    List<UUID> auditUserIds) {}

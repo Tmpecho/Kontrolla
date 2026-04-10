@@ -1,12 +1,11 @@
 package org.kontrolla.temperatures.api;
 
-import org.kontrolla.temperatures.application.TemperatureUnitView;
-import org.kontrolla.temperatures.domain.TemperatureUnitType;
-
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
+import org.kontrolla.temperatures.application.TemperatureUnitView;
+import org.kontrolla.temperatures.domain.TemperatureUnitType;
 
 /**
  * API response describing a temperature unit and its recent logs.
@@ -28,8 +27,7 @@ public record TemperatureUnitResponse(
     LocalTime dueByTime,
     BigDecimal minimumTemperature,
     BigDecimal maximumTemperature,
-    List<TemperatureLogEntryResponse> logs
-) {
+    List<TemperatureLogEntryResponse> logs) {
 
   /**
    * Maps an application view to the API response shape.
@@ -46,7 +44,6 @@ public record TemperatureUnitResponse(
         view.dueByTime(),
         view.minimumTemperature(),
         view.maximumTemperature(),
-        view.logs().stream().map(TemperatureLogEntryResponse::from).toList()
-    );
+        view.logs().stream().map(TemperatureLogEntryResponse::from).toList());
   }
 }

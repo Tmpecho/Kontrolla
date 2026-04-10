@@ -1,5 +1,16 @@
 package org.kontrolla.checklists.application;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.kontrolla.checklists.domain.ChecklistRun;
 import org.kontrolla.checklists.domain.ChecklistRunAssignment;
 import org.kontrolla.checklists.domain.ChecklistRunEvent;
@@ -29,886 +40,861 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-
-/**
- * Handles checklist run assignment, execution, completion, and state
- * transitions.
- */
+/** Handles checklist run assignment, execution, completion, and state transitions. */
 @Service
 public class ChecklistRunService {
 
-	private static final List<ChecklistRunStatus> OVERDUE_CANDIDATE_STATUSES = List.of(
-			ChecklistRunStatus.PENDING,
-			ChecklistRunStatus.IN_PROGRESS
-	);
-	private static final List<ChecklistRunStatus> REGENERATABLE_STATUSES = List.of(
-			ChecklistRunStatus.PENDING,
-			ChecklistRunStatus.OVERDUE
-	);
-
-	private final ChecklistRunRepository checklistRunRepository;
-	private final ChecklistRunAssignmentRepository checklistRunAssignmentRepository;
-	private final ChecklistAccessService checklistAccessService;
-	private final OrganizationMembershipRepository organizationMembershipRepository;
-	private final UserRepository userRepository;
-	private final NotificationService notificationService;
-
-	/**
-	 * Creates the checklist run service.
-	 *
-	 * @param checklistRunRepository repository for checklist runs
-	 * @param checklistRunAssignmentRepository repository for checklist run assignments
-	 * @param checklistAccessService service for checklist access rules
-	 * @param organizationMembershipRepository repository for organization memberships
-	 * @param userRepository repository for users
-	 * @param notificationService service for assignment and overdue notifications
-	 */
-	public ChecklistRunService(
-			ChecklistRunRepository checklistRunRepository,
-			ChecklistRunAssignmentRepository checklistRunAssignmentRepository,
-			ChecklistAccessService checklistAccessService,
-			OrganizationMembershipRepository organizationMembershipRepository,
-			UserRepository userRepository,
-			NotificationService notificationService
-	) {
-		this.checklistRunRepository = checklistRunRepository;
-		this.checklistRunAssignmentRepository = checklistRunAssignmentRepository;
-		this.checklistAccessService = checklistAccessService;
-		this.organizationMembershipRepository = organizationMembershipRepository;
-		this.userRepository = userRepository;
-		this.notificationService = notificationService;
-	}
-
-	/**
-	 * Lists checklist runs using optional status, assignment, and due-date
-	 * filters.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param serviceArea the checklist service area
-	 * @param statuses the desired statuses
-	 * @param assignedUserId the assigned-user filter
-	 * @param assignedToCurrentUser whether to force filtering to the current user
-	 * @param dueFrom the due-date lower bound
-	 * @param dueTo the due-date upper bound
-	 * @param currentUser the authenticated user
-	 * @param pageable pagination information
-	 * @return a page of checklist runs
-	 */
-	@Transactional(readOnly = true)
-	public Page<ChecklistRun> listChecklistRuns(
-			UUID organizationId,
-			UUID establishmentId,
-			ChecklistServiceArea serviceArea,
-			List<ChecklistRunStatus> statuses,
-			UUID assignedUserId,
-			boolean assignedToCurrentUser,
-			Instant dueFrom,
-			Instant dueTo,
-			CurrentUser currentUser,
-			Pageable pageable
-	) {
-		checklistAccessService.requireChecklistReadAccess(organizationId, establishmentId, currentUser);
-		UUID effectiveAssignedUserId = resolveAssignedUserFilter(
-				organizationId,
-				establishmentId,
-				assignedUserId,
-				assignedToCurrentUser,
-				currentUser
-		);
-		List<ChecklistRunStatus> normalizedStatuses = statuses == null ? List.of() : statuses.stream().filter(Objects::nonNull).distinct().toList();
-		Collection<ChecklistRunStatus> statusesForQuery = normalizedStatuses.isEmpty()
-				? EnumSet.allOf(ChecklistRunStatus.class)
-				: normalizedStatuses;
-
-		return checklistRunRepository.search(
-				establishmentId,
-				serviceArea,
-				statusesForQuery,
-				effectiveAssignedUserId,
-				dueFrom,
-				dueTo,
-				pageable
-		);
-	}
-
-	/**
-	 * Returns a checklist run by id.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param currentUser the authenticated user
-	 * @return the requested checklist run
-	 */
-	@Transactional(readOnly = true)
-	public ChecklistRun getChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			CurrentUser currentUser
-	) {
-		checklistAccessService.requireChecklistReadAccess(organizationId, establishmentId, currentUser);
-		return findChecklistRunOrThrow(establishmentId, checklistRunId);
-	}
-
-	/**
-	 * Assigns one or more users to a checklist run.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param assignedUserIds the users to assign
-	 * @param currentUser the authenticated user
-	 * @return the updated checklist run
-	 */
-	@Transactional
-	public ChecklistRun assignChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			List<UUID> assignedUserIds,
-			CurrentUser currentUser
-	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
-		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
-		User actor = getUserOrThrow(currentUser.userId());
-		Instant now = Instant.now();
-
-		Map<UUID, User> usersById = getAssignableUsersById(organizationId, establishmentId, assignedUserIds);
-		Set<UUID> existingAssignments = checklistRun.getAssignments().stream()
-				.map(assignment -> assignment.getAssignedUser().getId())
-				.collect(LinkedHashSet::new, Set::add, Set::addAll);
-
-		assignedUserIds.stream().filter(assignedUserId -> !existingAssignments.contains(assignedUserId)).forEach(assignedUserId -> {
-			User assignedUser = usersById.get(assignedUserId);
-			checklistRun.addAssignment(new ChecklistRunAssignment(assignedUser, actor, now));
-			checklistRun.addEvent(new ChecklistRunEvent(
-					ChecklistRunEventType.ASSIGNED,
-					actor,
-					now,
-					"{\"assignedUserId\":\"%s\"}".formatted(assignedUserId)
-			));
-			notificationService.createNotification(new CreateNotificationCommand(
-					assignedUserId,
-					actor.getId(),
-					organizationId,
-					establishmentId,
-					toNotificationServiceArea(checklistRun.getServiceArea()),
-					NotificationType.CHECKLIST_ASSIGNED,
-					checklistRun.getTitleSnapshot(),
-					"You were assigned this checklist run.",
-					NotificationResourceType.CHECKLIST_RUN,
-					checklistRun.getId()
-			));
-			existingAssignments.add(assignedUserId);
-		});
-
-		return checklistRunRepository.save(checklistRun);
-	}
-
-	/**
-	 * Removes an assignment from a checklist run.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param assignmentId the assignment identifier
-	 * @param currentUser the authenticated user
-	 */
-	@Transactional
-	public void removeChecklistRunAssignment(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			UUID assignmentId,
-			CurrentUser currentUser
-	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
-		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
-
-		ChecklistRunAssignment assignment = checklistRunAssignmentRepository.findByIdAndChecklistRunId(assignmentId, checklistRunId)
-				.orElseThrow(checklistAccessService::checklistAssignmentNotFound);
-
-		checklistRun.removeAssignment(assignment);
-		checklistRunRepository.save(checklistRun);
-	}
-
-	/**
-	 * Starts a checklist run.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param currentUser the authenticated user
-	 * @return the updated checklist run
-	 */
-	@Transactional
-	public ChecklistRun startChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			CurrentUser currentUser
-	) {
-		ChecklistRun checklistRun = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
-		checklistAccessService.requireChecklistExecutionAccess(organizationId, checklistRun, currentUser);
-
-		if (checklistRun.getStatus() == ChecklistRunStatus.CANCELLED) {
-			throw new ConflictException("checklist_run_cancelled", "Cancelled checklist runs cannot be started");
-		}
-		if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
-			throw new ConflictException("checklist_run_completed", "Completed checklist runs cannot be started");
-		}
-		if (checklistRun.getStatus() == ChecklistRunStatus.IN_PROGRESS) {
-			return checklistRun;
-		}
-
-		Instant now = Instant.now();
-		if (checklistRun.getStartedAt() == null) {
-			checklistRun.setStartedAt(now);
-		}
-		if (checklistRun.getStatus() == ChecklistRunStatus.PENDING) {
-			checklistRun.setStatus(ChecklistRunStatus.IN_PROGRESS);
-		}
-		checklistRun.addEvent(new ChecklistRunEvent(
-				ChecklistRunEventType.STARTED,
-				getUserOrThrow(currentUser.userId()),
-				now,
-				null
-		));
-
-		return checklistRunRepository.save(checklistRun);
-	}
-
-	/**
-	 * Submits a checklist run with all task execution updates.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param command the submission command
-	 * @param currentUser the authenticated user
-	 * @return the completed checklist run
-	 */
-	@Transactional
-	public ChecklistRun submitChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			SubmitChecklistRunCommand command,
-			CurrentUser currentUser
-	) {
-		ChecklistRun checklistRun = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
-		checklistAccessService.requireChecklistExecutionAccess(organizationId, checklistRun, currentUser);
-
-		if (checklistRun.getStatus() == ChecklistRunStatus.CANCELLED) {
-			throw new ConflictException("checklist_run_cancelled", "Cancelled checklist runs cannot be submitted");
-		}
-		if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
-			throw new ConflictException("checklist_run_completed", "Checklist run is already completed");
-		}
-
-		Map<UUID, ChecklistTaskExecution> taskExecutionsById = checklistRun.getTaskExecutions().stream()
-				.collect(LinkedHashMap::new, (map, item) -> map.put(item.getId(), item), Map::putAll);
-
-		List<ChecklistRunTaskExecutionInput> normalizedTaskExecutions = normalizeTaskExecutions(command.tasks());
-		User actor = getUserOrThrow(currentUser.userId());
-		Instant now = Instant.now();
-
-		normalizedTaskExecutions.forEach(taskExecutionInput -> {
-			ChecklistTaskExecution taskExecution = taskExecutionsById.get(taskExecutionInput.checklistTaskExecutionId());
-			if (taskExecution == null) {
-				throw new ResourceNotFoundException("checklist_task_execution_not_found", "Checklist task execution not found");
-			}
-			validateTaskExecution(taskExecution, taskExecutionInput);
-			applyTaskExecution(taskExecution, taskExecutionInput, actor, now);
-		});
-
-		validateRequiredTaskExecutionsCompleted(checklistRun.getTaskExecutions());
-
-		if (checklistRun.getStartedAt() == null) {
-			checklistRun.setStartedAt(now);
-		}
-		checklistRun.setStatus(ChecklistRunStatus.COMPLETED);
-		checklistRun.setCompletedAt(now);
-		checklistRun.setCompletedByUser(actor);
-		checklistRun.addEvent(new ChecklistRunEvent(
-				ChecklistRunEventType.COMPLETED,
-				actor,
-				now,
-				null
-		));
-
-		return checklistRunRepository.save(checklistRun);
-	}
-
-	/**
-	 * Submits a checklist run using legacy task-execution input objects.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param taskExecutions the task execution updates
-	 * @param currentUser the authenticated user
-	 * @return the completed checklist run
-	 */
-	@Transactional
-	public ChecklistRun submitChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			List<ChecklistTaskExecutionInput> taskExecutions,
-			CurrentUser currentUser
-	) {
-		return submitChecklistRun(
-				organizationId,
-				establishmentId,
-				checklistRunId,
-				new SubmitChecklistRunCommand(toChecklistRunTaskExecutionInputs(taskExecutions)),
-				currentUser
-		);
-	}
-
-	/**
-	 * Updates a single checklist task execution and completes the run when all
-	 * required tasks are done.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param taskId the task execution identifier
-	 * @param command the task update command
-	 * @param currentUser the authenticated user
-	 * @return the updated checklist run
-	 */
-	@Transactional
-	public ChecklistRun updateChecklistTask(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			UUID taskId,
-			UpdateChecklistTaskCommand command,
-			CurrentUser currentUser
-	) {
-		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
-		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
-
-		if (run.getStatus() == ChecklistRunStatus.COMPLETED || run.getStatus() == ChecklistRunStatus.CANCELLED) {
-			throw new ConflictException(
-					"checklist_run_update_invalid_state",
-					"Completed or cancelled checklist runs cannot be updated"
-			);
-		}
-
-		User actor = getUserOrThrow(currentUser.userId());
-		Instant now = Instant.now();
-
-		if (run.getStatus() == ChecklistRunStatus.PENDING || run.getStatus() == ChecklistRunStatus.OVERDUE) {
-			run.setStatus(ChecklistRunStatus.IN_PROGRESS);
-			if (run.getStartedAt() == null) {
-				run.setStartedAt(now);
-			}
-		}
-
-		ChecklistTaskExecution task = run.getTaskExecutions().stream()
-				.filter(t -> t.getId().equals(taskId))
-				.findFirst()
-				.orElseThrow(() -> new ResourceNotFoundException(
-						"checklist_task_execution_not_found",
-						"Checklist task execution not found"
-				));
-
-		ChecklistRunTaskExecutionInput taskExecutionInput = new ChecklistRunTaskExecutionInput(
-				task.getId(),
-				command.executionStatus(),
-				command.comment(),
-				command.verificationResult(),
-				command.measuredValue(),
-				command.enteredText()
-		);
-
-		validateTaskExecution(task, taskExecutionInput);
-		applyTaskExecution(task, taskExecutionInput, actor, now);
-
-		boolean allRequiredDone = run.getTaskExecutions().stream()
-				.filter(ChecklistTaskExecution::isRequired)
-				.allMatch(t -> t.getExecutionStatus() == ChecklistTaskExecutionStatus.COMPLETED ||
-				               t.getExecutionStatus() == ChecklistTaskExecutionStatus.SKIPPED);
-
-		if (allRequiredDone) {
-			run.setStatus(ChecklistRunStatus.COMPLETED);
-			run.setCompletedAt(now);
-			run.setCompletedByUser(actor);
-			run.addEvent(new ChecklistRunEvent(
-					ChecklistRunEventType.COMPLETED,
-					actor,
-					now,
-					null
-			));
-		}
-
-		return run;
-	}
-
-	/**
-	 * Reopens a completed or cancelled checklist run.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param currentUser the authenticated user
-	 * @return the reopened checklist run
-	 */
-	@Transactional
-	public ChecklistRun reopenChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			CurrentUser currentUser
-	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
-		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
-
-		if (checklistRun.getStatus() != ChecklistRunStatus.COMPLETED && checklistRun.getStatus() != ChecklistRunStatus.CANCELLED) {
-			throw new ConflictException("checklist_run_reopen_invalid_state", "Only completed or cancelled runs can be reopened");
-		}
-
-		Instant now = Instant.now();
-		User actor = getUserOrThrow(currentUser.userId());
-		checklistRun.setStatus(ChecklistRunStatus.PENDING);
-		checklistRun.setStartedAt(null);
-		checklistRun.setCompletedAt(null);
-		checklistRun.setCompletedByUser(null);
-		checklistRun.addEvent(new ChecklistRunEvent(
-				ChecklistRunEventType.REOPENED,
-				actor,
-				now,
-				null
-		));
-
-		return checklistRunRepository.save(checklistRun);
-	}
-
-	/**
-	 * Cancels a checklist run.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param currentUser the authenticated user
-	 * @return the cancelled checklist run
-	 */
-	@Transactional
-	public ChecklistRun cancelChecklistRun(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID checklistRunId,
-			CurrentUser currentUser
-	) {
-		checklistAccessService.requireChecklistManagementAccess(organizationId, establishmentId, currentUser);
-		ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
-
-		if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
-			throw new ConflictException("checklist_run_completed", "Completed checklist runs cannot be cancelled");
-		}
-		if (checklistRun.getStatus() == ChecklistRunStatus.CANCELLED) {
-			return checklistRun;
-		}
-
-		Instant now = Instant.now();
-		checklistRun.setStatus(ChecklistRunStatus.CANCELLED);
-		checklistRun.addEvent(new ChecklistRunEvent(
-				ChecklistRunEventType.CANCELLED,
-				getUserOrThrow(currentUser.userId()),
-				now,
-				null
-		));
-
-		return checklistRunRepository.save(checklistRun);
-	}
-
-	/**
-	 * Marks overdue checklist runs and notifies assignees.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param now the current instant
-	 * @param actorUserId the actor responsible for the change, if any
-	 * @return the number of updated runs
-	 */
-	@Transactional
-	public int markOverdueRuns(UUID organizationId, UUID establishmentId, Instant now, UUID actorUserId) {
-		List<ChecklistRun> overdueRuns = checklistRunRepository.findByEstablishmentIdAndStatusInAndDueAtBefore(
-				establishmentId,
-				OVERDUE_CANDIDATE_STATUSES,
-				now
-		);
-
-		int updatedRuns = 0;
-		for (ChecklistRun checklistRun : overdueRuns) {
-			if (checklistRun.getStatus() == ChecklistRunStatus.OVERDUE) {
-				continue;
-			}
-			checklistRun.setStatus(ChecklistRunStatus.OVERDUE);
-			checklistRun.getAssignments().forEach(assignment -> notificationService.createNotification(new CreateNotificationCommand(
-					assignment.getAssignedUser().getId(),
-					actorUserId,
-					organizationId,
-					establishmentId,
-					toNotificationServiceArea(checklistRun.getServiceArea()),
-					NotificationType.CHECKLIST_OVERDUE,
-					checklistRun.getTitleSnapshot(),
-					"This assigned checklist run is overdue.",
-					NotificationResourceType.CHECKLIST_RUN,
-					checklistRun.getId()
-			)));
-			updatedRuns++;
-		}
-
-		return updatedRuns;
-	}
-
-	/**
-	 * Cancels pending or overdue runs that can be regenerated for a definition
-	 * group.
-	 *
-	 * @param establishmentId the establishment identifier
-	 * @param definitionGroupId the checklist definition group identifier
-	 * @param fromDueAt the minimum due instant to cancel from
-	 * @param actorUserId the actor user identifier, if any
-	 * @param reason the cancellation reason
-	 * @return the number of updated runs
-	 */
-	@Transactional
-	public int cancelRegeneratableRunsForDefinitionGroup(
-			UUID establishmentId,
-			UUID definitionGroupId,
-			Instant fromDueAt,
-			UUID actorUserId,
-			String reason
-	) {
-		List<ChecklistRun> pendingRuns = checklistRunRepository
-				.findByEstablishmentIdAndDefinitionGroupIdAndStatusInAndDueAtGreaterThanEqualOrderByDueAtAsc(
-						establishmentId,
-						definitionGroupId,
-						REGENERATABLE_STATUSES,
-						fromDueAt
-				);
-
-		if (pendingRuns.isEmpty()) {
-			return 0;
-		}
-
-		User actor = actorUserId == null ? null : getUserOrThrow(actorUserId);
-		Instant now = Instant.now();
-		int updatedRuns = 0;
-
-		for (ChecklistRun checklistRun : pendingRuns) {
-			checklistRun.setStatus(ChecklistRunStatus.CANCELLED);
-			checklistRun.addEvent(new ChecklistRunEvent(
-					ChecklistRunEventType.CANCELLED,
-					actor,
-					now,
-					reason == null ? null : jsonMetadata("reason", reason)
-			));
-			updatedRuns++;
-		}
-
-		return updatedRuns;
-	}
-
-	/**
-	 * Resets an in-progress checklist run back to pending state.
-	 *
-	 * @param organizationId the organization identifier
-	 * @param establishmentId the establishment identifier
-	 * @param checklistRunId the checklist run identifier
-	 * @param currentUser the authenticated user
-	 * @return the reset checklist run
-	 */
-	@Transactional
-	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
-		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
-		checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
-
-		if (run.getStatus() != ChecklistRunStatus.IN_PROGRESS) {
-			throw new ConflictException(
-					"checklist_run_reset_invalid_state",
-					"Only in-progress checklist runs can be reset"
-			);
-		}
-
-		run.setStatus(ChecklistRunStatus.PENDING);
-		run.setStartedAt(null);
-		run.getTaskExecutions().forEach(taskExecution -> {
-			taskExecution.setExecutionStatus(ChecklistTaskExecutionStatus.PENDING);
-			taskExecution.setComment(null);
-			taskExecution.setVerificationResult(null);
-			taskExecution.setMeasuredValue(null);
-			taskExecution.setEnteredText(null);
-			taskExecution.setResolvedAt(null);
-			taskExecution.setResolvedByUser(null);
-		});
-
-		return run;
-	}
-
-	private UUID resolveAssignedUserFilter(
-			UUID organizationId,
-			UUID establishmentId,
-			UUID assignedUserId,
-			boolean assignedToCurrentUser,
-			CurrentUser currentUser
-	) {
-		if (assignedToCurrentUser) {
-			if (assignedUserId != null && !assignedUserId.equals(currentUser.userId())) {
-				throw new ConflictException(
-						"checklist_run_filter_conflict",
-						"assignedToMe cannot be combined with another assignedUserId"
-				);
-			}
-			return currentUser.userId();
-		}
-
-		checklistAccessService.requireAssignmentFilterAccess(organizationId, establishmentId, assignedUserId, currentUser);
-		return assignedUserId;
-	}
-
-	private String jsonMetadata(String key, String value) {
-		return "{\"%s\":\"%s\"}".formatted(escapeJson(key), escapeJson(value));
-	}
-
-	private String escapeJson(String value) {
-		StringBuilder escaped = new StringBuilder(value.length() + 8);
-
-		for (int index = 0; index < value.length(); index++) {
-			char character = value.charAt(index);
-			switch (character) {
-				case '\\' -> escaped.append("\\\\");
-				case '"' -> escaped.append("\\\"");
-				case '\b' -> escaped.append("\\b");
-				case '\f' -> escaped.append("\\f");
-				case '\n' -> escaped.append("\\n");
-				case '\r' -> escaped.append("\\r");
-				case '\t' -> escaped.append("\\t");
-				default -> {
-					if (character < 0x20) {
-						escaped.append("\\u%04x".formatted((int) character));
-					} else {
-						escaped.append(character);
-					}
-				}
-			}
-		}
-
-		return escaped.toString();
-	}
-
-	private ChecklistRun findChecklistRunOrThrow(UUID establishmentId, UUID checklistRunId) {
-		return checklistRunRepository.findByIdAndEstablishmentId(checklistRunId, establishmentId)
-				.orElseThrow(checklistAccessService::checklistRunNotFound);
-	}
-
-	private Map<UUID, User> getAssignableUsersById(UUID organizationId, UUID establishmentId, Collection<UUID> userIds) {
-		List<User> users = userRepository.findAllById(userIds);
-		Map<UUID, User> usersById = users.stream()
-				.collect(LinkedHashMap::new, (map, user) -> map.put(user.getId(), user), Map::putAll);
-
-		userIds.forEach(userId -> {
-			if (!usersById.containsKey(userId)) {
-				throw new ResourceNotFoundException("user_not_found", "User not found");
-			}
-			boolean hasActiveMembership = organizationMembershipRepository.findByOrganizationIdAndUserId(organizationId, userId)
-					.filter(OrganizationMembership::isActive)
-					.filter(membership -> membership.hasEstablishmentAccess(establishmentId))
-					.isPresent();
-			if (!hasActiveMembership) {
-				throw new ForbiddenException(
-						"checklist_assignment_user_forbidden",
-						"Checklist runs can only be assigned to active members with access to the establishment"
-				);
-			}
-		});
-
-		return usersById;
-	}
-
-	private User getUserOrThrow(UUID userId) {
-		return userRepository.findById(userId)
-				.orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
-	}
-
-	private List<ChecklistRunTaskExecutionInput> normalizeTaskExecutions(List<ChecklistRunTaskExecutionInput> taskExecutions) {
-		Map<UUID, ChecklistRunTaskExecutionInput> taskExecutionsById = new LinkedHashMap<>();
-		taskExecutions.stream().map(this::normalizeTaskExecutionInput).filter(taskExecution ->
-				taskExecutionsById.put(taskExecution.checklistTaskExecutionId(), taskExecution) != null).forEach(_ -> {
-			throw new ConflictException(
-					"checklist_task_execution_duplicate_submission",
-					"Checklist task executions may only contain one entry per task"
-			);
-		});
-		return List.copyOf(taskExecutionsById.values());
-	}
-
-	private List<ChecklistRunTaskExecutionInput> toChecklistRunTaskExecutionInputs(List<ChecklistTaskExecutionInput> taskExecutions) {
-		return taskExecutions.stream()
-				.map(taskExecution -> new ChecklistRunTaskExecutionInput(
-						taskExecution.checklistTaskExecutionId(),
-						taskExecution.executionStatus(),
-						taskExecution.comment(),
-						taskExecution.verificationResult(),
-						taskExecution.measuredValue(),
-						taskExecution.enteredText()
-				))
-				.toList();
-	}
-
-	private ChecklistRunTaskExecutionInput normalizeTaskExecutionInput(ChecklistRunTaskExecutionInput taskExecutionInput) {
-		return new ChecklistRunTaskExecutionInput(
-				taskExecutionInput.checklistTaskExecutionId(),
-				taskExecutionInput.executionStatus(),
-				normalizeOptionalText(taskExecutionInput.comment()),
-				taskExecutionInput.verificationResult(),
-				taskExecutionInput.measuredValue(),
-				normalizeOptionalText(taskExecutionInput.enteredText())
-		);
-	}
-
-	private NotificationServiceArea toNotificationServiceArea(ChecklistServiceArea serviceArea) {
-		return switch (serviceArea) {
-			case IK_MAT -> NotificationServiceArea.IK_MAT;
-			case IK_ALKOHOL -> NotificationServiceArea.IK_ALKOHOL;
-		};
-	}
-
-	private String normalizeOptionalText(String value) {
-		if (value == null) {
-			return null;
-		}
-
-		String normalizedValue = value.strip();
-		return normalizedValue.isEmpty() ? null : normalizedValue;
-	}
-
-	private void applyTaskExecution(
-			ChecklistTaskExecution taskExecution,
-			ChecklistRunTaskExecutionInput taskExecutionInput,
-			User actor,
-			Instant now
-	) {
-		taskExecution.setExecutionStatus(taskExecutionInput.executionStatus());
-		taskExecution.setComment(taskExecutionInput.comment());
-		taskExecution.setVerificationResult(taskExecutionInput.verificationResult());
-		taskExecution.setMeasuredValue(taskExecutionInput.measuredValue());
-		taskExecution.setEnteredText(taskExecutionInput.enteredText());
-
-		if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.PENDING) {
-			taskExecution.setResolvedAt(null);
-			taskExecution.setResolvedByUser(null);
-			return;
-		}
-
-		taskExecution.setResolvedAt(now);
-		taskExecution.setResolvedByUser(actor);
-	}
-
-	private void validateTaskExecution(ChecklistTaskExecution taskExecution, ChecklistRunTaskExecutionInput taskExecutionInput) {
-		if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.SKIPPED && taskExecution.isRequired()) {
-			throw new ConflictException(
-					"checklist_task_execution_required_skip_forbidden",
-					"Required checklist tasks cannot be skipped"
-			);
-		}
-
-		boolean hasVerificationResult = taskExecutionInput.verificationResult() != null;
-		boolean hasMeasuredValue = taskExecutionInput.measuredValue() != null;
-		boolean hasEnteredText = taskExecutionInput.enteredText() != null;
-
-		if (taskExecutionInput.executionStatus() != ChecklistTaskExecutionStatus.COMPLETED) {
-			if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {
-				throw new ConflictException(
-						"checklist_task_execution_pending_data_forbidden",
-						"Only completed checklist tasks may record verification, measurement, or text data"
-				);
-			}
-			return;
-		}
-
-		switch (taskExecution.getTaskKindSnapshot()) {
-			case ACTION -> {
-				if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {
-					throw new ConflictException(
-							"checklist_task_execution_action_data_invalid",
-							"Action checklist tasks may only record completion and an optional comment"
-					);
-				}
-			}
-			case VERIFICATION -> {
-				if (!hasVerificationResult || hasMeasuredValue || hasEnteredText) {
-					throw new ConflictException(
-							"checklist_task_execution_verification_invalid",
-							"Verification checklist tasks require a verification result and no measurement or text entry"
-					);
-				}
-			}
-			case MEASUREMENT -> {
-				if (!hasMeasuredValue || hasVerificationResult || hasEnteredText) {
-					throw new ConflictException(
-							"checklist_task_execution_measurement_invalid",
-							"Measurement checklist tasks require a measured value and no verification or text entry"
-					);
-				}
-			}
-			case TEXT_ENTRY -> {
-				if (!hasEnteredText || hasVerificationResult || hasMeasuredValue) {
-					throw new ConflictException(
-							"checklist_task_execution_text_entry_invalid",
-							"Text entry checklist tasks require entered text and no verification or measured value"
-					);
-				}
-			}
-		}
-	}
-
-	private void validateRequiredTaskExecutionsCompleted(Collection<ChecklistTaskExecution> taskExecutions) {
-		taskExecutions.stream().filter(ChecklistTaskExecution::isRequired)
-				.filter(taskExecution -> taskExecution.getExecutionStatus() != ChecklistTaskExecutionStatus.COMPLETED)
-				.forEach(_ -> {
-			throw new ConflictException(
-					"checklist_run_required_task_incomplete",
-					"All required checklist tasks must be completed before submission"
-			);
-		});
-	}
-
-	/**
-	 * Immutable task execution payload used internally when applying checklist run updates.
-	 *
-	 * @param checklistTaskExecutionId identifier of the task execution to update
-	 * @param executionStatus execution status to persist
-	 * @param comment optional task comment
-	 * @param verificationResult verification result for verification tasks
-	 * @param measuredValue measured value for measurement tasks
-	 * @param enteredText entered text for text-entry tasks
-	 */
-	public record ChecklistTaskExecutionInput(
-			UUID checklistTaskExecutionId,
-			ChecklistTaskExecutionStatus executionStatus,
-			String comment,
-			ChecklistVerificationResult verificationResult,
-			BigDecimal measuredValue,
-			String enteredText
-	) {
-	}
+  private static final List<ChecklistRunStatus> OVERDUE_CANDIDATE_STATUSES =
+      List.of(ChecklistRunStatus.PENDING, ChecklistRunStatus.IN_PROGRESS);
+  private static final List<ChecklistRunStatus> REGENERATABLE_STATUSES =
+      List.of(ChecklistRunStatus.PENDING, ChecklistRunStatus.OVERDUE);
+
+  private final ChecklistRunRepository checklistRunRepository;
+  private final ChecklistRunAssignmentRepository checklistRunAssignmentRepository;
+  private final ChecklistAccessService checklistAccessService;
+  private final OrganizationMembershipRepository organizationMembershipRepository;
+  private final UserRepository userRepository;
+  private final NotificationService notificationService;
+
+  /**
+   * Creates the checklist run service.
+   *
+   * @param checklistRunRepository repository for checklist runs
+   * @param checklistRunAssignmentRepository repository for checklist run assignments
+   * @param checklistAccessService service for checklist access rules
+   * @param organizationMembershipRepository repository for organization memberships
+   * @param userRepository repository for users
+   * @param notificationService service for assignment and overdue notifications
+   */
+  public ChecklistRunService(
+      ChecklistRunRepository checklistRunRepository,
+      ChecklistRunAssignmentRepository checklistRunAssignmentRepository,
+      ChecklistAccessService checklistAccessService,
+      OrganizationMembershipRepository organizationMembershipRepository,
+      UserRepository userRepository,
+      NotificationService notificationService) {
+    this.checklistRunRepository = checklistRunRepository;
+    this.checklistRunAssignmentRepository = checklistRunAssignmentRepository;
+    this.checklistAccessService = checklistAccessService;
+    this.organizationMembershipRepository = organizationMembershipRepository;
+    this.userRepository = userRepository;
+    this.notificationService = notificationService;
+  }
+
+  /**
+   * Lists checklist runs using optional status, assignment, and due-date filters.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param serviceArea the checklist service area
+   * @param statuses the desired statuses
+   * @param assignedUserId the assigned-user filter
+   * @param assignedToCurrentUser whether to force filtering to the current user
+   * @param dueFrom the due-date lower bound
+   * @param dueTo the due-date upper bound
+   * @param currentUser the authenticated user
+   * @param pageable pagination information
+   * @return a page of checklist runs
+   */
+  @Transactional(readOnly = true)
+  public Page<ChecklistRun> listChecklistRuns(
+      UUID organizationId,
+      UUID establishmentId,
+      ChecklistServiceArea serviceArea,
+      List<ChecklistRunStatus> statuses,
+      UUID assignedUserId,
+      boolean assignedToCurrentUser,
+      Instant dueFrom,
+      Instant dueTo,
+      CurrentUser currentUser,
+      Pageable pageable) {
+    checklistAccessService.requireChecklistReadAccess(organizationId, establishmentId, currentUser);
+    UUID effectiveAssignedUserId =
+        resolveAssignedUserFilter(
+            organizationId, establishmentId, assignedUserId, assignedToCurrentUser, currentUser);
+    List<ChecklistRunStatus> normalizedStatuses =
+        statuses == null
+            ? List.of()
+            : statuses.stream().filter(Objects::nonNull).distinct().toList();
+    Collection<ChecklistRunStatus> statusesForQuery =
+        normalizedStatuses.isEmpty() ? EnumSet.allOf(ChecklistRunStatus.class) : normalizedStatuses;
+
+    return checklistRunRepository.search(
+        establishmentId,
+        serviceArea,
+        statusesForQuery,
+        effectiveAssignedUserId,
+        dueFrom,
+        dueTo,
+        pageable);
+  }
+
+  /**
+   * Returns a checklist run by id.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param currentUser the authenticated user
+   * @return the requested checklist run
+   */
+  @Transactional(readOnly = true)
+  public ChecklistRun getChecklistRun(
+      UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+    checklistAccessService.requireChecklistReadAccess(organizationId, establishmentId, currentUser);
+    return findChecklistRunOrThrow(establishmentId, checklistRunId);
+  }
+
+  /**
+   * Assigns one or more users to a checklist run.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param assignedUserIds the users to assign
+   * @param currentUser the authenticated user
+   * @return the updated checklist run
+   */
+  @Transactional
+  public ChecklistRun assignChecklistRun(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID checklistRunId,
+      List<UUID> assignedUserIds,
+      CurrentUser currentUser) {
+    checklistAccessService.requireChecklistManagementAccess(
+        organizationId, establishmentId, currentUser);
+    ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
+    User actor = getUserOrThrow(currentUser.userId());
+    Instant now = Instant.now();
+
+    Map<UUID, User> usersById =
+        getAssignableUsersById(organizationId, establishmentId, assignedUserIds);
+    Set<UUID> existingAssignments =
+        checklistRun.getAssignments().stream()
+            .map(assignment -> assignment.getAssignedUser().getId())
+            .collect(LinkedHashSet::new, Set::add, Set::addAll);
+
+    assignedUserIds.stream()
+        .filter(assignedUserId -> !existingAssignments.contains(assignedUserId))
+        .forEach(
+            assignedUserId -> {
+              User assignedUser = usersById.get(assignedUserId);
+              checklistRun.addAssignment(new ChecklistRunAssignment(assignedUser, actor, now));
+              checklistRun.addEvent(
+                  new ChecklistRunEvent(
+                      ChecklistRunEventType.ASSIGNED,
+                      actor,
+                      now,
+                      "{\"assignedUserId\":\"%s\"}".formatted(assignedUserId)));
+              notificationService.createNotification(
+                  new CreateNotificationCommand(
+                      assignedUserId,
+                      actor.getId(),
+                      organizationId,
+                      establishmentId,
+                      toNotificationServiceArea(checklistRun.getServiceArea()),
+                      NotificationType.CHECKLIST_ASSIGNED,
+                      checklistRun.getTitleSnapshot(),
+                      "You were assigned this checklist run.",
+                      NotificationResourceType.CHECKLIST_RUN,
+                      checklistRun.getId()));
+              existingAssignments.add(assignedUserId);
+            });
+
+    return checklistRunRepository.save(checklistRun);
+  }
+
+  /**
+   * Removes an assignment from a checklist run.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param assignmentId the assignment identifier
+   * @param currentUser the authenticated user
+   */
+  @Transactional
+  public void removeChecklistRunAssignment(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID checklistRunId,
+      UUID assignmentId,
+      CurrentUser currentUser) {
+    checklistAccessService.requireChecklistManagementAccess(
+        organizationId, establishmentId, currentUser);
+    ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
+
+    ChecklistRunAssignment assignment =
+        checklistRunAssignmentRepository
+            .findByIdAndChecklistRunId(assignmentId, checklistRunId)
+            .orElseThrow(checklistAccessService::checklistAssignmentNotFound);
+
+    checklistRun.removeAssignment(assignment);
+    checklistRunRepository.save(checklistRun);
+  }
+
+  /**
+   * Starts a checklist run.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param currentUser the authenticated user
+   * @return the updated checklist run
+   */
+  @Transactional
+  public ChecklistRun startChecklistRun(
+      UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+    ChecklistRun checklistRun =
+        getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+    checklistAccessService.requireChecklistExecutionAccess(
+        organizationId, checklistRun, currentUser);
+
+    if (checklistRun.getStatus() == ChecklistRunStatus.CANCELLED) {
+      throw new ConflictException(
+          "checklist_run_cancelled", "Cancelled checklist runs cannot be started");
+    }
+    if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
+      throw new ConflictException(
+          "checklist_run_completed", "Completed checklist runs cannot be started");
+    }
+    if (checklistRun.getStatus() == ChecklistRunStatus.IN_PROGRESS) {
+      return checklistRun;
+    }
+
+    Instant now = Instant.now();
+    if (checklistRun.getStartedAt() == null) {
+      checklistRun.setStartedAt(now);
+    }
+    if (checklistRun.getStatus() == ChecklistRunStatus.PENDING) {
+      checklistRun.setStatus(ChecklistRunStatus.IN_PROGRESS);
+    }
+    checklistRun.addEvent(
+        new ChecklistRunEvent(
+            ChecklistRunEventType.STARTED, getUserOrThrow(currentUser.userId()), now, null));
+
+    return checklistRunRepository.save(checklistRun);
+  }
+
+  /**
+   * Submits a checklist run with all task execution updates.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param command the submission command
+   * @param currentUser the authenticated user
+   * @return the completed checklist run
+   */
+  @Transactional
+  public ChecklistRun submitChecklistRun(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID checklistRunId,
+      SubmitChecklistRunCommand command,
+      CurrentUser currentUser) {
+    ChecklistRun checklistRun =
+        getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+    checklistAccessService.requireChecklistExecutionAccess(
+        organizationId, checklistRun, currentUser);
+
+    if (checklistRun.getStatus() == ChecklistRunStatus.CANCELLED) {
+      throw new ConflictException(
+          "checklist_run_cancelled", "Cancelled checklist runs cannot be submitted");
+    }
+    if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
+      throw new ConflictException("checklist_run_completed", "Checklist run is already completed");
+    }
+
+    Map<UUID, ChecklistTaskExecution> taskExecutionsById =
+        checklistRun.getTaskExecutions().stream()
+            .collect(LinkedHashMap::new, (map, item) -> map.put(item.getId(), item), Map::putAll);
+
+    List<ChecklistRunTaskExecutionInput> normalizedTaskExecutions =
+        normalizeTaskExecutions(command.tasks());
+    User actor = getUserOrThrow(currentUser.userId());
+    Instant now = Instant.now();
+
+    normalizedTaskExecutions.forEach(
+        taskExecutionInput -> {
+          ChecklistTaskExecution taskExecution =
+              taskExecutionsById.get(taskExecutionInput.checklistTaskExecutionId());
+          if (taskExecution == null) {
+            throw new ResourceNotFoundException(
+                "checklist_task_execution_not_found", "Checklist task execution not found");
+          }
+          validateTaskExecution(taskExecution, taskExecutionInput);
+          applyTaskExecution(taskExecution, taskExecutionInput, actor, now);
+        });
+
+    validateRequiredTaskExecutionsCompleted(checklistRun.getTaskExecutions());
+
+    if (checklistRun.getStartedAt() == null) {
+      checklistRun.setStartedAt(now);
+    }
+    checklistRun.setStatus(ChecklistRunStatus.COMPLETED);
+    checklistRun.setCompletedAt(now);
+    checklistRun.setCompletedByUser(actor);
+    checklistRun.addEvent(new ChecklistRunEvent(ChecklistRunEventType.COMPLETED, actor, now, null));
+
+    return checklistRunRepository.save(checklistRun);
+  }
+
+  /**
+   * Submits a checklist run using legacy task-execution input objects.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param taskExecutions the task execution updates
+   * @param currentUser the authenticated user
+   * @return the completed checklist run
+   */
+  @Transactional
+  public ChecklistRun submitChecklistRun(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID checklistRunId,
+      List<ChecklistTaskExecutionInput> taskExecutions,
+      CurrentUser currentUser) {
+    return submitChecklistRun(
+        organizationId,
+        establishmentId,
+        checklistRunId,
+        new SubmitChecklistRunCommand(toChecklistRunTaskExecutionInputs(taskExecutions)),
+        currentUser);
+  }
+
+  /**
+   * Updates a single checklist task execution and completes the run when all required tasks are
+   * done.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param taskId the task execution identifier
+   * @param command the task update command
+   * @param currentUser the authenticated user
+   * @return the updated checklist run
+   */
+  @Transactional
+  public ChecklistRun updateChecklistTask(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID checklistRunId,
+      UUID taskId,
+      UpdateChecklistTaskCommand command,
+      CurrentUser currentUser) {
+    ChecklistRun run =
+        getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+    checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
+
+    if (run.getStatus() == ChecklistRunStatus.COMPLETED
+        || run.getStatus() == ChecklistRunStatus.CANCELLED) {
+      throw new ConflictException(
+          "checklist_run_update_invalid_state",
+          "Completed or cancelled checklist runs cannot be updated");
+    }
+
+    User actor = getUserOrThrow(currentUser.userId());
+    Instant now = Instant.now();
+
+    if (run.getStatus() == ChecklistRunStatus.PENDING
+        || run.getStatus() == ChecklistRunStatus.OVERDUE) {
+      run.setStatus(ChecklistRunStatus.IN_PROGRESS);
+      if (run.getStartedAt() == null) {
+        run.setStartedAt(now);
+      }
+    }
+
+    ChecklistTaskExecution task =
+        run.getTaskExecutions().stream()
+            .filter(t -> t.getId().equals(taskId))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "checklist_task_execution_not_found",
+                        "Checklist task execution not found"));
+
+    ChecklistRunTaskExecutionInput taskExecutionInput =
+        new ChecklistRunTaskExecutionInput(
+            task.getId(),
+            command.executionStatus(),
+            command.comment(),
+            command.verificationResult(),
+            command.measuredValue(),
+            command.enteredText());
+
+    validateTaskExecution(task, taskExecutionInput);
+    applyTaskExecution(task, taskExecutionInput, actor, now);
+
+    boolean allRequiredDone =
+        run.getTaskExecutions().stream()
+            .filter(ChecklistTaskExecution::isRequired)
+            .allMatch(
+                t ->
+                    t.getExecutionStatus() == ChecklistTaskExecutionStatus.COMPLETED
+                        || t.getExecutionStatus() == ChecklistTaskExecutionStatus.SKIPPED);
+
+    if (allRequiredDone) {
+      run.setStatus(ChecklistRunStatus.COMPLETED);
+      run.setCompletedAt(now);
+      run.setCompletedByUser(actor);
+      run.addEvent(new ChecklistRunEvent(ChecklistRunEventType.COMPLETED, actor, now, null));
+    }
+
+    return run;
+  }
+
+  /**
+   * Reopens a completed or cancelled checklist run.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param currentUser the authenticated user
+   * @return the reopened checklist run
+   */
+  @Transactional
+  public ChecklistRun reopenChecklistRun(
+      UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+    checklistAccessService.requireChecklistManagementAccess(
+        organizationId, establishmentId, currentUser);
+    ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
+
+    if (checklistRun.getStatus() != ChecklistRunStatus.COMPLETED
+        && checklistRun.getStatus() != ChecklistRunStatus.CANCELLED) {
+      throw new ConflictException(
+          "checklist_run_reopen_invalid_state", "Only completed or cancelled runs can be reopened");
+    }
+
+    Instant now = Instant.now();
+    User actor = getUserOrThrow(currentUser.userId());
+    checklistRun.setStatus(ChecklistRunStatus.PENDING);
+    checklistRun.setStartedAt(null);
+    checklistRun.setCompletedAt(null);
+    checklistRun.setCompletedByUser(null);
+    checklistRun.addEvent(new ChecklistRunEvent(ChecklistRunEventType.REOPENED, actor, now, null));
+
+    return checklistRunRepository.save(checklistRun);
+  }
+
+  /**
+   * Cancels a checklist run.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param currentUser the authenticated user
+   * @return the cancelled checklist run
+   */
+  @Transactional
+  public ChecklistRun cancelChecklistRun(
+      UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+    checklistAccessService.requireChecklistManagementAccess(
+        organizationId, establishmentId, currentUser);
+    ChecklistRun checklistRun = findChecklistRunOrThrow(establishmentId, checklistRunId);
+
+    if (checklistRun.getStatus() == ChecklistRunStatus.COMPLETED) {
+      throw new ConflictException(
+          "checklist_run_completed", "Completed checklist runs cannot be cancelled");
+    }
+    if (checklistRun.getStatus() == ChecklistRunStatus.CANCELLED) {
+      return checklistRun;
+    }
+
+    Instant now = Instant.now();
+    checklistRun.setStatus(ChecklistRunStatus.CANCELLED);
+    checklistRun.addEvent(
+        new ChecklistRunEvent(
+            ChecklistRunEventType.CANCELLED, getUserOrThrow(currentUser.userId()), now, null));
+
+    return checklistRunRepository.save(checklistRun);
+  }
+
+  /**
+   * Marks overdue checklist runs and notifies assignees.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param now the current instant
+   * @param actorUserId the actor responsible for the change, if any
+   * @return the number of updated runs
+   */
+  @Transactional
+  public int markOverdueRuns(
+      UUID organizationId, UUID establishmentId, Instant now, UUID actorUserId) {
+    List<ChecklistRun> overdueRuns =
+        checklistRunRepository.findByEstablishmentIdAndStatusInAndDueAtBefore(
+            establishmentId, OVERDUE_CANDIDATE_STATUSES, now);
+
+    int updatedRuns = 0;
+    for (ChecklistRun checklistRun : overdueRuns) {
+      if (checklistRun.getStatus() == ChecklistRunStatus.OVERDUE) {
+        continue;
+      }
+      checklistRun.setStatus(ChecklistRunStatus.OVERDUE);
+      checklistRun
+          .getAssignments()
+          .forEach(
+              assignment ->
+                  notificationService.createNotification(
+                      new CreateNotificationCommand(
+                          assignment.getAssignedUser().getId(),
+                          actorUserId,
+                          organizationId,
+                          establishmentId,
+                          toNotificationServiceArea(checklistRun.getServiceArea()),
+                          NotificationType.CHECKLIST_OVERDUE,
+                          checklistRun.getTitleSnapshot(),
+                          "This assigned checklist run is overdue.",
+                          NotificationResourceType.CHECKLIST_RUN,
+                          checklistRun.getId())));
+      updatedRuns++;
+    }
+
+    return updatedRuns;
+  }
+
+  /**
+   * Cancels pending or overdue runs that can be regenerated for a definition group.
+   *
+   * @param establishmentId the establishment identifier
+   * @param definitionGroupId the checklist definition group identifier
+   * @param fromDueAt the minimum due instant to cancel from
+   * @param actorUserId the actor user identifier, if any
+   * @param reason the cancellation reason
+   * @return the number of updated runs
+   */
+  @Transactional
+  public int cancelRegeneratableRunsForDefinitionGroup(
+      UUID establishmentId,
+      UUID definitionGroupId,
+      Instant fromDueAt,
+      UUID actorUserId,
+      String reason) {
+    List<ChecklistRun> pendingRuns =
+        checklistRunRepository
+            .findByEstablishmentIdAndDefinitionGroupIdAndStatusInAndDueAtGreaterThanEqualOrderByDueAtAsc(
+                establishmentId, definitionGroupId, REGENERATABLE_STATUSES, fromDueAt);
+
+    if (pendingRuns.isEmpty()) {
+      return 0;
+    }
+
+    User actor = actorUserId == null ? null : getUserOrThrow(actorUserId);
+    Instant now = Instant.now();
+    int updatedRuns = 0;
+
+    for (ChecklistRun checklistRun : pendingRuns) {
+      checklistRun.setStatus(ChecklistRunStatus.CANCELLED);
+      checklistRun.addEvent(
+          new ChecklistRunEvent(
+              ChecklistRunEventType.CANCELLED,
+              actor,
+              now,
+              reason == null ? null : jsonMetadata("reason", reason)));
+      updatedRuns++;
+    }
+
+    return updatedRuns;
+  }
+
+  /**
+   * Resets an in-progress checklist run back to pending state.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param checklistRunId the checklist run identifier
+   * @param currentUser the authenticated user
+   * @return the reset checklist run
+   */
+  @Transactional
+  public ChecklistRun resetChecklistRun(
+      UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
+    ChecklistRun run =
+        getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
+    checklistAccessService.requireChecklistExecutionAccess(organizationId, run, currentUser);
+
+    if (run.getStatus() != ChecklistRunStatus.IN_PROGRESS) {
+      throw new ConflictException(
+          "checklist_run_reset_invalid_state", "Only in-progress checklist runs can be reset");
+    }
+
+    run.setStatus(ChecklistRunStatus.PENDING);
+    run.setStartedAt(null);
+    run.getTaskExecutions()
+        .forEach(
+            taskExecution -> {
+              taskExecution.setExecutionStatus(ChecklistTaskExecutionStatus.PENDING);
+              taskExecution.setComment(null);
+              taskExecution.setVerificationResult(null);
+              taskExecution.setMeasuredValue(null);
+              taskExecution.setEnteredText(null);
+              taskExecution.setResolvedAt(null);
+              taskExecution.setResolvedByUser(null);
+            });
+
+    return run;
+  }
+
+  private UUID resolveAssignedUserFilter(
+      UUID organizationId,
+      UUID establishmentId,
+      UUID assignedUserId,
+      boolean assignedToCurrentUser,
+      CurrentUser currentUser) {
+    if (assignedToCurrentUser) {
+      if (assignedUserId != null && !assignedUserId.equals(currentUser.userId())) {
+        throw new ConflictException(
+            "checklist_run_filter_conflict",
+            "assignedToMe cannot be combined with another assignedUserId");
+      }
+      return currentUser.userId();
+    }
+
+    checklistAccessService.requireAssignmentFilterAccess(
+        organizationId, establishmentId, assignedUserId, currentUser);
+    return assignedUserId;
+  }
+
+  private String jsonMetadata(String key, String value) {
+    return "{\"%s\":\"%s\"}".formatted(escapeJson(key), escapeJson(value));
+  }
+
+  private String escapeJson(String value) {
+    StringBuilder escaped = new StringBuilder(value.length() + 8);
+
+    for (int index = 0; index < value.length(); index++) {
+      char character = value.charAt(index);
+      switch (character) {
+        case '\\' -> escaped.append("\\\\");
+        case '"' -> escaped.append("\\\"");
+        case '\b' -> escaped.append("\\b");
+        case '\f' -> escaped.append("\\f");
+        case '\n' -> escaped.append("\\n");
+        case '\r' -> escaped.append("\\r");
+        case '\t' -> escaped.append("\\t");
+        default -> {
+          if (character < 0x20) {
+            escaped.append("\\u%04x".formatted((int) character));
+          } else {
+            escaped.append(character);
+          }
+        }
+      }
+    }
+
+    return escaped.toString();
+  }
+
+  private ChecklistRun findChecklistRunOrThrow(UUID establishmentId, UUID checklistRunId) {
+    return checklistRunRepository
+        .findByIdAndEstablishmentId(checklistRunId, establishmentId)
+        .orElseThrow(checklistAccessService::checklistRunNotFound);
+  }
+
+  private Map<UUID, User> getAssignableUsersById(
+      UUID organizationId, UUID establishmentId, Collection<UUID> userIds) {
+    List<User> users = userRepository.findAllById(userIds);
+    Map<UUID, User> usersById =
+        users.stream()
+            .collect(LinkedHashMap::new, (map, user) -> map.put(user.getId(), user), Map::putAll);
+
+    userIds.forEach(
+        userId -> {
+          if (!usersById.containsKey(userId)) {
+            throw new ResourceNotFoundException("user_not_found", "User not found");
+          }
+          boolean hasActiveMembership =
+              organizationMembershipRepository
+                  .findByOrganizationIdAndUserId(organizationId, userId)
+                  .filter(OrganizationMembership::isActive)
+                  .filter(membership -> membership.hasEstablishmentAccess(establishmentId))
+                  .isPresent();
+          if (!hasActiveMembership) {
+            throw new ForbiddenException(
+                "checklist_assignment_user_forbidden",
+                "Checklist runs can only be assigned to active members with access to the establishment");
+          }
+        });
+
+    return usersById;
+  }
+
+  private User getUserOrThrow(UUID userId) {
+    return userRepository
+        .findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
+  }
+
+  private List<ChecklistRunTaskExecutionInput> normalizeTaskExecutions(
+      List<ChecklistRunTaskExecutionInput> taskExecutions) {
+    Map<UUID, ChecklistRunTaskExecutionInput> taskExecutionsById = new LinkedHashMap<>();
+    taskExecutions.stream()
+        .map(this::normalizeTaskExecutionInput)
+        .filter(
+            taskExecution ->
+                taskExecutionsById.put(taskExecution.checklistTaskExecutionId(), taskExecution)
+                    != null)
+        .forEach(
+            _ -> {
+              throw new ConflictException(
+                  "checklist_task_execution_duplicate_submission",
+                  "Checklist task executions may only contain one entry per task");
+            });
+    return List.copyOf(taskExecutionsById.values());
+  }
+
+  private List<ChecklistRunTaskExecutionInput> toChecklistRunTaskExecutionInputs(
+      List<ChecklistTaskExecutionInput> taskExecutions) {
+    return taskExecutions.stream()
+        .map(
+            taskExecution ->
+                new ChecklistRunTaskExecutionInput(
+                    taskExecution.checklistTaskExecutionId(),
+                    taskExecution.executionStatus(),
+                    taskExecution.comment(),
+                    taskExecution.verificationResult(),
+                    taskExecution.measuredValue(),
+                    taskExecution.enteredText()))
+        .toList();
+  }
+
+  private ChecklistRunTaskExecutionInput normalizeTaskExecutionInput(
+      ChecklistRunTaskExecutionInput taskExecutionInput) {
+    return new ChecklistRunTaskExecutionInput(
+        taskExecutionInput.checklistTaskExecutionId(),
+        taskExecutionInput.executionStatus(),
+        normalizeOptionalText(taskExecutionInput.comment()),
+        taskExecutionInput.verificationResult(),
+        taskExecutionInput.measuredValue(),
+        normalizeOptionalText(taskExecutionInput.enteredText()));
+  }
+
+  private NotificationServiceArea toNotificationServiceArea(ChecklistServiceArea serviceArea) {
+    return switch (serviceArea) {
+      case IK_MAT -> NotificationServiceArea.IK_MAT;
+      case IK_ALKOHOL -> NotificationServiceArea.IK_ALKOHOL;
+    };
+  }
+
+  private String normalizeOptionalText(String value) {
+    if (value == null) {
+      return null;
+    }
+
+    String normalizedValue = value.strip();
+    return normalizedValue.isEmpty() ? null : normalizedValue;
+  }
+
+  private void applyTaskExecution(
+      ChecklistTaskExecution taskExecution,
+      ChecklistRunTaskExecutionInput taskExecutionInput,
+      User actor,
+      Instant now) {
+    taskExecution.setExecutionStatus(taskExecutionInput.executionStatus());
+    taskExecution.setComment(taskExecutionInput.comment());
+    taskExecution.setVerificationResult(taskExecutionInput.verificationResult());
+    taskExecution.setMeasuredValue(taskExecutionInput.measuredValue());
+    taskExecution.setEnteredText(taskExecutionInput.enteredText());
+
+    if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.PENDING) {
+      taskExecution.setResolvedAt(null);
+      taskExecution.setResolvedByUser(null);
+      return;
+    }
+
+    taskExecution.setResolvedAt(now);
+    taskExecution.setResolvedByUser(actor);
+  }
+
+  private void validateTaskExecution(
+      ChecklistTaskExecution taskExecution, ChecklistRunTaskExecutionInput taskExecutionInput) {
+    if (taskExecutionInput.executionStatus() == ChecklistTaskExecutionStatus.SKIPPED
+        && taskExecution.isRequired()) {
+      throw new ConflictException(
+          "checklist_task_execution_required_skip_forbidden",
+          "Required checklist tasks cannot be skipped");
+    }
+
+    boolean hasVerificationResult = taskExecutionInput.verificationResult() != null;
+    boolean hasMeasuredValue = taskExecutionInput.measuredValue() != null;
+    boolean hasEnteredText = taskExecutionInput.enteredText() != null;
+
+    if (taskExecutionInput.executionStatus() != ChecklistTaskExecutionStatus.COMPLETED) {
+      if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {
+        throw new ConflictException(
+            "checklist_task_execution_pending_data_forbidden",
+            "Only completed checklist tasks may record verification, measurement, or text data");
+      }
+      return;
+    }
+
+    switch (taskExecution.getTaskKindSnapshot()) {
+      case ACTION -> {
+        if (hasVerificationResult || hasMeasuredValue || hasEnteredText) {
+          throw new ConflictException(
+              "checklist_task_execution_action_data_invalid",
+              "Action checklist tasks may only record completion and an optional comment");
+        }
+      }
+      case VERIFICATION -> {
+        if (!hasVerificationResult || hasMeasuredValue || hasEnteredText) {
+          throw new ConflictException(
+              "checklist_task_execution_verification_invalid",
+              "Verification checklist tasks require a verification result and no measurement or text entry");
+        }
+      }
+      case MEASUREMENT -> {
+        if (!hasMeasuredValue || hasVerificationResult || hasEnteredText) {
+          throw new ConflictException(
+              "checklist_task_execution_measurement_invalid",
+              "Measurement checklist tasks require a measured value and no verification or text entry");
+        }
+      }
+      case TEXT_ENTRY -> {
+        if (!hasEnteredText || hasVerificationResult || hasMeasuredValue) {
+          throw new ConflictException(
+              "checklist_task_execution_text_entry_invalid",
+              "Text entry checklist tasks require entered text and no verification or measured value");
+        }
+      }
+    }
+  }
+
+  private void validateRequiredTaskExecutionsCompleted(
+      Collection<ChecklistTaskExecution> taskExecutions) {
+    taskExecutions.stream()
+        .filter(ChecklistTaskExecution::isRequired)
+        .filter(
+            taskExecution ->
+                taskExecution.getExecutionStatus() != ChecklistTaskExecutionStatus.COMPLETED)
+        .forEach(
+            _ -> {
+              throw new ConflictException(
+                  "checklist_run_required_task_incomplete",
+                  "All required checklist tasks must be completed before submission");
+            });
+  }
+
+  /**
+   * Immutable task execution payload used internally when applying checklist run updates.
+   *
+   * @param checklistTaskExecutionId identifier of the task execution to update
+   * @param executionStatus execution status to persist
+   * @param comment optional task comment
+   * @param verificationResult verification result for verification tasks
+   * @param measuredValue measured value for measurement tasks
+   * @param enteredText entered text for text-entry tasks
+   */
+  public record ChecklistTaskExecutionInput(
+      UUID checklistTaskExecutionId,
+      ChecklistTaskExecutionStatus executionStatus,
+      String comment,
+      ChecklistVerificationResult verificationResult,
+      BigDecimal measuredValue,
+      String enteredText) {}
 }

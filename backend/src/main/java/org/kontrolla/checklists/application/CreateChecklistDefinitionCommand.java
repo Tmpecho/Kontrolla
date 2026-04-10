@@ -1,8 +1,7 @@
 package org.kontrolla.checklists.application;
 
-import org.kontrolla.checklists.domain.ChecklistServiceArea;
-
 import java.util.List;
+import org.kontrolla.checklists.domain.ChecklistServiceArea;
 
 /**
  * Command for creating a checklist definition.
@@ -14,10 +13,8 @@ import java.util.List;
  * @param schedules the schedule definitions
  */
 public record CreateChecklistDefinitionCommand(
-		ChecklistServiceArea serviceArea,
-		String title,
-		String description,
-		List<ChecklistDefinitionTaskInput> tasks,
-		List<ChecklistDefinitionScheduleInput> schedules
-) {
-}
+    ChecklistServiceArea serviceArea,
+    String title,
+    String description,
+    List<ChecklistDefinitionTaskInput> tasks,
+    List<ChecklistDefinitionScheduleInput> schedules) {}

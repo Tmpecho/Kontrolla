@@ -1,8 +1,8 @@
 package org.kontrolla.support;
 
+import org.kontrolla.audit.infrastructure.AuditEventRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistDefinitionRepository;
 import org.kontrolla.checklists.infrastructure.ChecklistRunRepository;
-import org.kontrolla.audit.infrastructure.AuditEventRepository;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.documents.infrastructure.DocumentFileRepository;
 import org.kontrolla.documents.infrastructure.DocumentRepository;
@@ -54,8 +54,7 @@ public class TestDataCleaner {
       EstablishmentServingHoursRepository establishmentServingHoursRepository,
       EstablishmentRepository establishmentRepository,
       OrganizationRepository organizationRepository,
-      UserRepository userRepository
-  ) {
+      UserRepository userRepository) {
     this.auditEventRepository = auditEventRepository;
     this.refreshTokenRepository = refreshTokenRepository;
     this.notificationRepository = notificationRepository;

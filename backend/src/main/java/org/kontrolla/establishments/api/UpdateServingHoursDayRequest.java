@@ -1,10 +1,9 @@
 package org.kontrolla.establishments.api;
 
 import jakarta.validation.constraints.NotNull;
-import org.kontrolla.establishments.application.UpdateServingHoursDayCommand;
-
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import org.kontrolla.establishments.application.UpdateServingHoursDayCommand;
 
 /**
  * Request payload for updating serving hours for a single weekday.
@@ -15,11 +14,7 @@ import java.time.LocalTime;
  * @param closesAt the closing time, if open
  */
 public record UpdateServingHoursDayRequest(
-    @NotNull DayOfWeek dayOfWeek,
-    boolean closed,
-    LocalTime opensAt,
-    LocalTime closesAt
-) {
+    @NotNull DayOfWeek dayOfWeek, boolean closed, LocalTime opensAt, LocalTime closesAt) {
 
   /**
    * Converts the request payload to the application command model.

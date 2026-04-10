@@ -1,6 +1,18 @@
 package org.kontrolla.audit.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,79 +43,59 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.reset;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AuditFailureHandlingIntegrationTest {
 
-	@Autowired
-	private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-	@SpyBean
-	private AuditEventRepository auditEventRepository;
+  @SpyBean private AuditEventRepository auditEventRepository;
 
-	@Autowired
-	private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-	@Autowired
-	private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-	@Autowired
-	private OrganizationMembershipRepository membershipRepository;
+  @Autowired private OrganizationMembershipRepository membershipRepository;
 
-	@Autowired
-	private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-	@Autowired
-	private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+  @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-	@Autowired
-	private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
-	@Autowired
-	private AuthAttemptThrottleService authAttemptThrottleService;
+  @Autowired private AuthAttemptThrottleService authAttemptThrottleService;
 
-	@BeforeEach
-	void setUp() {
-		reset(auditEventRepository);
-		testDataCleaner.clearAll();
-		authAttemptThrottleService.clear();
-	}
+  @BeforeEach
+  void setUp() {
+    reset(auditEventRepository);
+    testDataCleaner.clearAll();
+    authAttemptThrottleService.clear();
+  }
 
-	@AfterEach
-	void tearDown() {
-		reset(auditEventRepository);
-	}
+  @AfterEach
+  void tearDown() {
+    reset(auditEventRepository);
+  }
 
-	@Test
-	void auditPersistenceFailureRollsBackAdminUserCreation() throws Exception {
-		createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
-		String adminToken = login("admin@example.com", "password123");
-		doThrow(new DataAccessResourceFailureException("audit store unavailable"))
-				.when(auditEventRepository)
-				.save(any(AuditEvent.class));
+  @Test
+  void auditPersistenceFailureRollsBackAdminUserCreation() throws Exception {
+    createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+    String adminToken = login("admin@example.com", "password123");
+    doThrow(new DataAccessResourceFailureException("audit store unavailable"))
+        .when(auditEventRepository)
+        .save(any(AuditEvent.class));
 
-		mockMvc.perform(post("/api/v1/admin/users")
-						.with(csrf())
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
+    mockMvc
+        .perform(
+            post("/api/v1/admin/users")
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
 								{
 								  "email": "rolled-back@example.com",
 								  "firstName": "Rolled",
@@ -111,99 +103,121 @@ class AuditFailureHandlingIntegrationTest {
 								  "password": "password123"
 								}
 								"""))
-				.andExpect(status().isInternalServerError())
-				.andExpect(jsonPath("$.code").value("internal_error"));
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.code").value("internal_error"));
 
-		assertThat(userRepository.findByEmailIgnoreCase("rolled-back@example.com")).isEmpty();
-	}
+    assertThat(userRepository.findByEmailIgnoreCase("rolled-back@example.com")).isEmpty();
+  }
 
-	@Test
-	void auditPersistenceFailureRollsBackMembershipUpdate() throws Exception {
-		User admin = createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
-		User employee = createUser("employee@example.com", "Employee", "User", Set.of());
-		Organization organization = organizationRepository.saveAndFlush(new Organization("Rollback Org", OrganizationStatus.ACTIVE));
-		Establishment establishment = establishmentRepository.saveAndFlush(
-				new Establishment(organization, "Restaurant", EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
-		OrganizationMembership membership = new OrganizationMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, false, false);
-		membership.replaceAccessibleEstablishments(List.of(establishment));
-		membership = membershipRepository.saveAndFlush(membership);
+  @Test
+  void auditPersistenceFailureRollsBackMembershipUpdate() throws Exception {
+    User admin =
+        createUser("admin@example.com", "Admin", "User", Set.of(GlobalRole.PLATFORM_ADMIN));
+    User employee = createUser("employee@example.com", "Employee", "User", Set.of());
+    Organization organization =
+        organizationRepository.saveAndFlush(
+            new Organization("Rollback Org", OrganizationStatus.ACTIVE));
+    Establishment establishment =
+        establishmentRepository.saveAndFlush(
+            new Establishment(
+                organization,
+                "Restaurant",
+                EstablishmentType.RESTAURANT,
+                EstablishmentStatus.ACTIVE));
+    OrganizationMembership membership =
+        new OrganizationMembership(
+            organization, employee, OrganizationRole.ORG_EMPLOYEE, false, false);
+    membership.replaceAccessibleEstablishments(List.of(establishment));
+    membership = membershipRepository.saveAndFlush(membership);
 
-		String adminToken = login(admin.getEmail(), "password123");
-		doThrow(new DataAccessResourceFailureException("audit store unavailable"))
-				.when(auditEventRepository)
-				.save(any(AuditEvent.class));
+    String adminToken = login(admin.getEmail(), "password123");
+    doThrow(new DataAccessResourceFailureException("audit store unavailable"))
+        .when(auditEventRepository)
+        .save(any(AuditEvent.class));
 
-		mockMvc.perform(patch("/api/v1/organizations/%s/members/%s".formatted(organization.getId(), membership.getId()))
-						.with(csrf())
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
+    mockMvc
+        .perform(
+            patch(
+                    "/api/v1/organizations/%s/members/%s"
+                        .formatted(organization.getId(), membership.getId()))
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
 								{
 								  "role": "ORG_MANAGER",
 								  "active": true,
 								  "allEstablishments": true
 								}
 								"""))
-				.andExpect(status().isInternalServerError())
-				.andExpect(jsonPath("$.code").value("internal_error"));
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.code").value("internal_error"));
 
-		OrganizationMembership reloadedMembership = membershipRepository.findByIdAndOrganizationId(membership.getId(), organization.getId()).orElseThrow();
-		assertThat(reloadedMembership.getRole()).isEqualTo(OrganizationRole.ORG_EMPLOYEE);
-		assertThat(reloadedMembership.isActive()).isFalse();
-		assertThat(reloadedMembership.isAccessAllEstablishments()).isFalse();
-		assertThat(reloadedMembership.getAccessibleEstablishments()).hasSize(1);
-	}
+    OrganizationMembership reloadedMembership =
+        membershipRepository
+            .findByIdAndOrganizationId(membership.getId(), organization.getId())
+            .orElseThrow();
+    assertThat(reloadedMembership.getRole()).isEqualTo(OrganizationRole.ORG_EMPLOYEE);
+    assertThat(reloadedMembership.isActive()).isFalse();
+    assertThat(reloadedMembership.isAccessAllEstablishments()).isFalse();
+    assertThat(reloadedMembership.getAccessibleEstablishments()).hasSize(1);
+  }
 
-	@Test
-	void auditPersistenceFailureDoesNotChangeFailedLoginResponse() throws Exception {
-		createUser("alice@example.com", "Alice", "Example", Set.of());
-		doThrow(new DataAccessResourceFailureException("audit store unavailable"))
-				.when(auditEventRepository)
-				.save(any(AuditEvent.class));
+  @Test
+  void auditPersistenceFailureDoesNotChangeFailedLoginResponse() throws Exception {
+    createUser("alice@example.com", "Alice", "Example", Set.of());
+    doThrow(new DataAccessResourceFailureException("audit store unavailable"))
+        .when(auditEventRepository)
+        .save(any(AuditEvent.class));
 
-		mockMvc.perform(post("/api/v1/auth/login")
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
+    mockMvc
+        .perform(
+            post("/api/v1/auth/login")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
 								{
 								  "email": "alice@example.com",
 								  "password": "wrong-password"
 								}
 								"""))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value("invalid_credentials"))
-				.andExpect(jsonPath("$.message").value("Invalid email or password"));
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("invalid_credentials"))
+        .andExpect(jsonPath("$.message").value("Invalid email or password"));
 
-		assertThat(auditEventRepository.findAll()).isEmpty();
-	}
+    assertThat(auditEventRepository.findAll()).isEmpty();
+  }
 
-	private User createUser(String email, String firstName, String lastName, Set<GlobalRole> globalRoles) {
-		User user = new User(
-				email,
-				firstName,
-				lastName,
-				passwordEncoder.encode("password123"),
-				true,
-				globalRoles
-		);
-		return userRepository.saveAndFlush(user);
-	}
+  private User createUser(
+      String email, String firstName, String lastName, Set<GlobalRole> globalRoles) {
+    User user =
+        new User(
+            email, firstName, lastName, passwordEncoder.encode("password123"), true, globalRoles);
+    return userRepository.saveAndFlush(user);
+  }
 
-	private String login(String email, String password) throws Exception {
-		String loginResponse = mockMvc.perform(post("/api/v1/auth/login")
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
+  private String login(String email, String password) throws Exception {
+    String loginResponse =
+        mockMvc
+            .perform(
+                post("/api/v1/auth/login")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
 								{
 								  "email": "%s",
 								  "password": "%s"
 								}
-								""".formatted(email, password)))
-				.andExpect(status().isOk())
-				.andReturn()
-				.getResponse()
-				.getContentAsString();
+								"""
+                            .formatted(email, password)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
 
-		return objectMapper.readTree(loginResponse).get("accessToken").asText();
-	}
+    return objectMapper.readTree(loginResponse).get("accessToken").asText();
+  }
 }

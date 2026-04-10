@@ -5,5 +5,4 @@ package org.kontrolla.notifications.api;
  *
  * @param unreadCount the unread notification count
  */
-public record UnreadNotificationCountResponse(long unreadCount) {
-}
+public record UnreadNotificationCountResponse(long unreadCount) {}

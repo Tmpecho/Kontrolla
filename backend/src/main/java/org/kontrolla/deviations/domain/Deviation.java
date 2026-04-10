@@ -11,6 +11,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
@@ -18,104 +20,97 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.organizations.domain.Organization;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Persisted deviation reported for an establishment.
- */
+/** Persisted deviation reported for an establishment. */
 @Getter
 @Entity
 @Table(name = "deviations")
 public class Deviation extends AbstractAuditableUuidEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "organization_id", nullable = false)
-    private Organization organization;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "organization_id", nullable = false)
+  private Organization organization;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "establishment_id", nullable = false)
-    private Establishment establishment;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "establishment_id", nullable = false)
+  private Establishment establishment;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "created_by_user_id", nullable = false)
-    private User createdByUser;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "created_by_user_id", nullable = false)
+  private User createdByUser;
 
-    @Setter
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_to_user_id")
-    private User assignedToUser;
+  @Setter
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "assigned_to_user_id")
+  private User assignedToUser;
 
-    @Setter
-    @Column(nullable = false)
-    private String title;
+  @Setter
+  @Column(nullable = false)
+  private String title;
 
-    @Setter
-    @Column(nullable = false, length = 2000)
-    private String description;
+  @Setter
+  @Column(nullable = false, length = 2000)
+  private String description;
 
-    @Setter
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private DeviationStatus status;
+  @Setter
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 32)
+  private DeviationStatus status;
 
-    @Setter
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private DeviationSeverity severity;
+  @Setter
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 32)
+  private DeviationSeverity severity;
 
-    @Setter
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private DeviationCategory category;
+  @Setter
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 32)
+  private DeviationCategory category;
 
-    @OneToMany(mappedBy = "deviation", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("occurredAt ASC")
-    private final List<DeviationEvent> events = new ArrayList<>();
+  @OneToMany(mappedBy = "deviation", cascade = CascadeType.ALL, orphanRemoval = true)
+  @OrderBy("occurredAt ASC")
+  private final List<DeviationEvent> events = new ArrayList<>();
 
-    protected Deviation() {
-    }
+  protected Deviation() {}
 
-    /**
-     * Creates a deviation.
-     *
-     * @param organization the owning organization
-     * @param establishment the owning establishment
-     * @param createdByUser the user who reported the deviation
-     * @param assignedToUser the assigned user, if any
-     * @param title the deviation title
-     * @param description the deviation description
-     * @param severity the deviation severity
-     * @param category the deviation category
-     */
-    public Deviation(
-        Organization organization,
-        Establishment establishment,
-        User createdByUser,
-        User assignedToUser,
-        String title,
-        String description,
-        DeviationSeverity severity,
-        DeviationCategory category
-    ) {
-        this.organization = organization;
-        this.establishment = establishment;
-        this.createdByUser = createdByUser;
-        this.assignedToUser = assignedToUser;
-        this.title = title;
-        this.description = description;
-        this.status = DeviationStatus.OPEN;
-        this.severity = severity;
-        this.category = category;
-    }
+  /**
+   * Creates a deviation.
+   *
+   * @param organization the owning organization
+   * @param establishment the owning establishment
+   * @param createdByUser the user who reported the deviation
+   * @param assignedToUser the assigned user, if any
+   * @param title the deviation title
+   * @param description the deviation description
+   * @param severity the deviation severity
+   * @param category the deviation category
+   */
+  public Deviation(
+      Organization organization,
+      Establishment establishment,
+      User createdByUser,
+      User assignedToUser,
+      String title,
+      String description,
+      DeviationSeverity severity,
+      DeviationCategory category) {
+    this.organization = organization;
+    this.establishment = establishment;
+    this.createdByUser = createdByUser;
+    this.assignedToUser = assignedToUser;
+    this.title = title;
+    this.description = description;
+    this.status = DeviationStatus.OPEN;
+    this.severity = severity;
+    this.category = category;
+  }
 
-    /**
-     * Adds a timeline event to the deviation.
-     *
-     * @param event the event to append
-     */
-    public void addEvent(DeviationEvent event) {
-        event.attachTo(this);
-        this.events.add(event);
-    }
+  /**
+   * Adds a timeline event to the deviation.
+   *
+   * @param event the event to append
+   */
+  public void addEvent(DeviationEvent event) {
+    event.attachTo(this);
+    this.events.add(event);
+  }
 }

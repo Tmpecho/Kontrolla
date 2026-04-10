@@ -1,11 +1,9 @@
 package org.kontrolla.checklists.domain;
 
-/**
- * Lifecycle states for a checklist definition version.
- */
+/** Lifecycle states for a checklist definition version. */
 public enum ChecklistDefinitionStatus {
-	DRAFT,
-	ACTIVE,
-	SUPERSEDED,
-	ARCHIVED
+  DRAFT,
+  ACTIVE,
+  SUPERSEDED,
+  ARCHIVED
 }

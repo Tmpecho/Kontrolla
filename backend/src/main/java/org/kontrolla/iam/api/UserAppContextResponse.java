@@ -1,9 +1,8 @@
 package org.kontrolla.iam.api;
 
+import java.util.UUID;
 import org.kontrolla.iam.application.UserAppContext;
 import org.kontrolla.organizations.domain.OrganizationRole;
-
-import java.util.UUID;
 
 /**
  * API response describing the resolved application context for the user.
@@ -19,8 +18,7 @@ public record UserAppContextResponse(
     String organizationName,
     OrganizationRole organizationRole,
     UUID establishmentId,
-    String establishmentName
-) {
+    String establishmentName) {
 
   /**
    * Maps an application user context to the API response shape.
@@ -34,7 +32,6 @@ public record UserAppContextResponse(
         userAppContext.organizationName(),
         userAppContext.organizationRole(),
         userAppContext.establishmentId(),
-        userAppContext.establishmentName()
-    );
+        userAppContext.establishmentName());
   }
 }

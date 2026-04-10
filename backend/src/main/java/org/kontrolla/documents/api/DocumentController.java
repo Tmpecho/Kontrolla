@@ -1,6 +1,8 @@
 package org.kontrolla.documents.api;
 
 import jakarta.validation.Valid;
+import java.time.Clock;
+import java.util.UUID;
 import org.kontrolla.common.api.PageResponse;
 import org.kontrolla.documents.application.DocumentService;
 import org.kontrolla.documents.domain.DocumentServiceArea;
@@ -14,26 +16,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.Clock;
-import java.util.UUID;
-
-/**
- * REST API for document metadata, file downloads, file replacement, and audit
- * acknowledgement.
- */
+/** REST API for document metadata, file downloads, file replacement, and audit acknowledgement. */
 @RestController
 @RequestMapping("/api/v1/organizations/{organizationId}")
 public class DocumentController {
@@ -68,12 +64,12 @@ public class DocumentController {
       @PathVariable UUID establishmentId,
       @RequestParam DocumentServiceArea serviceArea,
       @AuthenticationPrincipal CurrentUser currentUser,
-      @PageableDefault(size = 20, sort = "renewalDate", direction = Sort.Direction.ASC) Pageable pageable
-  ) {
+      @PageableDefault(size = 20, sort = "renewalDate", direction = Sort.Direction.ASC)
+          Pageable pageable) {
     return PageResponse.from(
-        documentService.listDocuments(organizationId, establishmentId, serviceArea, currentUser, pageable),
-        document -> DocumentResponse.from(document, clock)
-    );
+        documentService.listDocuments(
+            organizationId, establishmentId, serviceArea, currentUser, pageable),
+        document -> DocumentResponse.from(document, clock));
   }
 
   /**
@@ -90,12 +86,10 @@ public class DocumentController {
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @PathVariable UUID documentId,
-      @AuthenticationPrincipal CurrentUser currentUser
-  ) {
+      @AuthenticationPrincipal CurrentUser currentUser) {
     return DocumentResponse.from(
         documentService.getDocument(organizationId, establishmentId, documentId, currentUser),
-        clock
-    );
+        clock);
   }
 
   /**
@@ -112,17 +106,16 @@ public class DocumentController {
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @PathVariable UUID documentId,
-      @AuthenticationPrincipal CurrentUser currentUser
-  ) {
-    var file = documentService.getDocumentFile(organizationId, establishmentId, documentId, currentUser);
+      @AuthenticationPrincipal CurrentUser currentUser) {
+    var file =
+        documentService.getDocumentFile(organizationId, establishmentId, documentId, currentUser);
 
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(file.contentType()))
         .contentLength(file.fileSizeBytes())
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
-            ContentDisposition.attachment().filename(file.fileName()).build().toString()
-        )
+            ContentDisposition.attachment().filename(file.fileName()).build().toString())
         .body(file.content());
   }
 
@@ -140,8 +133,7 @@ public class DocumentController {
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @PathVariable UUID documentId,
-      @AuthenticationPrincipal CurrentUser currentUser
-  ) {
+      @AuthenticationPrincipal CurrentUser currentUser) {
     documentService.deleteDocument(organizationId, establishmentId, documentId, currentUser);
     return ResponseEntity.noContent().build();
   }
@@ -156,15 +148,16 @@ public class DocumentController {
    * @param file the uploaded PDF file
    * @return the created document response
    */
-  @PostMapping(value = "/establishments/{establishmentId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PostMapping(
+      value = "/establishments/{establishmentId}/documents",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @ResponseStatus(HttpStatus.CREATED)
   public DocumentResponse createDocument(
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @AuthenticationPrincipal CurrentUser currentUser,
       @Valid @RequestPart("metadata") CreateDocumentRequest request,
-      @RequestPart("file") MultipartFile file
-  ) {
+      @RequestPart("file") MultipartFile file) {
     return DocumentResponse.from(
         documentService.createDocument(
             organizationId,
@@ -178,10 +171,8 @@ public class DocumentController {
             file.getOriginalFilename(),
             file.getContentType(),
             getBytes(file),
-            currentUser
-        ),
-        clock
-    );
+            currentUser),
+        clock);
   }
 
   /**
@@ -194,14 +185,15 @@ public class DocumentController {
    * @param request the metadata update payload
    * @return the updated document response
    */
-  @PutMapping(value = "/establishments/{establishmentId}/documents/{documentId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @PutMapping(
+      value = "/establishments/{establishmentId}/documents/{documentId}",
+      consumes = MediaType.APPLICATION_JSON_VALUE)
   public DocumentResponse updateDocument(
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @PathVariable UUID documentId,
       @AuthenticationPrincipal CurrentUser currentUser,
-      @Valid @RequestBody UpdateDocumentRequest request
-  ) {
+      @Valid @RequestBody UpdateDocumentRequest request) {
     return DocumentResponse.from(
         documentService.updateDocument(
             organizationId,
@@ -213,10 +205,8 @@ public class DocumentController {
             request.issueDate(),
             request.renewalDate(),
             request.auditUserIds(),
-            currentUser
-        ),
-        clock
-    );
+            currentUser),
+        clock);
   }
 
   /**
@@ -229,14 +219,15 @@ public class DocumentController {
    * @param file the uploaded replacement file
    * @return the updated document response
    */
-  @PutMapping(value = "/establishments/{establishmentId}/documents/{documentId}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PutMapping(
+      value = "/establishments/{establishmentId}/documents/{documentId}/file",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public DocumentResponse replaceDocumentFile(
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @PathVariable UUID documentId,
       @AuthenticationPrincipal CurrentUser currentUser,
-      @RequestPart("file") MultipartFile file
-  ) {
+      @RequestPart("file") MultipartFile file) {
     return DocumentResponse.from(
         documentService.replaceDocumentFile(
             organizationId,
@@ -245,10 +236,8 @@ public class DocumentController {
             file.getOriginalFilename(),
             file.getContentType(),
             getBytes(file),
-            currentUser
-        ),
-        clock
-    );
+            currentUser),
+        clock);
   }
 
   /**
@@ -265,17 +254,11 @@ public class DocumentController {
       @PathVariable UUID organizationId,
       @PathVariable UUID establishmentId,
       @PathVariable UUID documentId,
-      @AuthenticationPrincipal CurrentUser currentUser
-  ) {
+      @AuthenticationPrincipal CurrentUser currentUser) {
     return DocumentResponse.from(
         documentService.acknowledgeDocumentAudit(
-            organizationId,
-            establishmentId,
-            documentId,
-            currentUser
-        ),
-        clock
-    );
+            organizationId, establishmentId, documentId, currentUser),
+        clock);
   }
 
   private byte[] getBytes(MultipartFile file) {
@@ -283,10 +266,7 @@ public class DocumentController {
       return file.getBytes();
     } catch (java.io.IOException exception) {
       throw new org.kontrolla.common.exception.ApplicationException(
-          HttpStatus.BAD_REQUEST,
-          "document_file_unreadable",
-          "Could not read uploaded file"
-      );
+          HttpStatus.BAD_REQUEST, "document_file_unreadable", "Could not read uploaded file");
     }
   }
 }
