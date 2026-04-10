@@ -161,8 +161,7 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 		assertThat(checklistRunRepository.search(
 				restaurant.getId(),
 				ChecklistServiceArea.IK_MAT,
-				java.util.List.of(),
-				true,
+				java.util.EnumSet.allOf(ChecklistRunStatus.class),
 				null,
 				null,
 				null,
@@ -171,8 +170,7 @@ class BootstrapOrganizationContextInitializerIntegrationTest {
 		assertThat(checklistRunRepository.search(
 				bar.getId(),
 				ChecklistServiceArea.IK_ALKOHOL,
-				java.util.List.of(),
-				true,
+				java.util.EnumSet.allOf(ChecklistRunStatus.class),
 				null,
 				null,
 				null,

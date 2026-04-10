@@ -22,18 +22,20 @@ function createChecklistPage({
   establishmentId,
   status,
   dueAt,
+  definitionGroupId = `group-${id}`,
 }: {
   id: string
   establishmentId: string
-  status: 'OVERDUE' | 'IN_PROGRESS' | 'COMPLETED'
+  status: 'PENDING' | 'OVERDUE' | 'IN_PROGRESS' | 'COMPLETED'
   dueAt: string
+  definitionGroupId?: string
 }) {
   return {
     items: [
       {
         id,
         checklistDefinitionId: `definition-${id}`,
-        definitionGroupId: `group-${id}`,
+        definitionGroupId,
         establishmentId,
         serviceArea: 'IK_MAT' as const,
         title: `${id} checklist`,
@@ -56,6 +58,27 @@ function createChecklistPage({
     totalElements: 1,
     totalPages: 1,
   }
+}
+
+async function listAllChecklistRunsFromMock(params: Record<string, unknown>): Promise<unknown[]> {
+  const allRuns: unknown[] = []
+  let page = typeof params.page === 'number' ? params.page : 0
+  let totalPages = 1
+  const size = typeof params.size === 'number' ? params.size : 100
+
+  do {
+    const response = await mocks.listChecklistRunsMock({
+      ...params,
+      page,
+      size,
+    })
+
+    allRuns.push(...response.items)
+    totalPages = response.totalPages
+    page += 1
+  } while (page < totalPages)
+
+  return allRuns
 }
 
 function createDeviationPage({
@@ -279,6 +302,7 @@ vi.mock('@/auth/model/workspace-context', async () => {
 
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
   listChecklistRuns: mocks.listChecklistRunsMock,
+  listAllChecklistRuns: listAllChecklistRunsFromMock,
 }))
 
 vi.mock('@/deviations/api/deviations.api', () => ({
@@ -512,6 +536,7 @@ describe('WorkspaceHomePage', () => {
       organizationId: 'org-1',
       establishmentId: 'est-2',
       serviceArea: 'IK_MAT',
+      statuses: ['PENDING', 'OVERDUE', 'IN_PROGRESS'],
       page: 0,
       size: 100,
     })
@@ -531,6 +556,57 @@ describe('WorkspaceHomePage', () => {
       organizationId: 'org-1',
       establishmentId: 'est-2',
     })
+  })
+
+  it('counts active checklist runs even when they share a checklist definition group', async () => {
+    if (!mocks.authStoreMock) {
+      throw new Error('authStoreMock was not initialized')
+    }
+
+    mocks.authStoreMock.appContext = {
+      organizationId: 'org-1',
+      organizationName: 'Org 1',
+      organizationRole: 'ORG_MANAGER',
+      establishmentId: 'est-1',
+      establishmentName: 'Restaurant',
+    }
+
+    mocks.listChecklistRunsMock.mockResolvedValue({
+      items: [
+        createChecklistPage({
+          id: 'run-1',
+          establishmentId: 'est-1',
+          status: 'OVERDUE',
+          dueAt: '2026-04-08T08:00:00Z',
+          definitionGroupId: 'group-shared',
+        }).items[0],
+        createChecklistPage({
+          id: 'run-2',
+          establishmentId: 'est-1',
+          status: 'IN_PROGRESS',
+          dueAt: '2026-04-08T09:00:00Z',
+          definitionGroupId: 'group-shared',
+        }).items[0],
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 2,
+      totalPages: 1,
+    })
+    mocks.listEstablishmentDeviationsMock.mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+      totalPages: 0,
+    })
+    mocks.listAllEstablishmentDocumentsMock.mockResolvedValue([])
+    mocks.listTemperatureUnitsMock.mockResolvedValue([])
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-service="ik-mat"]').text()).toContain('2 runs')
   })
 
   it('shows unavailable placeholders when documents cannot be loaded', async () => {

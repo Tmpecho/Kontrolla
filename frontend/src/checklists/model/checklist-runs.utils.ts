@@ -12,17 +12,6 @@ function compareRunsByRecency(left: ChecklistRun, right: ChecklistRun): number {
   )
 }
 
-export function selectLatestChecklistRuns(runs: ChecklistRun[]): ChecklistRun[] {
-  const latestRunsByDefinitionGroup = new Map<string, ChecklistRun>()
-
-  for (const run of runs) {
-    const definitionKey = `${run.establishmentId}:${run.definitionGroupId}`
-    const current = latestRunsByDefinitionGroup.get(definitionKey)
-
-    if (!current || compareRunsByRecency(run, current) < 0) {
-      latestRunsByDefinitionGroup.set(definitionKey, run)
-    }
-  }
-
-  return [...latestRunsByDefinitionGroup.values()].sort(compareRunsByRecency)
+export function sortChecklistRunsByRecency(runs: ChecklistRun[]): ChecklistRun[] {
+  return [...runs].sort(compareRunsByRecency)
 }

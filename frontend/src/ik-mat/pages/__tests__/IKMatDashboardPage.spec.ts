@@ -32,8 +32,30 @@ const { listChecklistRunsMock, authStoreMock } = vi.hoisted(() => ({
   },
 }))
 
+async function listAllChecklistRunsFromMock(params: Record<string, unknown>): Promise<unknown[]> {
+  const allRuns: unknown[] = []
+  let page = typeof params.page === 'number' ? params.page : 0
+  let totalPages = 1
+  const size = typeof params.size === 'number' ? params.size : 100
+
+  do {
+    const response = await listChecklistRunsMock({
+      ...params,
+      page,
+      size,
+    })
+
+    allRuns.push(...response.items)
+    totalPages = response.totalPages
+    page += 1
+  } while (page < totalPages)
+
+  return allRuns
+}
+
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
   listChecklistRuns: listChecklistRunsMock,
+  listAllChecklistRuns: listAllChecklistRunsFromMock,
 }))
 
 vi.mock('@/auth/model/auth.store', () => ({
@@ -177,6 +199,14 @@ describe('IKMatDashboardPage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
+    expect(listChecklistRunsMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      serviceArea: 'IK_MAT',
+      statuses: ['PENDING', 'OVERDUE', 'IN_PROGRESS'],
+      page: 0,
+      size: 100,
+    })
     expect(wrapper.text()).toContain('Checklists')
     expect(wrapper.text()).toContain('Temperature tile')
     expect(wrapper.find('[data-route-name="ik-mat-temperature"]').exists()).toBe(true)
@@ -184,7 +214,7 @@ describe('IKMatDashboardPage', () => {
     expect(wrapper.text()).toContain('0 overdue • 0 in progress')
   })
 
-  it('counts only the latest run for the same checklist definition group', async () => {
+  it('counts every run even when runs share the same checklist definition group', async () => {
     listChecklistRunsMock.mockResolvedValue({
       items: [
         {
@@ -237,8 +267,75 @@ describe('IKMatDashboardPage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('1 active run')
+    expect(wrapper.text()).toContain('2 active runs')
     expect(wrapper.text()).toContain('0 overdue • 1 in progress')
+  })
+
+  it('aggregates checklist runs across multiple pages before calculating the summary', async () => {
+    listChecklistRunsMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'run-page-1',
+            checklistDefinitionId: 'definition-1',
+            definitionGroupId: 'group-1',
+            establishmentId: 'est-1',
+            serviceArea: 'IK_MAT',
+            title: 'Morning shift',
+            description: 'Opening routine',
+            dueAt: '2026-03-26T08:00:00Z',
+            status: 'OVERDUE',
+            startedAt: null,
+            completedAt: null,
+            completedByUserId: null,
+            createdByUserId: 'user-1',
+            createdAt: '2026-03-26T07:00:00Z',
+            updatedAt: '2026-03-26T07:00:00Z',
+            assignments: [],
+            tasks: [],
+            events: [],
+          },
+        ],
+        page: 0,
+        size: 100,
+        totalElements: 2,
+        totalPages: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'run-page-2',
+            checklistDefinitionId: 'definition-2',
+            definitionGroupId: 'group-2',
+            establishmentId: 'est-1',
+            serviceArea: 'IK_MAT',
+            title: 'Closing shift',
+            description: 'Closing routine',
+            dueAt: '2026-03-26T12:00:00Z',
+            status: 'IN_PROGRESS',
+            startedAt: '2026-03-26T11:45:00Z',
+            completedAt: null,
+            completedByUserId: null,
+            createdByUserId: 'user-1',
+            createdAt: '2026-03-26T11:00:00Z',
+            updatedAt: '2026-03-26T11:45:00Z',
+            assignments: [],
+            tasks: [],
+            events: [],
+          },
+        ],
+        page: 1,
+        size: 100,
+        totalElements: 2,
+        totalPages: 2,
+      })
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(listChecklistRunsMock).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('2 active runs')
+    expect(wrapper.text()).toContain('1 overdue • 1 in progress')
   })
 
   it('keeps runs from different establishments when they share a checklist definition group', async () => {
