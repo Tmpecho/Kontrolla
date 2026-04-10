@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import LoginForm from '@/auth/components/LoginForm.vue'
+import { SUPPORT_MAILTO } from '@/shared/config/support'
 
 const { authStoreMock, loginMock, routerPushMock } = vi.hoisted(() => ({
   loginMock: vi.fn(),
@@ -100,5 +101,12 @@ describe('LoginForm', () => {
 
     expect(submitButton.attributes('disabled')).toBeUndefined()
     expect(submitButton.text()).toContain('Sign In')
+  })
+
+  it('renders support links as mailto actions', () => {
+    const wrapper = mount(LoginForm)
+
+    expect(wrapper.get('.input-aside-link').attributes('href')).toBe(SUPPORT_MAILTO)
+    expect(wrapper.get('.footer-link').attributes('href')).toBe(SUPPORT_MAILTO)
   })
 })

@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SUPPORT_MAILTO } from '@/shared/config/support'
 
 const {
   authStoreMock,
@@ -142,5 +143,18 @@ describe('TopBar overlay integration', () => {
     await flushPromises()
 
     expect(document.body.textContent).not.toContain('My profile')
+  })
+
+  it('renders the profile popup support action as a mailto link', async () => {
+    const wrapper = await mountTopBar()
+
+    await wrapper.get('#profile-trigger').trigger('click')
+    await flushPromises()
+
+    const supportLink = document.body.querySelector('#profile-popup a[href]') as HTMLAnchorElement | null
+
+    expect(supportLink).not.toBeNull()
+    expect(supportLink?.getAttribute('href')).toBe(SUPPORT_MAILTO)
+    expect(document.body.textContent).toContain('Support')
   })
 })

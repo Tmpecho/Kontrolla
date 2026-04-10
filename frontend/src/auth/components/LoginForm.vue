@@ -5,6 +5,7 @@ import { useAuthStore } from '@/auth/model/auth.store'
 
 import BaseInput from '@/shared/components/BaseInput.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import { SUPPORT_MAILTO } from '@/shared/config/support'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -52,7 +53,7 @@ async function onSubmit() {
         placeholder="password"
       >
         <template #aside>
-          <a href="#" class="input-aside-link">Forgot Password?</a>
+          <a :href="SUPPORT_MAILTO" class="input-aside-link">Support</a>
         </template>
       </BaseInput>
     </div>
@@ -64,7 +65,8 @@ async function onSubmit() {
     </div>
 
     <footer class="form-footer">
-      Having trouble signing in? <a href="#" class="footer-link">Contact Support &nearr;</a>
+      Having trouble signing in?
+      <a :href="SUPPORT_MAILTO" class="footer-link">Contact Support &nearr;</a>
     </footer>
   </form>
 </template>

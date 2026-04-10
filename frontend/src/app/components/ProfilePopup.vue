@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { SUPPORT_MAILTO } from '@/shared/config/support'
 import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
 
 defineProps<{
@@ -119,7 +120,7 @@ async function onLogout() {
           <span>Settings</span>
         </button>
 
-        <button type="button" class="menu-action" @click="onSupport">
+        <a :href="SUPPORT_MAILTO" class="menu-action" @click="onSupport">
           <span class="menu-action-icon" aria-hidden="true">
             <svg viewBox="0 0 20 20">
               <path
@@ -146,7 +147,7 @@ async function onLogout() {
             </svg>
           </span>
           <span>Support</span>
-        </button>
+        </a>
 
         <button type="button" class="menu-action menu-action-signout" @click="onLogout">
           <span class="menu-action-icon" aria-hidden="true">
@@ -253,6 +254,7 @@ async function onLogout() {
   font: inherit;
   font-size: 0.875rem;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 

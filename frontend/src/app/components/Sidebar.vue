@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import EstablishmentSwitcher from '@/app/components/EstablishmentSwitcher.vue'
 import OrganizationSwitcher from '@/app/components/OrganizationSwitcher.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
+import { SUPPORT_MAILTO } from '@/shared/config/support'
 
 defineOptions({
   name: 'AppSidebar',
@@ -355,7 +356,7 @@ async function onLogout() {
     </div>
 
     <div class="info-container">
-      <button type="button" class="sidebar-action sidebar-action-support">
+      <a :href="SUPPORT_MAILTO" class="sidebar-action sidebar-action-support">
         <span class="sidebar-action-icon" aria-hidden="true">
           <svg viewBox="0 0 20 20">
             <path
@@ -382,7 +383,7 @@ async function onLogout() {
           </svg>
         </span>
         <span>Support</span>
-      </button>
+      </a>
 
       <button type="button" class="sidebar-action sidebar-action-signout" @click="onLogout">
         <span class="sidebar-action-icon" aria-hidden="true">
@@ -546,6 +547,7 @@ async function onLogout() {
   font: inherit;
   font-size: 0.875rem;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
