@@ -35,6 +35,20 @@ vi.mock('@/app/components/ProfilePopup.vue', () => ({
   },
 }))
 
+vi.mock('@/app/components/EstablishmentSwitcher.vue', () => ({
+  default: {
+    props: ['variant'],
+    template: '<div class="establishment-switcher-stub" :data-variant="variant ?? \'compact\'" />',
+  },
+}))
+
+vi.mock('@/app/components/OrganizationSwitcher.vue', () => ({
+  default: {
+    props: ['variant'],
+    template: '<div class="organization-switcher-stub" :data-variant="variant ?? \'compact\'" />',
+  },
+}))
+
 describe('TopBar', () => {
   beforeEach(() => {
     notificationsStoreMock.unreadCount = 0
@@ -89,5 +103,36 @@ describe('TopBar', () => {
     })
 
     expect(wrapper.find('#notifications-trigger').exists()).toBe(true)
+  })
+
+  it('renders organization and establishment switchers in the desktop top bar', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'workspace-home', component: { template: '<div />' } },
+        { path: '/ik-mat', name: 'ik-mat-dashboard', component: { template: '<div />' } },
+        { path: '/ik-alkohol', name: 'ik-alkohol-dashboard', component: { template: '<div />' } },
+        { path: '/admin/members', name: 'organization-members', component: { template: '<div />' } },
+      ],
+    })
+    router.push({ name: 'workspace-home' })
+    await router.isReady()
+
+    const { default: TopBar } = await import('@/app/components/TopBar.vue')
+    const wrapper = mount(TopBar, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    const organizationSwitcherVariants = wrapper
+      .findAll('.organization-switcher-stub')
+      .map((switcher) => switcher.attributes('data-variant') ?? '')
+    const establishmentSwitcherVariants = wrapper
+      .findAll('.establishment-switcher-stub')
+      .map((switcher) => switcher.attributes('data-variant') ?? '')
+
+    expect(organizationSwitcherVariants).toContain('compact')
+    expect(establishmentSwitcherVariants).toContain('compact')
   })
 })
