@@ -31,19 +31,7 @@ const showPasswordChangedMessage = computed(() => route.query.passwordChanged ==
           <span>Dev logins:</span>
           <div class="dev-login-list">
             <div class="dev-login-item">
-              <code>demo@example.com</code>
-              <code>password123</code>
-            </div>
-            <div class="dev-login-item">
               <code>admin@example.com</code>
-              <code>password123</code>
-            </div>
-            <div class="dev-login-item">
-              <code>emma.larsen@example.com</code>
-              <code>password123</code>
-            </div>
-            <div class="dev-login-item">
-              <code>noah.berg@example.com</code>
               <code>password123</code>
             </div>
           </div>
