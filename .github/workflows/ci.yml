@@ -126,8 +126,40 @@ jobs:
       - name: Run frontend build
         run: npm run build
 
-      - name: Run frontend unit tests
-        run: npm run test:unit:ci
+      - name: Run frontend unit tests with coverage
+        run: npm run test:unit:coverage:ci
+
+      - name: Publish frontend coverage summary
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const summary = JSON.parse(fs.readFileSync("coverage/coverage-summary.json", "utf8")).total;
+            const rows = [
+              ["Statement", summary.statements.pct],
+              ["Branch", summary.branches.pct],
+              ["Function", summary.functions.pct],
+              ["Line", summary.lines.pct],
+            ];
+            fs.appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              [
+                "## Frontend coverage",
+                "| Metric | Coverage |",
+                "| --- | --- |",
+                ...rows.map(([name, pct]) => `| ${name} | ${pct.toFixed(1)}% |`),
+                "",
+              ].join("\n"),
+            );
+          '
+
+      - name: Upload frontend coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-vitest-coverage
+          path: frontend/coverage
+          if-no-files-found: ignore
+          retention-days: 14
 
   status:
     name: Status
