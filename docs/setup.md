@@ -1,49 +1,20 @@
 # Setup
 
-This guide covers the local setup for working on Kontrolla.
+The setup documentation has been split by module:
 
-## Prerequisites
+- Frontend quick start: [`docs/frontend/README.md`](./frontend/README.md)
+- Frontend test data: [`docs/frontend/test-data.md`](./frontend/test-data.md)
+- Backend quick start: [`docs/backend/README.md`](./backend/README.md)
+- Backend test data: [`docs/backend/test-data.md`](./backend/test-data.md)
 
-- Docker and Docker Compose
-- Java 25
-- Node.js and npm
-
-## Start the project
-
-1. Start the local development stack:
+Fastest way to start the full stack:
 
 ```sh
 docker compose up
 ```
 
-2. Open the apps:
+Default local URLs:
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:8080`
-
-## Development login
-
-In `dev`, bootstrap users are created automatically:
-
-- `demo@example.com` / `password123`
-- `admin@example.com` / `password123`
-- `emma.larsen@example.com` / `password123`
-- `noah.berg@example.com` / `password123`
-
-These bootstrap users do not exist in `prod`.
-
-## Run services manually
-
-If you want to run parts of the stack outside Docker:
-
-```sh
-cd backend && ./gradlew bootRun
-cd frontend && npm run dev
-```
-
-## Run tests
-
-```sh
-cd backend && ./gradlew test
-cd frontend && npm run test:unit
-```
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
