@@ -7,6 +7,18 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * API response describing the authenticated user returned by auth endpoints.
+ *
+ * @param id the user identifier
+ * @param email the user email
+ * @param firstName the user first name
+ * @param lastName the user last name
+ * @param active whether the user is active
+ * @param globalRoles the user's global roles
+ * @param createdAt when the user was created
+ * @param updatedAt when the user was last updated
+ */
 public record AuthUserResponse(
 		UUID id,
 		String email,
@@ -18,6 +30,12 @@ public record AuthUserResponse(
 		Instant updatedAt
 ) {
 
+	/**
+	 * Maps a user entity to the auth user response shape.
+	 *
+	 * @param user the user to map
+	 * @return the mapped response
+	 */
 	public static AuthUserResponse from(User user) {
 		return new AuthUserResponse(
 				user.getId(),

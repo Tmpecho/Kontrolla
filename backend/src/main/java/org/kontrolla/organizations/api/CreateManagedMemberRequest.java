@@ -8,6 +8,18 @@ import org.kontrolla.organizations.domain.OrganizationRole;
 
 import java.util.List;
 import java.util.UUID;
+/**
+ * Request payload for creating a managed user together with an organization
+ * membership.
+ *
+ * @param email the invited user email
+ * @param firstName the invited user first name
+ * @param lastName the invited user last name
+ * @param role the organization role
+ * @param active whether the membership should be active
+ * @param allEstablishments whether all-establishment access should be granted
+ * @param establishmentIds explicit establishment scope, if any
+ */
 public record CreateManagedMemberRequest(
 		@NotBlank @Email String email,
 		@NotBlank @Size(max = 255) String firstName,

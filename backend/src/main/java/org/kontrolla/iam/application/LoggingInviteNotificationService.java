@@ -7,12 +7,24 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
+/**
+ * Invite notification implementation that logs invite details instead of
+ * sending email.
+ */
 @Service
 @ConditionalOnProperty(prefix = "app.mail.invites", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class LoggingInviteNotificationService implements InviteNotificationService {
 
 	private static final Logger log = LoggerFactory.getLogger(LoggingInviteNotificationService.class);
 
+	/**
+	 * Logs an organization member invite for development or fallback operation.
+	 *
+	 * @param recipientEmail the invite recipient email
+	 * @param organizationName the invited organization name
+	 * @param inviteUrl the invite URL
+	 * @param expiresAt when the invite expires
+	 */
 	@Override
 	public void sendOrganizationMemberInvite(
 			String recipientEmail,

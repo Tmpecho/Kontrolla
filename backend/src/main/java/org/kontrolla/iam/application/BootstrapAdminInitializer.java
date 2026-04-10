@@ -17,6 +17,9 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Development-only bootstrapper that ensures a platform admin account exists.
+ */
 @Component
 @Profile("dev")
 @Order(5)
@@ -28,6 +31,13 @@ public class BootstrapAdminInitializer implements ApplicationRunner {
 	private final PasswordEncoder passwordEncoder;
 	private final AppSecurityProperties properties;
 
+	/**
+	 * Creates the bootstrap admin initializer.
+	 *
+	 * @param userRepository repository for users
+	 * @param passwordEncoder encoder for the seeded password
+	 * @param properties bootstrap security properties
+	 */
 	public BootstrapAdminInitializer(
 			UserRepository userRepository,
 			PasswordEncoder passwordEncoder,
@@ -38,6 +48,11 @@ public class BootstrapAdminInitializer implements ApplicationRunner {
 		this.properties = properties;
 	}
 
+	/**
+	 * Creates or updates the configured bootstrap platform admin in development.
+	 *
+	 * @param args application startup arguments
+	 */
 	@Override
 	@Transactional
 	public void run(org.springframework.boot.ApplicationArguments args) {

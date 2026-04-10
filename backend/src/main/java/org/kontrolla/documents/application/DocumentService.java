@@ -32,6 +32,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Handles document lifecycle operations, file storage, and audit
+ * acknowledgements.
+ */
 @Service
 public class DocumentService {
 
@@ -45,6 +49,17 @@ public class DocumentService {
   private final OrganizationMembershipRepository organizationMembershipRepository;
   private final Clock clock;
 
+  /**
+   * Creates a document service backed by document, file, and access services.
+   *
+   * @param documentRepository repository for document metadata
+   * @param documentFileRepository repository for document file content
+   * @param organizationAccessService service for organization access checks
+   * @param establishmentService service for establishment access and lookup
+   * @param userAccessService service for resolving users
+   * @param organizationMembershipRepository repository for organization membership lookups
+   * @param clock clock used for acknowledgement timestamps
+   */
   public DocumentService(
       DocumentRepository documentRepository,
       DocumentFileRepository documentFileRepository,
@@ -63,6 +78,16 @@ public class DocumentService {
     this.clock = clock;
   }
 
+  /**
+   * Lists documents for an establishment and service area.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param serviceArea the document service area
+   * @param currentUser the authenticated user
+   * @param pageable pagination information
+   * @return a page of matching documents
+   */
   @Transactional(readOnly = true)
   public Page<Document> listDocuments(
       UUID organizationId,
@@ -80,6 +105,15 @@ public class DocumentService {
     );
   }
 
+  /**
+   * Returns a single document after access validation.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return the requested document
+   */
   @Transactional(readOnly = true)
   public Document getDocument(
       UUID organizationId,
@@ -91,6 +125,15 @@ public class DocumentService {
     return findDocumentOrThrow(organizationId, establishmentId, documentId);
   }
 
+  /**
+   * Returns the stored file contents for a document.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return the downloadable file payload
+   */
   @Transactional(readOnly = true)
   public DocumentFileDownload getDocumentFile(
       UUID organizationId,
@@ -110,6 +153,24 @@ public class DocumentService {
     );
   }
 
+  /**
+   * Creates a new document together with its stored PDF file and audit
+   * assignments.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param serviceArea the document service area
+   * @param title the document title
+   * @param holderName the document holder name
+   * @param issueDate the issue date
+   * @param renewalDate the renewal date
+   * @param auditUserIds users assigned to acknowledge the document
+   * @param fileName the uploaded file name
+   * @param contentType the uploaded content type
+   * @param fileContent the uploaded file content
+   * @param currentUser the authenticated user
+   * @return the created document
+   */
   @Transactional
   public Document createDocument(
       UUID organizationId,
@@ -153,6 +214,21 @@ public class DocumentService {
     return savedDocument;
   }
 
+  /**
+   * Updates document metadata and audit assignments.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param serviceArea the document service area
+   * @param title the document title
+   * @param holderName the document holder name
+   * @param issueDate the issue date
+   * @param renewalDate the renewal date
+   * @param auditUserIds users assigned to acknowledge the document
+   * @param currentUser the authenticated user
+   * @return the updated document
+   */
   @Transactional
   public Document updateDocument(
       UUID organizationId,
@@ -182,6 +258,18 @@ public class DocumentService {
     return documentRepository.save(document);
   }
 
+  /**
+   * Replaces the stored PDF file for an existing document.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param fileName the uploaded file name
+   * @param contentType the uploaded content type
+   * @param fileContent the uploaded file content
+   * @param currentUser the authenticated user
+   * @return the updated document
+   */
   @Transactional
   public Document replaceDocumentFile(
       UUID organizationId,
@@ -212,6 +300,14 @@ public class DocumentService {
     return documentRepository.save(document);
   }
 
+  /**
+   * Deletes a document and its stored file.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   */
   @Transactional
   public void deleteDocument(
       UUID organizationId,
@@ -227,6 +323,16 @@ public class DocumentService {
     documentRepository.delete(document);
   }
 
+  /**
+   * Records acknowledgement of a document audit assignment for the current
+   * user.
+   *
+   * @param organizationId the organization identifier
+   * @param establishmentId the establishment identifier
+   * @param documentId the document identifier
+   * @param currentUser the authenticated user
+   * @return the updated document
+   */
   @Transactional
   public Document acknowledgeDocumentAudit(
       UUID organizationId,

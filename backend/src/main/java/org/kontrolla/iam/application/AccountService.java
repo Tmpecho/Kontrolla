@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 
+/**
+ * Handles profile and password management for the current authenticated user.
+ */
 @Service
 public class AccountService {
 
@@ -19,6 +22,14 @@ public class AccountService {
 	private final PasswordEncoder passwordEncoder;
 	private final Clock clock;
 
+	/**
+	 * Creates the account service.
+	 *
+	 * @param userAccessService service for resolving the current user
+	 * @param refreshTokenRepository repository for refresh tokens
+	 * @param passwordEncoder encoder for password validation and storage
+	 * @param clock clock used when revoking refresh tokens
+	 */
 	public AccountService(
 			UserAccessService userAccessService,
 			RefreshTokenRepository refreshTokenRepository,
@@ -31,6 +42,14 @@ public class AccountService {
 		this.clock = clock;
 	}
 
+	/**
+	 * Updates the first and last name of the current user.
+	 *
+	 * @param currentUser the authenticated principal
+	 * @param firstName the new first name
+	 * @param lastName the new last name
+	 * @return the updated user
+	 */
 	@Transactional
 	public User updateMyProfile(CurrentUser currentUser, String firstName, String lastName) {
 		User user = userAccessService.getCurrentUserOrThrow(currentUser);
@@ -39,6 +58,13 @@ public class AccountService {
 		return user;
 	}
 
+	/**
+	 * Changes the current user's password and revokes active refresh tokens.
+	 *
+	 * @param currentUser the authenticated principal
+	 * @param currentPassword the current password
+	 * @param newPassword the replacement password
+	 */
 	@Transactional
 	public void changeMyPassword(CurrentUser currentUser, String currentPassword, String newPassword) {
 		User user = userAccessService.getCurrentUserOrThrow(currentUser);

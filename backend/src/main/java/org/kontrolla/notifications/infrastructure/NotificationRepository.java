@@ -12,8 +12,20 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Repository for notification persistence and recipient-specific queries.
+ */
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
+	/**
+	 * Returns a page of notifications for a recipient, optionally restricted to
+	 * unread notifications.
+	 *
+	 * @param recipientUserId the recipient user identifier
+	 * @param unreadOnly whether only unread notifications should be returned
+	 * @param pageable pagination information
+	 * @return the matching notification page
+	 */
 	@Query("""
 			select n
 			from Notification n
@@ -23,10 +35,29 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 			""")
 	Page<Notification> findPageForRecipient(@Param("recipientUserId") UUID recipientUserId, @Param("unreadOnly") boolean unreadOnly, Pageable pageable);
 
+	/**
+	 * Finds a notification by id scoped to a specific recipient.
+	 *
+	 * @param id the notification identifier
+	 * @param recipientUserId the recipient user identifier
+	 * @return the matching notification, if present
+	 */
 	Optional<Notification> findByIdAndRecipientUserId(UUID id, UUID recipientUserId);
 
+	/**
+	 * Counts unread notifications for a recipient.
+	 *
+	 * @param recipientUserId the recipient user identifier
+	 * @return the unread notification count
+	 */
 	long countByRecipientUserIdAndReadAtIsNull(UUID recipientUserId);
 
+	/**
+	 * Marks all unread notifications as read for a recipient.
+	 *
+	 * @param recipientUserId the recipient user identifier
+	 * @param readAt the timestamp to set on updated notifications
+	 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 			update Notification n

@@ -8,6 +8,18 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * API response describing a temperature unit and its recent logs.
+ *
+ * @param id the unit identifier
+ * @param name the unit name
+ * @param location the unit location
+ * @param type the unit type
+ * @param dueByTime the daily logging deadline
+ * @param minimumTemperature the minimum allowed temperature
+ * @param maximumTemperature the maximum allowed temperature
+ * @param logs the recent temperature logs
+ */
 public record TemperatureUnitResponse(
     UUID id,
     String name,
@@ -19,6 +31,12 @@ public record TemperatureUnitResponse(
     List<TemperatureLogEntryResponse> logs
 ) {
 
+  /**
+   * Maps an application view to the API response shape.
+   *
+   * @param view the source view
+   * @return the mapped response
+   */
   public static TemperatureUnitResponse from(TemperatureUnitView view) {
     return new TemperatureUnitResponse(
         view.id(),

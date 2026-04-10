@@ -13,6 +13,9 @@ import org.kontrolla.iam.domain.User;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/**
+ * Persisted temperature reading recorded for a temperature-controlled unit.
+ */
 @Getter
 @Entity
 @Table(name = "temperature_logs")
@@ -38,6 +41,14 @@ public class TemperatureLog extends AbstractAuditableUuidEntity {
   protected TemperatureLog() {
   }
 
+  /**
+   * Creates a temperature log entry.
+   *
+   * @param measuredAt when the temperature was measured
+   * @param temperatureCelsius the measured temperature in Celsius
+   * @param note optional note associated with the reading
+   * @param loggedByUser the user who recorded the reading
+   */
   public TemperatureLog(
       Instant measuredAt,
       BigDecimal temperatureCelsius,

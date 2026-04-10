@@ -14,6 +14,9 @@ import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 
+/**
+ * Persisted serving-hours configuration for a single establishment weekday.
+ */
 @Getter
 @Entity
 @Table(name = "establishment_serving_hours")
@@ -39,6 +42,15 @@ public class EstablishmentServingHours extends AbstractAuditableUuidEntity {
   protected EstablishmentServingHours() {
   }
 
+  /**
+   * Creates serving-hours configuration for a specific weekday.
+   *
+   * @param establishment the owning establishment
+   * @param dayOfWeek the weekday represented
+   * @param closed whether the establishment is closed that day
+   * @param opensAt the opening time, if open
+   * @param closesAt the closing time, if open
+   */
   public EstablishmentServingHours(
       Establishment establishment,
       DayOfWeek dayOfWeek,
@@ -53,6 +65,13 @@ public class EstablishmentServingHours extends AbstractAuditableUuidEntity {
     this.closesAt = closed ? null : closesAt;
   }
 
+  /**
+   * Updates the serving-hours state for the weekday.
+   *
+   * @param closed whether the establishment is closed that day
+   * @param opensAt the opening time, if open
+   * @param closesAt the closing time, if open
+   */
   public void update(boolean closed, LocalTime opensAt, LocalTime closesAt) {
     this.closed = closed;
     this.opensAt = closed ? null : opensAt;

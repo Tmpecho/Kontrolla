@@ -16,11 +16,23 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.stream.Collectors;
 
+/**
+ * Translates application and framework exceptions into consistent API error
+ * responses.
+ */
 @RestControllerAdvice
 public class RestExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
+	/**
+	 * Converts a domain-level application exception into its configured HTTP
+	 * response.
+	 *
+	 * @param exception the application exception to render
+	 * @param request the originating HTTP request
+	 * @return a problem detail response matching the exception status and code
+	 */
 	@ExceptionHandler(ApplicationException.class)
 	public ResponseEntity<ProblemDetail> handleApplicationException(
 			ApplicationException exception,
@@ -31,6 +43,13 @@ public class RestExceptionHandler {
 				.body(ApiProblemDetails.create(exception.getStatus(), exception.getCode(), exception.getMessage(), request.getRequestURI()));
 	}
 
+	/**
+	 * Aggregates bean validation field errors into a single bad-request response.
+	 *
+	 * @param exception the validation failure raised during request binding
+	 * @param request the originating HTTP request
+	 * @return a bad-request problem detail containing the validation errors
+	 */
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ProblemDetail> handleMethodArgumentNotValid(
 			MethodArgumentNotValidException exception,
@@ -45,6 +64,14 @@ public class RestExceptionHandler {
 		return ResponseEntity.badRequest().body(detail);
 	}
 
+	/**
+	 * Converts constraint violations outside request-body binding into a
+	 * bad-request response.
+	 *
+	 * @param exception the constraint violation exception
+	 * @param request the originating HTTP request
+	 * @return a bad-request problem detail containing the violation messages
+	 */
 	@ExceptionHandler(ConstraintViolationException.class)
 	public ResponseEntity<ProblemDetail> handleConstraintViolation(
 			ConstraintViolationException exception,
@@ -58,6 +85,13 @@ public class RestExceptionHandler {
 		return ResponseEntity.badRequest().body(detail);
 	}
 
+	/**
+	 * Handles request arguments that cannot be converted to the expected type.
+	 *
+	 * @param exception the type mismatch exception
+	 * @param request the originating HTTP request
+	 * @return a bad-request problem detail describing the invalid argument
+	 */
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<ProblemDetail> handleTypeMismatch(
 			MethodArgumentTypeMismatchException exception,
@@ -68,6 +102,13 @@ public class RestExceptionHandler {
 		return ResponseEntity.badRequest().body(detail);
 	}
 
+	/**
+	 * Converts security authorization failures into a forbidden response.
+	 *
+	 * @param exception the access denied exception
+	 * @param request the originating HTTP request
+	 * @return a forbidden problem detail response
+	 */
 	@ExceptionHandler(AccessDeniedException.class)
 	public ResponseEntity<ProblemDetail> handleAccessDenied(
 			AccessDeniedException exception,
@@ -77,6 +118,14 @@ public class RestExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(detail);
 	}
 
+	/**
+	 * Fallback handler for unexpected exceptions that were not matched by more
+	 * specific handlers.
+	 *
+	 * @param exception the unexpected exception
+	 * @param request the originating HTTP request
+	 * @return an internal-server-error problem detail response
+	 */
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception, HttpServletRequest request) {
 		log.error("Unhandled exception", exception);

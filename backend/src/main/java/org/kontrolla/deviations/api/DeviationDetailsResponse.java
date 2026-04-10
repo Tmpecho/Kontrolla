@@ -13,6 +13,23 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * API response describing a deviation together with its timeline.
+ *
+ * @param id the deviation identifier
+ * @param organizationId the owning organization identifier
+ * @param establishmentId the owning establishment identifier
+ * @param createdByUserId the creator user identifier
+ * @param assignedToUserId the assigned user identifier, if any
+ * @param title the deviation title
+ * @param description the deviation description
+ * @param status the deviation status
+ * @param severity the deviation severity
+ * @param category the deviation category
+ * @param createdAt when the deviation was created
+ * @param updatedAt when the deviation was last updated
+ * @param timeline the ordered deviation timeline entries
+ */
 public record DeviationDetailsResponse(
 		UUID id,
 		UUID organizationId,
@@ -29,6 +46,12 @@ public record DeviationDetailsResponse(
 		List<DeviationTimelineEntryResponse> timeline
 ) {
 
+	/**
+	 * Maps a deviation entity to the detailed API response shape.
+	 *
+	 * @param deviation the deviation to map
+	 * @return the mapped response
+	 */
 	public static DeviationDetailsResponse from(Deviation deviation) {
 		return new DeviationDetailsResponse(
 				deviation.getId(),
@@ -50,6 +73,16 @@ public record DeviationDetailsResponse(
 		);
 	}
 
+	/**
+	 * API response describing a single deviation timeline entry.
+	 *
+	 * @param id the event identifier
+	 * @param eventType the event type
+	 * @param actorUserId the actor user identifier, if any
+	 * @param authorName the display name of the event author
+	 * @param note the timeline note
+	 * @param occurredAt when the event occurred
+	 */
 	public record DeviationTimelineEntryResponse(
 			UUID id,
 			DeviationEventType eventType,

@@ -73,6 +73,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Development-only bootstrapper that seeds organizations and related demo data
+ * such as establishments, checklists, deviations, documents, and temperature
+ * units.
+ */
 @Component
 @Profile("dev")
 @Order(20)
@@ -107,6 +112,25 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private final AppSecurityProperties properties;
 	private final PasswordEncoder passwordEncoder;
 
+	/**
+	 * Creates the development bootstrap initializer with the repositories and
+	 * services required to seed organization context data.
+	 *
+	 * @param userRepository repository for users
+	 * @param organizationRepository repository for organizations
+	 * @param organizationMembershipRepository repository for memberships
+	 * @param establishmentRepository repository for establishments
+	 * @param checklistDefinitionRepository repository for checklist definitions
+	 * @param checklistRunRepository repository for checklist runs
+	 * @param checklistSchedulerService service for generating checklist runs
+	 * @param deviationRepository repository for deviations
+	 * @param documentRepository repository for documents
+	 * @param documentFileRepository repository for document files
+	 * @param temperatureUnitRepository repository for temperature units
+	 * @param establishmentServingHoursRepository repository for serving hours
+	 * @param properties application security and bootstrap properties
+	 * @param passwordEncoder encoder used for seeded users
+	 */
 	public BootstrapOrganizationContextInitializer(
 			UserRepository userRepository,
 			OrganizationRepository organizationRepository,
@@ -139,6 +163,12 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		this.passwordEncoder = passwordEncoder;
 	}
 
+	/**
+	 * Seeds configured and curated development organizations when bootstrap
+	 * settings are present.
+	 *
+	 * @param args application startup arguments
+	 */
 	@Override
 	@Transactional
 	public void run(ApplicationArguments args) {

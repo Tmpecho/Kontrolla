@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.util.UUID;
 
+/**
+ * Handles establishment access, lookup, creation, and serving-hours management.
+ */
 @Service
 public class EstablishmentService {
 
@@ -27,6 +30,14 @@ public class EstablishmentService {
 	private final EstablishmentServingHoursRepository servingHoursRepository;
 	private final OrganizationAccessService organizationAccessService;
 
+	/**
+	 * Creates an establishment service backed by organization and persistence
+	 * services.
+	 *
+	 * @param establishmentRepository repository for establishments
+	 * @param servingHoursRepository repository for serving-hours records
+	 * @param organizationAccessService service for organization access checks
+	 */
 	public EstablishmentService(
 			EstablishmentRepository establishmentRepository,
 			EstablishmentServingHoursRepository servingHoursRepository,
@@ -37,6 +48,14 @@ public class EstablishmentService {
 		this.organizationAccessService = organizationAccessService;
 	}
 
+	/**
+	 * Lists establishments visible to the current user within an organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param currentUser the authenticated user
+	 * @param pageable pagination information
+	 * @return a page of accessible establishments
+	 */
 	@Transactional(readOnly = true)
 	public Page<Establishment> listEstablishments(UUID organizationId, CurrentUser currentUser, Pageable pageable) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
@@ -52,6 +71,15 @@ public class EstablishmentService {
 		return establishmentRepository.findAccessibleByOrganizationIdAndUserId(organizationId, currentUser.userId(), pageable);
 	}
 
+	/**
+	 * Returns a single establishment after verifying organization and
+	 * establishment access.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @return the matching establishment
+	 */
 	@Transactional(readOnly = true)
 	public Establishment getEstablishment(UUID organizationId, UUID establishmentId, CurrentUser currentUser) {
 		organizationAccessService.getOrganizationOrThrow(organizationId);
@@ -60,6 +88,16 @@ public class EstablishmentService {
 				.orElseThrow(() -> new ResourceNotFoundException("establishment_not_found", "Establishment not found"));
 	}
 
+	/**
+	 * Creates a new establishment within an organization.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param name the establishment name
+	 * @param type the establishment type
+	 * @param status the establishment status
+	 * @param currentUser the authenticated user
+	 * @return the created establishment
+	 */
 	@Transactional
 	public Establishment createEstablishment(
 			UUID organizationId,
@@ -74,6 +112,15 @@ public class EstablishmentService {
 		return establishmentRepository.save(establishment);
 	}
 
+	/**
+	 * Returns serving hours for every weekday for an establishment, defaulting
+	 * missing days to closed.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param currentUser the authenticated user
+	 * @return serving hours for all weekdays
+	 */
 	@Transactional(readOnly = true)
 	public java.util.List<ServingHoursDayView> getServingHours(
 			UUID organizationId,
@@ -93,6 +140,15 @@ public class EstablishmentService {
 				.toList();
 	}
 
+	/**
+	 * Replaces serving hours for an establishment across all weekdays.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param commands the weekday updates to apply
+	 * @param currentUser the authenticated user
+	 * @return the updated serving hours for all weekdays
+	 */
 	@Transactional
 	public java.util.List<ServingHoursDayView> updateServingHours(
 			UUID organizationId,

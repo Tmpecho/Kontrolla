@@ -5,5 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;
 
+/**
+ * Repository for temperature log entries.
+ */
 public interface TemperatureLogRepository extends JpaRepository<TemperatureLog, UUID> {
 }
