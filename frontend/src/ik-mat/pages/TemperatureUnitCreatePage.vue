@@ -3,13 +3,14 @@ import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { createTemperatureUnit } from '@/ik-mat/api/temperature.api'
 import type { TemperatureUnitType } from '@/ik-mat/model/temperature.types'
 import { ApiError } from '@/shared/api/http'
 import BaseButton from '@/shared/components/BaseButton.vue'
-import { appEnv } from '@/shared/config/env'
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const router = useRouter()
 
 const form = reactive({
@@ -25,12 +26,8 @@ const validationMessage = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
 const isSubmitting = ref(false)
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const canManageTemperatureUnits = computed(() => {
   if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
@@ -44,15 +41,19 @@ const canManageTemperatureUnits = computed(() => {
 })
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Temperature units cannot be created until organization and establishment context is available.'
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
   }
 
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to create temperature units.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment before creating a temperature unit.'
+  }
+
+  return 'Temperature units cannot be created until organization and establishment context is available.'
 })
 
 const blockedMessage = computed(() => {

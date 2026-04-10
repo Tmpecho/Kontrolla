@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listAllEstablishmentDocuments } from '@/documents/api/documents.api'
 import type {
   DocumentServiceArea,
@@ -14,7 +15,6 @@ import {
   sortDocumentsByRenewalDate,
 } from '@/documents/model/document.utils'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 
 const props = withDefaults(defineProps<{
   serviceArea?: DocumentServiceArea
@@ -25,28 +25,29 @@ const props = withDefaults(defineProps<{
 })
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const documents = ref<EstablishmentDocument[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const currentUserId = computed(() => authStore.user?.id ?? null)
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Documents are unavailable until organization context is ready.'
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
   }
 
-  return 'Set the default organization and establishment IDs or sign in with an organization context to load documents.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment to load documents.'
+  }
+
+  return 'Documents are unavailable until organization context is ready.'
 })
 
 const documentsWithStatus = computed(() => sortDocumentsByRenewalDate(documents.value))

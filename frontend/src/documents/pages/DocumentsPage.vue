@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import {
   acknowledgeDocumentRead,
   deleteDocument,
@@ -25,9 +26,9 @@ import {
 } from '@/documents/model/document.utils'
 import { ApiError } from '@/shared/api/http'
 import BaseButton from '@/shared/components/BaseButton.vue'
-import { appEnv } from '@/shared/config/env'
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()
 const searchQuery = ref('')
@@ -47,25 +48,25 @@ const filterOptions = [
   { value: 'EXPIRED', label: 'Expired' },
 ] as const
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
-const hasDocumentContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+const hasDocumentContext = computed(() => workspaceContext.hasEstablishmentContext.value)
 
 const missingContextMessage = computed(() => {
+  if (workspaceContext.isStartupPending.value) {
+    return null
+  }
+
   if (hasDocumentContext.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Documents cannot be loaded until organization and establishment context is available.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment to load documents.'
   }
 
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to load documents.'
+  return 'Documents cannot be loaded until organization and establishment context is available.'
 })
 
 const currentServiceArea = computed<DocumentServiceArea>(() => {

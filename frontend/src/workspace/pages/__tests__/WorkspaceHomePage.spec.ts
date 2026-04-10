@@ -6,7 +6,7 @@ import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 const { authStoreMock, listChecklistRunsMock, listEstablishmentDeviationsMock } = vi.hoisted(() => ({
   authStoreMock: {
     isSessionReady: true,
-    isAuthenticated: true,
+    isStartupPending: false,
     appContext: {
       organizationId: 'org-1',
       organizationName: 'Org 1',
@@ -42,6 +42,41 @@ const { authStoreMock, listChecklistRunsMock, listEstablishmentDeviationsMock } 
 vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
+
+vi.mock('@/auth/model/workspace-context', async () => {
+  const { computed } = await import('vue')
+
+  return {
+    useProtectedWorkspaceContext: () => ({
+      organizationId: computed(() => authStoreMock.appContext?.organizationId ?? null),
+      establishmentId: computed(() => authStoreMock.appContext?.establishmentId ?? null),
+      availableEstablishmentIds: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        if (selectedEstablishmentId) {
+          return [selectedEstablishmentId]
+        }
+
+        return authStoreMock.establishments.map((establishment) => establishment.id)
+      }),
+      isStartupPending: computed(() => authStoreMock.isStartupPending),
+      requiresEstablishmentSelection: computed(() => false),
+      hasOrganizationContext: computed(() => Boolean(authStoreMock.appContext?.organizationId)),
+      hasEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+      hasAccessibleEstablishmentContext: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        const availableEstablishmentIds = selectedEstablishmentId
+          ? [selectedEstablishmentId]
+          : authStoreMock.establishments.map((establishment) => establishment.id)
+
+        return Boolean(authStoreMock.appContext?.organizationId && availableEstablishmentIds.length > 0)
+      }),
+    }),
+  }
+})
 
 vi.mock('@/checklists/api/checklist-runs.api', () => ({
   listChecklistRuns: listChecklistRunsMock,

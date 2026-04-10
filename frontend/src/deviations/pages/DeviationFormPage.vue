@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { createDeviation } from '@/deviations/api/deviations.api'
 import type { DeviationCategory, DeviationSeverity, DeviationServiceArea } from '@/deviations/model/deviation.types'
 import {
@@ -11,11 +11,10 @@ import {
   toDeviationCategoryValue,
 } from '@/deviations/model/deviation.types'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 import BaseInput from '@/shared/components/BaseInput.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
-const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()
 const isSubmitting = ref(false)
@@ -34,16 +33,8 @@ const currentServiceArea = computed<DeviationServiceArea>(() => {
 })
 
 const categoryOptions = computed(() => deviationCategoriesByServiceArea[currentServiceArea.value])
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(() => {
-  if (authStore.appContext?.organizationId) {
-    return authStore.appContext.establishmentId ?? null
-  }
-
-  return appEnv.defaultEstablishmentId ?? null
-})
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const pageSubtitle = computed(() => {
   if (currentServiceArea.value === 'IK_ALKOHOL') {
@@ -54,19 +45,19 @@ const pageSubtitle = computed(() => {
 })
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (authStore.requiresEstablishmentSelection) {
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
+  }
+
+  if (workspaceContext.requiresEstablishmentSelection.value) {
     return 'Choose an establishment before creating a deviation.'
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'A deviation cannot be created until organization and establishment context is available.'
-  }
-
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to create deviations.'
+  return 'A deviation cannot be created until organization and establishment context is available.'
 })
 
 const form = reactive<{

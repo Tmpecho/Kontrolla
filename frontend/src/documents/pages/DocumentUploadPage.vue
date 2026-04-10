@@ -4,14 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { listOrganizationMembers } from '@/account/api/organization-members.api'
 import type { OrganizationMembership } from '@/account/model/organization-members.types'
-import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { createDocument } from '@/documents/api/documents.api'
 import type { DocumentServiceArea } from '@/documents/model/document.types'
 import { ApiError } from '@/shared/api/http'
 import BaseButton from '@/shared/components/BaseButton.vue'
-import { appEnv } from '@/shared/config/env'
 
-const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()
 
@@ -36,12 +35,8 @@ const isAlcoholPage = computed(() => {
   return routeName.startsWith('ik-alkohol-')
 })
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const currentServiceArea = computed<DocumentServiceArea>(() => {
   if (isAlcoholPage.value) {
@@ -60,15 +55,19 @@ const pageSubtitle = computed(() => {
 })
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Documents cannot be uploaded until organization and establishment context is available.'
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
   }
 
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to upload documents.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment before uploading documents.'
+  }
+
+  return 'Documents cannot be uploaded until organization and establishment context is available.'
 })
 
 const backRouteName = computed(() => {

@@ -32,7 +32,6 @@ const {
   createTemperatureLogMock,
   deleteTemperatureUnitMock,
   authStoreMock,
-  appEnvMock,
 } = vi.hoisted(() => ({
   listTemperatureUnitsMock: vi.fn(),
   createTemperatureLogMock: vi.fn(),
@@ -53,15 +52,6 @@ const {
       globalRoles: [],
     },
   },
-  appEnvMock: {
-    mode: 'test',
-    isDevelopment: true,
-    isProduction: false,
-    apiBaseUrl: 'http://localhost:8080',
-    defaultOrganizationId: undefined as string | undefined,
-    defaultEstablishmentId: undefined as string | undefined,
-    showDevLoginHint: false,
-  },
 }))
 
 vi.mock('@/ik-mat/api/temperature.api', () => ({
@@ -74,9 +64,33 @@ vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  appEnv: appEnvMock,
-}))
+vi.mock('@/auth/model/workspace-context', async () => {
+  const { computed } = await import('vue')
+
+  return {
+    useProtectedWorkspaceContext: () => ({
+      organizationId: computed(() => authStoreMock.appContext?.organizationId ?? null),
+      establishmentId: computed(() => authStoreMock.appContext?.establishmentId ?? null),
+      availableEstablishmentIds: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        return selectedEstablishmentId ? [selectedEstablishmentId] : []
+      }),
+      isStartupPending: computed(() => false),
+      requiresEstablishmentSelection: computed(() => false),
+      hasOrganizationContext: computed(() => Boolean(authStoreMock.appContext?.organizationId)),
+      hasEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+      hasAccessibleEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+    }),
+  }
+})
 
 function mountPage(options?: { attachToBody?: boolean }) {
   return mount(IKMatTemperaturePage, {
@@ -108,10 +122,6 @@ describe('IKMatTemperaturePage', () => {
       establishmentName: null,
     }
     authStoreMock.user.globalRoles = []
-    appEnvMock.isDevelopment = true
-    appEnvMock.isProduction = false
-    appEnvMock.defaultOrganizationId = undefined
-    appEnvMock.defaultEstablishmentId = undefined
     document.body.innerHTML = ''
     window.innerWidth = 1024
   })
@@ -143,7 +153,7 @@ describe('IKMatTemperaturePage', () => {
     await flushPromises()
 
     expect(listTemperatureUnitsMock).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('load temperature units')
+    expect(wrapper.text()).toContain('Temperature logs cannot be loaded until organization and establishment context is available.')
   })
 
   it('shows an error when loading temperature units fails', async () => {

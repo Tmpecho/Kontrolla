@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import AppStartupState from '@/app/components/AppStartupState.vue'
 import TopBar from '@/app/components/TopBar.vue'
 import Sidebar from '@/app/components/Sidebar.vue'
 import { useAuthStore } from '@/auth/model/auth.store'
@@ -12,6 +13,9 @@ const route = useRoute()
 const authStore = useAuthStore()
 const isMobileNavigationOpen = ref(false)
 const notificationsStore = useNotificationsStore()
+const showStartupState = computed(() => {
+  return authStore.isStartupPending || authStore.startupStatus === 'error'
+})
 
 function handleMobileNavigationToggle() {
   isMobileNavigationOpen.value = !isMobileNavigationOpen.value
@@ -48,9 +52,9 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => authStore.isAuthenticated,
-  (isAuthenticated) => {
-    if (isAuthenticated) {
+  () => [authStore.isAuthenticated, authStore.startupStatus] as const,
+  ([isAuthenticated, startupStatus]) => {
+    if (isAuthenticated && startupStatus === 'ready') {
       notificationsStore.startPolling()
       return
     }
@@ -79,7 +83,14 @@ watch(
       </AppOverlay>
 
       <main class="app-content" :class="{ 'app-content--nav-open': isMobileNavigationOpen }">
-        <RouterView />
+        <AppStartupState
+          v-if="showStartupState"
+          :status="authStore.startupStatus"
+          :error-message="authStore.startupError"
+          :started-at="authStore.startupStartedAt"
+          @retry="authStore.retryWorkspaceStartup"
+        />
+        <RouterView v-else />
       </main>
     </div>
   </div>
