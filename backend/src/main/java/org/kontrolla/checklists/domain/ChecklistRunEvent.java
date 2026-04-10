@@ -14,6 +14,9 @@ import org.kontrolla.iam.domain.User;
 
 import java.time.Instant;
 
+/**
+ * Event recorded in the lifecycle of a checklist run.
+ */
 @Getter
 @Entity
 @Table(name = "checklist_run_events")
@@ -40,6 +43,14 @@ public class ChecklistRunEvent extends AbstractAuditableUuidEntity {
 	protected ChecklistRunEvent() {
 	}
 
+	/**
+	 * Creates a checklist run event.
+	 *
+	 * @param eventType type of event being recorded
+	 * @param actorUser user responsible for the event
+	 * @param occurredAt instant when the event occurred
+	 * @param metadataJson serialized event metadata
+	 */
 	public ChecklistRunEvent(ChecklistRunEventType eventType, User actorUser, Instant occurredAt, String metadataJson) {
 		this.eventType = eventType;
 		this.actorUser = actorUser;

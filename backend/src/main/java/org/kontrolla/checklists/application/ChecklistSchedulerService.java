@@ -27,6 +27,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Generates scheduled checklist runs and marks overdue runs.
+ */
 @Service
 public class ChecklistSchedulerService {
 
@@ -37,6 +40,16 @@ public class ChecklistSchedulerService {
 	private final EstablishmentService establishmentService;
 	private final UserRepository userRepository;
 
+	/**
+	 * Creates the checklist scheduler service.
+	 *
+	 * @param checklistDefinitionRepository repository for checklist definitions
+	 * @param checklistRunRepository repository for checklist runs
+	 * @param checklistRunService service for checklist run lifecycle updates
+	 * @param organizationAccessService service for organization access checks
+	 * @param establishmentService service for establishment access and lookup
+	 * @param userRepository repository for users
+	 */
 	public ChecklistSchedulerService(
 			ChecklistDefinitionRepository checklistDefinitionRepository,
 			ChecklistRunRepository checklistRunRepository,
@@ -53,6 +66,16 @@ public class ChecklistSchedulerService {
 		this.userRepository = userRepository;
 	}
 
+	/**
+	 * Generates checklist runs for the given time window after access checks.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param windowStart the generation window start
+	 * @param windowEnd the generation window end
+	 * @param currentUser the authenticated user
+	 * @return the number of created runs
+	 */
 	@Transactional
 	public int generateRunsForWindow(
 			UUID organizationId,
@@ -68,6 +91,16 @@ public class ChecklistSchedulerService {
 		return generateRunsForWindow(establishment, windowStart, windowEnd, actor);
 	}
 
+	/**
+	 * Generates checklist runs for the given time window without requiring a
+	 * current authenticated principal.
+	 *
+	 * @param establishment the establishment to generate runs for
+	 * @param windowStart the generation window start
+	 * @param windowEnd the generation window end
+	 * @param actorUserId the actor user identifier recorded on created runs
+	 * @return the number of created runs
+	 */
 	@Transactional
 	public int generateRunsForWindowInternal(
 			Establishment establishment,
@@ -130,6 +163,15 @@ public class ChecklistSchedulerService {
 		return createdRuns;
 	}
 
+	/**
+	 * Marks overdue runs for an establishment after access checks.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param now the current instant
+	 * @param currentUser the authenticated user
+	 * @return the number of updated runs
+	 */
 	@Transactional
 	public int markOverdueRuns(
 			UUID organizationId,

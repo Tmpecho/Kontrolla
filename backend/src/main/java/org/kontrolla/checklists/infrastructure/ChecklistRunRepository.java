@@ -16,8 +16,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Repository for loading and querying checklist runs.
+ */
 public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID> {
 
+	/**
+	 * Finds a checklist run within an establishment by identifier.
+	 *
+	 * @param id checklist run identifier
+	 * @param establishmentId establishment identifier
+	 * @return the matching checklist run, if present
+	 */
 	@EntityGraph(attributePaths = {
 			"checklistDefinition",
 			"establishment",
@@ -33,6 +43,18 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 	})
 	Optional<ChecklistRun> findByIdAndEstablishmentId(UUID id, UUID establishmentId);
 
+	/**
+	 * Searches checklist runs using service-area, status, assignment, and due-date filters.
+	 *
+	 * @param establishmentId establishment identifier
+	 * @param serviceArea service area to filter by
+	 * @param statuses run statuses to include
+	 * @param assignedUserId optional assigned user filter
+	 * @param dueFrom optional lower due timestamp bound
+	 * @param dueTo optional upper due timestamp bound
+	 * @param pageable paging configuration
+	 * @return a page of matching checklist runs
+	 */
 	@EntityGraph(attributePaths = {
 			"checklistDefinition",
 			"establishment",
@@ -67,18 +89,43 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			Pageable pageable
 	);
 
+	/**
+	 * Counts checklist runs that are overdue relative to the supplied timestamp.
+	 *
+	 * @param establishmentId establishment identifier
+	 * @param statuses run statuses to include
+	 * @param dueAt timestamp used as the overdue cutoff
+	 * @return number of matching checklist runs
+	 */
 	long countByEstablishmentIdAndStatusInAndDueAtBefore(
 			UUID establishmentId,
 			Collection<ChecklistRunStatus> statuses,
 			Instant dueAt
 	);
 
+	/**
+	 * Lists checklist runs that are overdue relative to the supplied timestamp.
+	 *
+	 * @param establishmentId establishment identifier
+	 * @param statuses run statuses to include
+	 * @param dueAt timestamp used as the overdue cutoff
+	 * @return matching overdue checklist runs
+	 */
 	List<ChecklistRun> findByEstablishmentIdAndStatusInAndDueAtBefore(
 			UUID establishmentId,
 			Collection<ChecklistRunStatus> statuses,
 			Instant dueAt
 	);
 
+	/**
+	 * Lists future checklist runs for a definition group with the requested status.
+	 *
+	 * @param establishmentId establishment identifier
+	 * @param definitionGroupId definition group identifier
+	 * @param status run status to filter by
+	 * @param dueAt minimum due timestamp
+	 * @return matching checklist runs ordered by due date
+	 */
 	List<ChecklistRun> findByEstablishmentIdAndDefinitionGroupIdAndStatusAndDueAtGreaterThanEqualOrderByDueAtAsc(
 			UUID establishmentId,
 			UUID definitionGroupId,
@@ -86,6 +133,15 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			Instant dueAt
 	);
 
+	/**
+	 * Lists future checklist runs for a definition group with any of the requested statuses.
+	 *
+	 * @param establishmentId establishment identifier
+	 * @param definitionGroupId definition group identifier
+	 * @param statuses run statuses to include
+	 * @param dueAt minimum due timestamp
+	 * @return matching checklist runs ordered by due date
+	 */
 	List<ChecklistRun> findByEstablishmentIdAndDefinitionGroupIdAndStatusInAndDueAtGreaterThanEqualOrderByDueAtAsc(
 			UUID establishmentId,
 			UUID definitionGroupId,
@@ -93,8 +149,21 @@ public interface ChecklistRunRepository extends JpaRepository<ChecklistRun, UUID
 			Instant dueAt
 	);
 
+	/**
+	 * Checks whether a checklist run already exists for a definition at a due timestamp.
+	 *
+	 * @param checklistDefinitionId checklist definition identifier
+	 * @param dueAt due timestamp to check
+	 * @return {@code true} when a matching run exists
+	 */
 	boolean existsByChecklistDefinitionIdAndDueAt(UUID checklistDefinitionId, Instant dueAt);
 
+	/**
+	 * Lists all checklist runs for an establishment ordered by due date.
+	 *
+	 * @param establishmentId establishment identifier
+	 * @return checklist runs ordered by due date
+	 */
 	@EntityGraph(attributePaths = {
 			"checklistDefinition",
 			"establishment",

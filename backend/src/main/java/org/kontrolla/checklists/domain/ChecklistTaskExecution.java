@@ -16,6 +16,9 @@ import org.kontrolla.iam.domain.User;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/**
+ * Execution snapshot for a single task within a checklist run.
+ */
 @Getter
 @Entity
 @Table(name = "checklist_task_executions")
@@ -96,6 +99,19 @@ public class ChecklistTaskExecution extends AbstractAuditableUuidEntity {
 	protected ChecklistTaskExecution() {
 	}
 
+	/**
+	 * Creates a checklist task execution snapshot.
+	 *
+	 * @param sourceChecklistTaskDefinition source task definition, if available
+	 * @param titleSnapshot copied task title
+	 * @param detailsSnapshot copied task details
+	 * @param taskKindSnapshot copied task kind
+	 * @param required whether the task is required
+	 * @param sortOrder display order of the task
+	 * @param measurementUnitSnapshot copied measurement unit
+	 * @param minimumAllowedValueSnapshot copied minimum allowed value
+	 * @param maximumAllowedValueSnapshot copied maximum allowed value
+	 */
 	public ChecklistTaskExecution(
 			ChecklistTaskDefinition sourceChecklistTaskDefinition,
 			String titleSnapshot,
@@ -119,6 +135,12 @@ public class ChecklistTaskExecution extends AbstractAuditableUuidEntity {
 		this.executionStatus = ChecklistTaskExecutionStatus.PENDING;
 	}
 
+	/**
+	 * Creates a task execution snapshot from a checklist task definition.
+	 *
+	 * @param taskDefinition task definition to snapshot
+	 * @return the created task execution
+	 */
 	public static ChecklistTaskExecution fromDefinitionTask(ChecklistTaskDefinition taskDefinition) {
 		return new ChecklistTaskExecution(
 				taskDefinition,
