@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Download, Trash2 } from 'lucide-vue-next'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
@@ -401,11 +402,11 @@ async function loadDocuments(): Promise<void> {
 </script>
 
 <template>
-  <div class="documents-page">
-    <header class="page-header">
-      <div class="page-header-copy">
-        <h1>{{ pageTitle }}</h1>
-        <p class="page-subtitle">{{ pageSubtitle }}</p>
+  <div class="documents-page app-page">
+    <header class="page-header app-page-header">
+      <div class="page-header-copy app-page-header-copy">
+        <h1 class="app-page-title">{{ pageTitle }}</h1>
+        <p class="page-subtitle app-page-subtitle">{{ pageSubtitle }}</p>
       </div>
 
       <BaseButton
@@ -441,25 +442,25 @@ async function loadDocuments(): Promise<void> {
       </article>
     </section>
 
-    <section :aria-label="panelLabel" class="documents-panel">
-      <div class="list-toolbar">
-        <div class="search-field">
-          <label class="search-label" for="document-search">Search</label>
+    <section :aria-label="panelLabel" class="documents-panel app-panel">
+      <div class="list-toolbar app-toolbar">
+        <div class="search-field app-search-field">
+          <label class="search-label app-search-label" for="document-search">Search</label>
           <input
             id="document-search"
             v-model="searchQuery"
-            class="search-input"
+            class="search-input app-search-input"
             placeholder="Search documents"
             type="search"
           />
         </div>
 
-        <div aria-label="Document filters" class="filter-group">
+        <div aria-label="Document filters" class="filter-group app-filter-group">
           <button
             v-for="filterOption in filterOptions"
             :key="filterOption.value"
             :data-active="activeFilter === filterOption.value"
-            class="filter-chip"
+            class="filter-chip app-filter-chip"
             type="button"
             @click="activeFilter = filterOption.value"
           >
@@ -560,9 +561,12 @@ async function loadDocuments(): Promise<void> {
                   type="button"
                   class="document-action-button document-action-button-download"
                   :disabled="isDownloadingDocument(documentRecord.id) || isDeletingDocument(documentRecord.id)"
+                  :aria-label="isDownloadingDocument(documentRecord.id) ? 'Downloading document' : 'Download document'"
+                  :title="isDownloadingDocument(documentRecord.id) ? 'Downloading document' : 'Download document'"
                   @click="handleDownloadDocument(documentRecord)"
                 >
-                  {{ isDownloadingDocument(documentRecord.id) ? 'Downloading...' : 'Download' }}
+                  <span v-if="isDownloadingDocument(documentRecord.id)">Downloading...</span>
+                  <Download v-else :size="16" aria-hidden="true" />
                 </button>
 
                 <button
@@ -570,9 +574,12 @@ async function loadDocuments(): Promise<void> {
                   type="button"
                   class="document-action-button document-action-button-delete"
                   :disabled="isDeletingDocument(documentRecord.id) || isDownloadingDocument(documentRecord.id)"
+                  :aria-label="isDeletingDocument(documentRecord.id) ? 'Deleting document' : 'Delete document'"
+                  :title="isDeletingDocument(documentRecord.id) ? 'Deleting document' : 'Delete document'"
                   @click="handleDeleteDocument(documentRecord)"
                 >
-                  {{ isDeletingDocument(documentRecord.id) ? 'Deleting...' : 'Delete' }}
+                  <span v-if="isDeletingDocument(documentRecord.id)">Deleting...</span>
+                  <Trash2 v-else :size="16" aria-hidden="true" />
                 </button>
               </div>
             </td>
@@ -588,26 +595,6 @@ async function loadDocuments(): Promise<void> {
 </template>
 
 <style scoped>
-.documents-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.page-header-copy h1,
 .page-subtitle,
 .summary-label,
 .summary-value,
@@ -648,19 +635,19 @@ async function loadDocuments(): Promise<void> {
   flex-direction: column;
   gap: 10px;
   padding: 18px 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid transparent;
 }
 
 .summary-card-critical {
-  background-color: #fef2f2;
-  border-color: #fecaca;
+  background-color: var(--color-critical-soft);
+  border-color: var(--color-critical-border);
   color: #991b1b;
 }
 
 .summary-card-readiness {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
+  background-color: var(--color-info-soft);
+  border-color: var(--color-info-border);
   color: #1d4ed8;
 }
 
@@ -681,31 +668,24 @@ async function loadDocuments(): Promise<void> {
   font-size: 0.875rem;
 }
 
-.documents-panel {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
+.readiness-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(29, 78, 216, 0.14);
   overflow: hidden;
 }
 
-.list-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px;
-  border-bottom: 1px solid var(--color-border-muted);
+.readiness-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: #2563eb;
 }
-
-.search-field {
+.documents-panel {
   display: flex;
-  min-width: min(100%, 320px);
-  flex: 1 1 320px;
   flex-direction: column;
-  gap: 6px;
+  overflow: hidden;
 }
 
 .search-label,
@@ -715,49 +695,6 @@ async function loadDocuments(): Promise<void> {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.875rem 0.75rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-white);
-  color: var(--color-text-primary);
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-  border-color: transparent;
-}
-
-.filter-group {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.filter-chip {
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.filter-chip[data-active='true'] {
-  border-color: var(--color-text-primary);
-  color: var(--color-text-primary);
-}
-
-.filter-chip:hover {
-  color: var(--color-text-primary);
 }
 
 .documents-table {
@@ -855,7 +792,7 @@ async function loadDocuments(): Promise<void> {
   display: inline-flex;
   align-self: flex-start;
   padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-surface);
   font-size: 0.75rem;
   font-weight: 600;
@@ -891,9 +828,14 @@ async function loadDocuments(): Promise<void> {
 }
 
 .document-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   font: inherit;
@@ -940,6 +882,20 @@ async function loadDocuments(): Promise<void> {
 }
 
 @media (max-width: 1080px) {
+  .documents-panel {
+    overflow: visible;
+  }
+
+  .documents-table {
+    display: block;
+  }
+
+  .documents-list {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
   .documents-table-header {
     display: none;
   }
@@ -947,6 +903,9 @@ async function loadDocuments(): Promise<void> {
   .documents-list-item {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 12px;
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-xs);
+    overflow: hidden;
   }
 
   .document-cell-label {
@@ -962,15 +921,19 @@ async function loadDocuments(): Promise<void> {
     align-items: flex-start;
     justify-content: flex-start;
   }
+
+  .documents-list-item + .documents-list-item {
+    border-top: 1px solid var(--color-border-muted);
+  }
 }
 
 @media (max-width: 720px) {
-  .page-header {
-    flex-direction: column;
+  .upload-button {
+    align-self: stretch;
   }
 
-  .upload-button {
-    align-self: flex-start;
+  .upload-button :deep(.button) {
+    width: 100%;
   }
 
   .summary-grid {
@@ -979,6 +942,26 @@ async function loadDocuments(): Promise<void> {
 
   .documents-list-item {
     grid-template-columns: 1fr;
+  }
+
+  .documents-list {
+    padding: 0;
+    gap: 10px;
+  }
+
+  .document-cell {
+    padding: 14px 16px;
+  }
+
+  .document-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .document-action-button {
+    width: 100%;
+    text-align: left;
   }
 }
 </style>

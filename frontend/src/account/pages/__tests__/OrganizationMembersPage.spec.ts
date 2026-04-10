@@ -148,4 +148,29 @@ describe('OrganizationMembersPage', () => {
     expect(wrapper.text()).toContain('inactive@example.com')
     expect(wrapper.text()).toContain('1 active, 1 inactive')
   })
+
+  it('shows field-level validation when creating a member without required input', async () => {
+    listOrganizationMembersMock.mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+      totalPages: 1,
+    })
+
+    const wrapper = mount(OrganizationMembersPage)
+    await flushPromises()
+
+    const addMemberButton = wrapper
+      .findAll('button')
+      .find((candidate) => candidate.text() === 'Add member')
+    await addMemberButton?.trigger('click')
+    await flushPromises()
+
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createOrganizationMemberMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Enter an existing user ID.')
+  })
 })

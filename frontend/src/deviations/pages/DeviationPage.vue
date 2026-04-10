@@ -504,16 +504,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="deviation-page">
+  <div class="deviation-page app-page">
     <div
       class="deviation-content"
       :class="{ 'deviation-content--with-detail': Boolean(selectedDeviation) }"
     >
       <div class="deviation-primary">
-        <header class="page-header">
-          <div class="page-header-copy">
-            <h1>Deviations</h1>
-            <p class="page-subtitle">{{ pageSubtitle }}</p>
+        <header class="page-header app-page-header">
+          <div class="page-header-copy app-page-header-copy">
+            <h1 class="app-page-title">Deviations</h1>
+            <p class="page-subtitle app-page-subtitle">{{ pageSubtitle }}</p>
           </div>
 
           <BaseButton class="add-button" type="button" @click="goToDeviationForm">
@@ -539,25 +539,25 @@ onBeforeUnmount(() => {
           </BaseButton>
         </header>
 
-        <section aria-label="Deviation overview" class="list-panel">
-          <div class="list-toolbar">
-            <div class="search-field">
-              <label class="search-label" for="deviation-search">Search</label>
+        <section aria-label="Deviation overview" class="list-panel app-panel">
+          <div class="list-toolbar app-toolbar">
+            <div class="search-field app-search-field">
+              <label class="search-label app-search-label" for="deviation-search">Search</label>
               <input
                 id="deviation-search"
                 v-model="searchQuery"
-                class="search-input"
+                class="search-input app-search-input"
                 placeholder="Search deviations"
                 type="search"
               />
             </div>
 
-            <div aria-label="Deviation filters" class="filter-group">
+            <div aria-label="Deviation filters" class="filter-group app-filter-group">
               <button
                 v-for="filterOption in filterOptions"
                 :key="filterOption.value"
                 :data-active="activeFilter === filterOption.value"
-                class="filter-chip"
+                class="filter-chip app-filter-chip"
                 type="button"
                 @click="activeFilter = filterOption.value"
               >
@@ -655,15 +655,16 @@ onBeforeUnmount(() => {
     <AppOverlay
       :open="Boolean(selectedDeviation) && isMobileViewport"
       aria-label="Selected deviation details"
-      variant="drawer-right"
+      variant="sheet-bottom"
       @close="clearSelectedDeviation"
     >
-      <div v-if="selectedDeviation" class="detail-drawer-shell">
+      <div v-if="selectedDeviation" class="detail-sheet-shell">
         <DeviationDetailPanel
           :deviation="selectedDeviation"
           :is-saving="isSaving"
           :member-options="selectedMemberOptions"
           :save-error-message="saveErrorMessage"
+          variant="sheet"
           :show-close-button="true"
           @add-note="handleTimelineNoteAdd"
           @close="clearSelectedDeviation"
@@ -706,23 +707,9 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--page-section-gap);
 }
 
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.page-header-copy h1,
 .page-subtitle,
 .deviation-row h2,
 .deviation-row-hint,
@@ -764,79 +751,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
   overflow: hidden;
-}
-
-.list-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px;
-  border-bottom: 1px solid var(--color-border-muted);
-}
-
-.search-field {
-  display: flex;
-  min-width: min(100%, 320px);
-  flex: 1 1 320px;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.search-label {
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.875rem 0.75rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-white);
-  color: var(--color-text-primary);
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-  border-color: transparent;
-}
-
-.filter-group {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.filter-chip {
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.filter-chip[data-active='true'] {
-  border-color: var(--color-text-primary);
-  color: var(--color-text-primary);
-}
-
-.filter-chip:hover {
-  color: var(--color-text-primary);
 }
 
 .deviation-list {
@@ -851,7 +766,7 @@ onBeforeUnmount(() => {
 }
 
 .deviation-list-item + .deviation-list-item {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--color-border-muted);
 }
 
 .deviation-row {
@@ -867,7 +782,7 @@ onBeforeUnmount(() => {
 }
 
 .deviation-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--color-surface);
 }
 
 .deviation-row:focus-visible {
@@ -900,7 +815,7 @@ onBeforeUnmount(() => {
 
 .deviation-row-chevron {
   color: var(--color-text-secondary);
-  font-size: 1.125rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
@@ -933,7 +848,7 @@ onBeforeUnmount(() => {
   align-self: flex-start;
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   font-size: 0.75rem;
@@ -981,28 +896,18 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
-.detail-drawer-shell {
-  height: 100%;
-  padding: 16px;
-  box-sizing: border-box;
+.detail-sheet-shell {
+  max-height: calc(100vh - 16px);
+  border-top: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background-color: var(--color-container);
+  box-shadow: var(--shadow-elevated);
   overflow-y: auto;
 }
 
-.detail-drawer-shell :deep(.detail-panel) {
-  min-height: 100%;
-}
-
 @media (max-width: 720px) {
-  .page-header {
-    flex-direction: column;
-  }
-
   .add-button {
     width: 100%;
-  }
-
-  .list-toolbar {
-    align-items: stretch;
   }
 }
 

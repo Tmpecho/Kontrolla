@@ -388,11 +388,11 @@ watch(
 </script>
 
 <template>
-  <div class="page-container">
-    <header class="page-header">
-      <div>
-        <h1>IK-mat Checklists</h1>
-        <p>Scheduled routines and task progress for food compliance.</p>
+  <div class="page-container app-page">
+    <header class="page-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">IK-mat Checklists</h1>
+        <p class="app-page-subtitle">Scheduled routines and task progress for food compliance.</p>
       </div>
     </header>
 
@@ -501,27 +501,12 @@ watch(
 </template>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.page-header h1,
 .page-header p,
 .state-card p {
   margin: 0;
 }
 
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
 .page-header p {
-  margin-top: 8px;
   color: var(--color-text-secondary);
 }
 
@@ -576,10 +561,10 @@ watch(
   justify-content: center;
   min-width: 1.5rem;
   padding: 0.1rem 0.45rem;
-  border-radius: 0.5cqh;
-  background: var(--color-surface);
+  border-radius: var(--radius-fluid-sm);
+  background: var(--color-surface-muted);
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-body-sm);
 }
 
 .search-field {
@@ -591,7 +576,7 @@ watch(
   min-height: 2.75rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--color-border-muted);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: var(--color-white);
   color: var(--color-text-primary);
   font: inherit;
@@ -617,7 +602,7 @@ watch(
   gap: 14px;
   padding: 18px;
   border: 1px solid var(--date-group-border, var(--color-border));
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: var(--date-group-background, var(--color-container));
 }
 
@@ -652,21 +637,21 @@ watch(
 .date-group-header h2 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 1rem;
+  font-size: var(--font-size-heading-sm);
   font-weight: 700;
   text-transform: capitalize;
 }
 
 .date-group-header span {
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-body-sm);
   font-weight: 600;
 }
 
 .state-card {
   padding: 20px;
   border: 1px solid var(--color-border);
-  border-radius: 0.5cqh;
+  border-radius: var(--radius-fluid-sm);
   background: var(--color-container);
 }
 

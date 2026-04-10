@@ -13,6 +13,7 @@ const router = useRouter()
 const isSaving = ref(false)
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
+const attemptedSubmit = ref(false)
 
 const form = reactive({
   firstName: '',
@@ -54,12 +55,27 @@ const fullName = computed(() => {
 const normalizedFirstName = computed(() => form.firstName.trim())
 const normalizedLastName = computed(() => form.lastName.trim())
 
-const canSave = computed(() => {
-  if (!authStore.user || isSaving.value) {
-    return false
+const validationMessage = computed(() => {
+  if (!normalizedFirstName.value) {
+    return 'Enter your first name.'
   }
 
-  if (!normalizedFirstName.value || !normalizedLastName.value) {
+  if (!normalizedLastName.value) {
+    return 'Enter your last name.'
+  }
+
+  return null
+})
+
+const firstNameError = computed(() =>
+  attemptedSubmit.value && !normalizedFirstName.value ? 'Enter your first name.' : null,
+)
+const lastNameError = computed(() =>
+  attemptedSubmit.value && !normalizedLastName.value ? 'Enter your last name.' : null,
+)
+
+const hasProfileChanges = computed(() => {
+  if (!authStore.user) {
     return false
   }
 
@@ -68,6 +84,8 @@ const canSave = computed(() => {
     normalizedLastName.value !== authStore.user.lastName
   )
 })
+
+const isSubmitDisabled = computed(() => !authStore.user || isSaving.value)
 
 const createdAtLabel = computed(() => formatDate(authStore.user?.createdAt))
 const updatedAtLabel = computed(() => formatDate(authStore.user?.updatedAt))
@@ -98,7 +116,20 @@ function goToOrganizationMembers() {
 }
 
 async function onSubmit() {
-  if (!canSave.value) {
+  if (validationMessage.value) {
+    attemptedSubmit.value = true
+    errorMessage.value = null
+    successMessage.value = null
+    return
+  }
+
+  if (!hasProfileChanges.value) {
+    successMessage.value = 'No changes to save.'
+    errorMessage.value = null
+    return
+  }
+
+  if (!authStore.user || isSaving.value) {
     return
   }
 
@@ -123,13 +154,15 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="account-page">
-    <header class="page-header">
-      <h1>My profile</h1>
-      <p>Your personal account information and the name shown across the workspace.</p>
+  <div class="account-page app-page">
+    <header class="page-header app-page-header">
+      <div class="app-page-header-copy">
+        <h1 class="app-page-title">My profile</h1>
+        <p class="app-page-subtitle">Your personal account information and the name shown across the workspace.</p>
+      </div>
     </header>
 
-    <section class="details-panel">
+    <section class="details-panel app-panel">
       <div class="panel-header">
         <div class="panel-header-copy">
           <h2>Account summary</h2>
@@ -180,7 +213,7 @@ async function onSubmit() {
       </div>
     </section>
 
-    <section class="details-panel">
+    <section class="details-panel app-panel">
       <div class="panel-header">
         <div class="panel-header-copy">
           <h2>Personal details</h2>
@@ -199,6 +232,7 @@ async function onSubmit() {
             id="profile-first-name"
             v-model="form.firstName"
             label="First name"
+            :error="firstNameError"
             autocomplete="given-name"
             placeholder="First name"
             @update:model-value="clearFeedback"
@@ -208,6 +242,7 @@ async function onSubmit() {
             id="profile-last-name"
             v-model="form.lastName"
             label="Last name"
+            :error="lastNameError"
             autocomplete="family-name"
             placeholder="Last name"
             @update:model-value="clearFeedback"
@@ -215,7 +250,7 @@ async function onSubmit() {
         </div>
 
         <div class="actions-row">
-          <BaseButton type="submit" :disabled="!canSave">
+          <BaseButton type="submit" :disabled="isSubmitDisabled">
             {{ isSaving ? 'Saving...' : 'Save changes' }}
           </BaseButton>
         </div>
@@ -225,12 +260,6 @@ async function onSubmit() {
 </template>
 
 <style scoped>
-.account-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .page-header,
 .details-panel,
 .profile-form {
@@ -238,12 +267,6 @@ async function onSubmit() {
   flex-direction: column;
 }
 
-.page-header {
-  gap: 8px;
-}
-
-.page-header h1,
-.page-header p,
 .panel-header h2,
 .panel-header p,
 .feedback-message {
@@ -253,9 +276,6 @@ async function onSubmit() {
 .details-panel {
   gap: 20px;
   padding: 24px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
-  background-color: var(--color-container);
 }
 
 .panel-header {
@@ -273,7 +293,8 @@ async function onSubmit() {
 }
 
 .panel-header h2 {
-  font-size: 1rem;
+  font-size: var(--font-size-heading-md);
+  line-height: var(--line-height-tight);
 }
 
 .panel-header p {
@@ -289,12 +310,16 @@ async function onSubmit() {
   min-height: 42px;
   padding: 0.8rem 1rem;
   border: 0;
-  border-radius: 4px;
-  background-color: #1557b0;
-  color: #fff;
+  border-radius: var(--radius-xs);
+  background-color: var(--color-primary);
+  color: var(--color-white);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+.manage-members-button:hover {
+  background-color: var(--color-primary-strong);
 }
 
 .details-grid,
@@ -333,7 +358,7 @@ async function onSubmit() {
 .feedback-message {
   padding: 12px 14px;
   border: 1px solid var(--color-border-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 0.9375rem;
 }
 

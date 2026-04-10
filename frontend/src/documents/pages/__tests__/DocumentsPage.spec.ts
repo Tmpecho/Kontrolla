@@ -155,8 +155,8 @@ describe('DocumentsPage', () => {
     expect(wrapper.text()).toContain('Important documents')
     expect(wrapper.text()).toContain('Alcohol service licence')
     expect(wrapper.text()).toContain('Upload new document')
-    expect(wrapper.text()).toContain('Download')
-    expect(wrapper.text()).toContain('Delete')
+    expect(wrapper.get('.document-action-button-download').attributes('aria-label')).toBe('Download document')
+    expect(wrapper.get('.document-action-button-delete').attributes('aria-label')).toBe('Delete document')
   })
 
   it('loads ik-mat documents from the shared page with an upload action', async () => {
@@ -196,8 +196,8 @@ describe('DocumentsPage', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Download')
-    expect(wrapper.text()).not.toContain('Delete')
+    expect(wrapper.get('.document-action-button-download').attributes('aria-label')).toBe('Download document')
+    expect(wrapper.find('.document-action-button-delete').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Upload new document')
   })
 
