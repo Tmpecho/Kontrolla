@@ -675,7 +675,6 @@ watch(definitions, maybeOpenRequestedDefinition)
             <section class="editor-panel editor-panel-overview">
               <header class="editor-header">
                 <div class="editor-title-block">
-                  <span class="editor-title-badge">+</span>
                   <p class="section-kicker">selected setup submenu</p>
                   <h3>{{ editorTitle }}</h3>
                   <p class="editor-parent-label">
