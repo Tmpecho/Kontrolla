@@ -33,6 +33,13 @@ export type LoginCredentials = {
   password: string
 }
 
+export type WorkspaceStartupStatus =
+  | 'idle'
+  | 'waiting-for-backend'
+  | 'bootstrapping-workspace'
+  | 'ready'
+  | 'error'
+
 export type InviteDetails = {
   email: string
   firstName: string

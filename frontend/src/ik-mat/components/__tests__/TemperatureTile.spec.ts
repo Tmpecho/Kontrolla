@@ -49,15 +49,6 @@ const mocks = vi.hoisted(() => ({
     }
     requiresEstablishmentSelection: boolean
   },
-  appEnvMock: {
-    mode: 'test',
-    isDevelopment: true,
-    isProduction: false,
-    apiBaseUrl: 'http://localhost:8080',
-    defaultOrganizationId: undefined as string | undefined,
-    defaultEstablishmentId: undefined as string | undefined,
-    showDevLoginHint: false,
-  },
   listTemperatureUnitsMock: vi.fn(),
 }))
 
@@ -86,9 +77,37 @@ vi.mock('@/ik-mat/api/temperature.api', () => ({
   listTemperatureUnits: mocks.listTemperatureUnitsMock,
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  appEnv: mocks.appEnvMock,
-}))
+vi.mock('@/auth/model/workspace-context', async () => {
+  const { computed } = await import('vue')
+
+  return {
+    useProtectedWorkspaceContext: () => ({
+      organizationId: computed(() => mocks.authStoreMock?.appContext?.organizationId ?? null),
+      establishmentId: computed(() => mocks.authStoreMock?.appContext?.establishmentId ?? null),
+      availableEstablishmentIds: computed(() => {
+        const establishmentId = mocks.authStoreMock?.appContext?.establishmentId ?? null
+        return establishmentId ? [establishmentId] : []
+      }),
+      isStartupPending: computed(() => false),
+      requiresEstablishmentSelection: computed(() => {
+        return mocks.authStoreMock?.requiresEstablishmentSelection ?? false
+      }),
+      hasOrganizationContext: computed(() => Boolean(mocks.authStoreMock?.appContext?.organizationId)),
+      hasEstablishmentContext: computed(() => {
+        return Boolean(
+          mocks.authStoreMock?.appContext?.organizationId &&
+            mocks.authStoreMock?.appContext?.establishmentId,
+        )
+      }),
+      hasAccessibleEstablishmentContext: computed(() => {
+        return Boolean(
+          mocks.authStoreMock?.appContext?.organizationId &&
+            mocks.authStoreMock?.appContext?.establishmentId,
+        )
+      }),
+    }),
+  }
+})
 
 function mountTile() {
   return mount(TemperatureTile, {
@@ -122,9 +141,6 @@ describe('TemperatureTile', () => {
       establishmentName: null,
     }
     mocks.authStoreMock.requiresEstablishmentSelection = false
-    mocks.appEnvMock.isDevelopment = true
-    mocks.appEnvMock.defaultOrganizationId = undefined
-    mocks.appEnvMock.defaultEstablishmentId = undefined
   })
 
   it('passes a route location to the tile link', async () => {
@@ -160,7 +176,7 @@ describe('TemperatureTile', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('Loading temperature units...')
-    expect(wrapper.text()).toContain('load temperature units')
+    expect(wrapper.text()).toContain('Temperature logs are unavailable until organization context is ready.')
 
     deferred.resolve([createUnit('unit-1', 'Sushi prep fridge')])
     await flushPromises()

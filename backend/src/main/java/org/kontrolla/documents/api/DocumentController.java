@@ -117,6 +117,7 @@ public class DocumentController {
             request.holderName(),
             request.issueDate(),
             request.renewalDate(),
+            request.auditUserIds(),
             file.getOriginalFilename(),
             file.getContentType(),
             getBytes(file),
@@ -144,6 +145,7 @@ public class DocumentController {
             request.holderName(),
             request.issueDate(),
             request.renewalDate(),
+            request.auditUserIds(),
             currentUser
         ),
         clock
@@ -166,6 +168,24 @@ public class DocumentController {
             file.getOriginalFilename(),
             file.getContentType(),
             getBytes(file),
+            currentUser
+        ),
+        clock
+    );
+  }
+
+  @PostMapping("/establishments/{establishmentId}/documents/{documentId}/acknowledge-read")
+  public DocumentResponse acknowledgeDocumentAudit(
+      @PathVariable UUID organizationId,
+      @PathVariable UUID establishmentId,
+      @PathVariable UUID documentId,
+      @AuthenticationPrincipal CurrentUser currentUser
+  ) {
+    return DocumentResponse.from(
+        documentService.acknowledgeDocumentAudit(
+            organizationId,
+            establishmentId,
+            documentId,
             currentUser
         ),
         clock

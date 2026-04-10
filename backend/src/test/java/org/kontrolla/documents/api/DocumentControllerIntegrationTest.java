@@ -36,6 +36,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -262,6 +263,91 @@ class DocumentControllerIntegrationTest {
         .andExpect(status().isForbidden());
   }
 
+  @Test
+  void managerCanAssignMultipleAuditReadersAndAssignedReaderCanAcknowledge() throws Exception {
+    User manager = createUser("documents-api-audit-manager@example.com", "Manager", "Audit");
+    User firstReader = createUser("documents-api-audit-reader-1@example.com", "Nora", "Hansen");
+    User secondReader = createUser("documents-api-audit-reader-2@example.com", "Lina", "Dahl");
+    Organization organization = createOrganization("Kontrolla Documents Audit API");
+    Establishment establishment = createEstablishment(organization, "Downtown Bar");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+    createMembership(organization, firstReader, OrganizationRole.ORG_EMPLOYEE, true);
+    createMembership(organization, secondReader, OrganizationRole.ORG_EMPLOYEE, true);
+    LocalDate today = LocalDate.now(clock);
+
+    String managerToken = issueAccessToken(manager);
+    String firstReaderToken = issueAccessToken(firstReader);
+
+    String createResponse = mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organization.getId(), establishment.getId()))
+            .file(metadataPart(
+                "IK_ALKOHOL",
+                "Responsible service handbook",
+                "Bar team",
+                today.minusDays(60),
+                today.plusDays(30),
+                java.util.List.of(firstReader.getId(), secondReader.getId())
+            ))
+            .file(pdfPart("responsible-service.pdf", "audit-handbook"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.auditAssignments.length()").value(2))
+        .andExpect(jsonPath("$.auditAssignments[0].userId").isNotEmpty())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+
+    String documentId = objectMapper.readTree(createResponse).get("id").asText();
+
+    mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents/%s/acknowledge-read".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + firstReaderToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.auditAssignments.length()").value(2))
+        .andExpect(jsonPath("$.auditAssignments[0].acknowledgedAt").isNotEmpty());
+  }
+
+  @Test
+  void unassignedReaderCannotAcknowledgeDocumentAudit() throws Exception {
+    User manager = createUser("documents-api-audit-manager-2@example.com", "Manager", "Audit");
+    User assignedReader = createUser("documents-api-audit-reader-3@example.com", "Nora", "Hansen");
+    User otherReader = createUser("documents-api-audit-reader-4@example.com", "Lina", "Dahl");
+    Organization organization = createOrganization("Kontrolla Documents Audit API Access");
+    Establishment establishment = createEstablishment(organization, "Downtown Bar");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+    createMembership(organization, assignedReader, OrganizationRole.ORG_EMPLOYEE, true);
+    createMembership(organization, otherReader, OrganizationRole.ORG_EMPLOYEE, true);
+    LocalDate today = LocalDate.now(clock);
+
+    String managerToken = issueAccessToken(manager);
+    String otherReaderToken = issueAccessToken(otherReader);
+
+    String createResponse = mockMvc.perform(multipart("/api/v1/organizations/%s/establishments/%s/documents".formatted(
+            organization.getId(), establishment.getId()))
+            .file(metadataPart(
+                "IK_ALKOHOL",
+                "Responsible service handbook",
+                "Bar team",
+                today.minusDays(60),
+                today.plusDays(30),
+                java.util.List.of(assignedReader.getId())
+            ))
+            .file(pdfPart("responsible-service.pdf", "audit-handbook"))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+
+    String documentId = objectMapper.readTree(createResponse).get("id").asText();
+
+    mockMvc.perform(post("/api/v1/organizations/%s/establishments/%s/documents/%s/acknowledge-read".formatted(
+            organization.getId(), establishment.getId(), documentId))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherReaderToken))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("document_audit_acknowledgement_forbidden"));
+  }
+
   private User createUser(String email, String firstName, String lastName) {
     User user = new User(
         email,
@@ -305,6 +391,24 @@ class DocumentControllerIntegrationTest {
       LocalDate issueDate,
       LocalDate renewalDate
   ) {
+    return metadataPart(serviceArea, title, holderName, issueDate, renewalDate, null);
+  }
+
+  private MockMultipartFile metadataPart(
+      String serviceArea,
+      String title,
+      String holderName,
+      LocalDate issueDate,
+      LocalDate renewalDate,
+      java.util.List<java.util.UUID> auditUserIds
+  ) {
+    String auditUsersJson = auditUserIds == null
+        ? ""
+        : """
+          ,
+          "auditUserIds": [%s]
+          """.formatted(auditUserIds.stream().map(id -> "\"%s\"".formatted(id)).collect(java.util.stream.Collectors.joining(",")));
+
     String json = """
         {
           "serviceArea": "%s",
@@ -312,8 +416,9 @@ class DocumentControllerIntegrationTest {
           "holderName": "%s",
           "issueDate": "%s",
           "renewalDate": "%s"
+          %s
         }
-        """.formatted(serviceArea, title, holderName, issueDate, renewalDate);
+        """.formatted(serviceArea, title, holderName, issueDate, renewalDate, auditUsersJson);
     return new MockMultipartFile("metadata", "", MediaType.APPLICATION_JSON_VALUE, json.getBytes(StandardCharsets.UTF_8));
   }
 

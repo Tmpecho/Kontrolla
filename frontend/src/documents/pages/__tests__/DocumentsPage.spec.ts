@@ -18,6 +18,7 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
     contentType: 'application/pdf',
     fileSizeBytes: 2048,
     status: 'VALID',
+    auditAssignments: [],
     createdAt: '2026-01-01T08:00:00Z',
     updatedAt: '2026-01-01T08:00:00Z',
     ...overrides,
@@ -27,33 +28,32 @@ function createDocument(overrides: Partial<Record<string, unknown>> = {}) {
 const {
   listAllEstablishmentDocumentsMock,
   downloadDocumentFileMock,
+  acknowledgeDocumentReadMock,
   deleteDocumentMock,
   authStoreMock,
-  appEnvMock,
   routeState,
   routerPushMock,
 } = vi.hoisted(() => ({
   listAllEstablishmentDocumentsMock: vi.fn(),
   downloadDocumentFileMock: vi.fn(),
+  acknowledgeDocumentReadMock: vi.fn(),
   deleteDocumentMock: vi.fn(),
   authStoreMock: {
+    isStartupPending: false,
+    requiresEstablishmentSelection: false,
     appContext: {
       organizationId: 'org-1',
       establishmentId: 'est-1',
       organizationRole: 'ORG_MANAGER',
-    },
+    } as {
+      organizationId: string | null
+      establishmentId: string | null
+      organizationRole: string | null
+    } | null,
     user: {
+      id: 'user-99',
       globalRoles: [],
     },
-  },
-  appEnvMock: {
-    mode: 'test',
-    isDevelopment: true,
-    isProduction: false,
-    apiBaseUrl: 'http://localhost:8080',
-    defaultOrganizationId: undefined as string | undefined,
-    defaultEstablishmentId: undefined as string | undefined,
-    showDevLoginHint: false,
   },
   routeState: {
     name: 'ik-alkohol-documents',
@@ -62,6 +62,7 @@ const {
 }))
 
 vi.mock('@/documents/api/documents.api', () => ({
+  acknowledgeDocumentRead: acknowledgeDocumentReadMock,
   deleteDocument: deleteDocumentMock,
   downloadDocumentFile: downloadDocumentFileMock,
   listAllEstablishmentDocuments: listAllEstablishmentDocumentsMock,
@@ -71,9 +72,33 @@ vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  appEnv: appEnvMock,
-}))
+vi.mock('@/auth/model/workspace-context', async () => {
+  const { computed } = await import('vue')
+
+  return {
+    useProtectedWorkspaceContext: () => ({
+      organizationId: computed(() => authStoreMock.appContext?.organizationId ?? null),
+      establishmentId: computed(() => authStoreMock.appContext?.establishmentId ?? null),
+      availableEstablishmentIds: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        return selectedEstablishmentId ? [selectedEstablishmentId] : []
+      }),
+      isStartupPending: computed(() => authStoreMock.isStartupPending),
+      requiresEstablishmentSelection: computed(() => authStoreMock.requiresEstablishmentSelection),
+      hasOrganizationContext: computed(() => Boolean(authStoreMock.appContext?.organizationId)),
+      hasEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+      hasAccessibleEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+    }),
+  }
+})
 
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
@@ -98,6 +123,7 @@ describe('DocumentsPage', () => {
   afterEach(() => {
     listAllEstablishmentDocumentsMock.mockReset()
     downloadDocumentFileMock.mockReset()
+    acknowledgeDocumentReadMock.mockReset()
     deleteDocumentMock.mockReset()
     routerPushMock.mockReset()
     authStoreMock.appContext = {
@@ -106,12 +132,11 @@ describe('DocumentsPage', () => {
       organizationRole: 'ORG_MANAGER',
     }
     authStoreMock.user = {
+      id: 'user-99',
       globalRoles: [],
     }
-    appEnvMock.isDevelopment = true
-    appEnvMock.isProduction = false
-    appEnvMock.defaultOrganizationId = undefined
-    appEnvMock.defaultEstablishmentId = undefined
+    authStoreMock.isStartupPending = false
+    authStoreMock.requiresEstablishmentSelection = false
     routeState.name = 'ik-alkohol-documents'
   })
 
@@ -195,5 +220,83 @@ describe('DocumentsPage', () => {
     expect(confirmMock).toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('Alcohol service licence')
     confirmMock.mockRestore()
+  })
+
+  it('shows and handles the I have read action for an assigned user', async () => {
+    listAllEstablishmentDocumentsMock.mockResolvedValue([
+      createDocument({
+        auditAssignments: [
+          {
+            userId: 'user-99',
+            userEmail: 'reader@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'One',
+            acknowledgedAt: null,
+          },
+          {
+            userId: 'user-100',
+            userEmail: 'reader-two@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'Two',
+            acknowledgedAt: '2026-04-09T09:00:00Z',
+          },
+        ],
+      }),
+    ])
+    acknowledgeDocumentReadMock.mockResolvedValue(
+      createDocument({
+        auditAssignments: [
+          {
+            userId: 'user-99',
+            userEmail: 'reader@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'One',
+            acknowledgedAt: '2026-04-09T10:15:00Z',
+          },
+          {
+            userId: 'user-100',
+            userEmail: 'reader-two@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'Two',
+            acknowledgedAt: '2026-04-09T09:00:00Z',
+          },
+        ],
+      }),
+    )
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('I have read')
+    expect(wrapper.text()).toContain('1/2 confirmed')
+    expect(wrapper.text()).toContain('1 document')
+    expect(wrapper.text()).toContain('Awaiting your acknowledgement.')
+
+    await wrapper.get('.document-action-button-acknowledge').trigger('click')
+    await flushPromises()
+
+    expect(acknowledgeDocumentReadMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      documentId: 'doc-1',
+    })
+    expect(wrapper.text()).not.toContain('I have read')
+    expect(wrapper.text()).toContain('2/2 confirmed')
+    expect(wrapper.text()).toContain('You have confirmed this document.')
+  })
+
+  it('shows a neutral context message when an establishment must be selected', async () => {
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: null,
+      organizationRole: 'ORG_MANAGER',
+    }
+    authStoreMock.requiresEstablishmentSelection = true
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Choose an establishment to load documents.')
+    expect(wrapper.text()).not.toContain('VITE_DEFAULT_ORGANIZATION_ID')
   })
 })

@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { useAuthStore } from '@/auth/model/auth.store'
+import { listOrganizationMembers } from '@/account/api/organization-members.api'
+import type { OrganizationMembership } from '@/account/model/organization-members.types'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { createDocument } from '@/documents/api/documents.api'
 import type { DocumentServiceArea } from '@/documents/model/document.types'
 import { ApiError } from '@/shared/api/http'
 import BaseButton from '@/shared/components/BaseButton.vue'
-import { appEnv } from '@/shared/config/env'
 
-const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const route = useRoute()
 const router = useRouter()
 
@@ -21,21 +22,21 @@ const form = reactive({
 })
 
 const selectedFile = ref<File | null>(null)
+const auditMembers = ref<OrganizationMembership[]>([])
+const selectedAuditUserIds = ref<string[]>([])
 const errorMessage = ref<string | null>(null)
+const auditMembersErrorMessage = ref<string | null>(null)
 const isSubmitting = ref(false)
 const attemptedSubmit = ref(false)
+const isLoadingAuditMembers = ref(false)
 
 const isAlcoholPage = computed(() => {
   const routeName = typeof route.name === 'string' ? route.name : ''
   return routeName.startsWith('ik-alkohol-')
 })
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const currentServiceArea = computed<DocumentServiceArea>(() => {
   if (isAlcoholPage.value) {
@@ -54,15 +55,19 @@ const pageSubtitle = computed(() => {
 })
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Documents cannot be uploaded until organization and establishment context is available.'
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
   }
 
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to upload documents.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment before uploading documents.'
+  }
+
+  return 'Documents cannot be uploaded until organization and establishment context is available.'
 })
 
 const backRouteName = computed(() => {
@@ -79,6 +84,10 @@ const backLinkLabel = computed(() => {
   }
 
   return 'Back to documents'
+})
+
+const allAuditMembersSelected = computed(() => {
+  return auditMembers.value.length > 0 && selectedAuditUserIds.value.length === auditMembers.value.length
 })
 
 function onFileChange(event: Event) {
@@ -116,6 +125,54 @@ const fileError = computed(() => {
 
   return null
 })
+
+function formatMemberName(member: OrganizationMembership): string {
+  return `${member.userFirstName} ${member.userLastName}`.trim() || member.userEmail
+}
+
+function toggleSelectAllAuditMembers() {
+  if (allAuditMembersSelected.value) {
+    selectedAuditUserIds.value = []
+    return
+  }
+
+  selectedAuditUserIds.value = auditMembers.value.map((member) => member.userId)
+}
+
+async function loadAuditMembers() {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (!resolvedOrganizationId || !resolvedEstablishmentId) {
+    auditMembers.value = []
+    selectedAuditUserIds.value = []
+    auditMembersErrorMessage.value = null
+    return
+  }
+
+  isLoadingAuditMembers.value = true
+  auditMembersErrorMessage.value = null
+
+  try {
+    const page = await listOrganizationMembers({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      includeInactive: false,
+      size: 100,
+    })
+
+    auditMembers.value = page.items
+    const validUserIds = new Set(page.items.map((member) => member.userId))
+    selectedAuditUserIds.value = selectedAuditUserIds.value.filter((userId) => validUserIds.has(userId))
+  } catch (error) {
+    auditMembers.value = []
+    selectedAuditUserIds.value = []
+    auditMembersErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Failed to load audit readers.'
+  } finally {
+    isLoadingAuditMembers.value = false
+  }
+}
 
 function clearFieldFeedback(): void {
   errorMessage.value = null
@@ -158,6 +215,7 @@ async function submitForm() {
       holderName: form.holderName.trim(),
       issueDate: form.issueDate,
       renewalDate: form.renewalDate,
+      auditUserIds: selectedAuditUserIds.value,
       file,
     })
 
@@ -169,6 +227,10 @@ async function submitForm() {
     isSubmitting.value = false
   }
 }
+
+watch([organizationId, establishmentId], () => {
+  void loadAuditMembers()
+}, { immediate: true })
 </script>
 
 <template>
@@ -260,6 +322,49 @@ async function submitForm() {
             {{ selectedFile ? selectedFile.name : 'Select a PDF file to upload.' }}
           </span>
         </label>
+
+        <fieldset class="field field-audit">
+          <legend class="field-label">Audit readers (optional)</legend>
+          <div class="field-audit-header">
+            <button
+              v-if="auditMembers.length > 0"
+              type="button"
+              class="audit-select-all"
+              @click="toggleSelectAllAuditMembers"
+            >
+              {{ allAuditMembersSelected ? 'Clear all' : 'Select all' }}
+            </button>
+          </div>
+          <p class="field-help">
+            Select the people in this establishment who must confirm they have read the document.
+          </p>
+
+          <p v-if="isLoadingAuditMembers" class="field-help">Loading available readers...</p>
+          <p v-else-if="auditMembersErrorMessage" class="feedback-message feedback-message-error">
+            {{ auditMembersErrorMessage }}
+          </p>
+          <p v-else-if="auditMembers.length === 0" class="field-help">
+            No active establishment members are available for audit acknowledgement.
+          </p>
+
+          <div v-else class="audit-member-list">
+            <label
+              v-for="member in auditMembers"
+              :key="member.id"
+              class="audit-member-option"
+            >
+              <input
+                v-model="selectedAuditUserIds"
+                :value="member.userId"
+                type="checkbox"
+              />
+              <span class="audit-member-copy">
+                <span class="audit-member-name">{{ formatMemberName(member) }}</span>
+                <span class="audit-member-email">{{ member.userEmail }}</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
       </div>
       <p v-if="errorMessage" class="feedback-message feedback-message-error">
         {{ errorMessage }}
@@ -331,12 +436,41 @@ async function submitForm() {
   grid-column: 1 / -1;
 }
 
+.field-audit {
+  grid-column: 1 / -1;
+  padding: 0;
+  border: none;
+  margin: 0;
+}
+
+.field-audit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .field-label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-label);
   font-weight: 600;
   letter-spacing: var(--field-label-letter-spacing);
   text-transform: uppercase;
+}
+
+.audit-select-all {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.audit-select-all:hover {
+  text-decoration: underline;
 }
 
 .field-input {
@@ -378,6 +512,37 @@ async function submitForm() {
 .field-error {
   color: var(--color-critical);
   font-size: var(--font-size-body-sm);
+}
+
+.audit-member-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.audit-member-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 0.875rem 0.75rem;
+  border: 1px solid var(--color-border-muted);
+  border-radius: 4px;
+  background-color: var(--color-white);
+}
+
+.audit-member-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.audit-member-name {
+  font-weight: 600;
+}
+
+.audit-member-email {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .feedback-message-error {
@@ -433,6 +598,10 @@ async function submitForm() {
 
 @media (max-width: 720px) {
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-member-list {
     grid-template-columns: 1fr;
   }
 

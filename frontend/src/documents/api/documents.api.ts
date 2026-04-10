@@ -28,6 +28,7 @@ type DocumentCreateInput = {
   holderName: string
   issueDate: string
   renewalDate: string
+  auditUserIds?: string[]
   file: File
 }
 
@@ -96,6 +97,7 @@ export async function createDocument(params: DocumentCreateInput): Promise<Estab
         holderName: params.holderName,
         issueDate: params.issueDate,
         renewalDate: params.renewalDate,
+        auditUserIds: params.auditUserIds ?? [],
       }),
     ], {
       type: 'application/json',
@@ -131,6 +133,17 @@ export async function deleteDocument(params: DocumentActionParams): Promise<void
     `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/documents/${params.documentId}`,
     {
       method: 'DELETE',
+    },
+  )
+}
+
+export async function acknowledgeDocumentRead(
+  params: DocumentActionParams,
+): Promise<EstablishmentDocument> {
+  return requestJson<EstablishmentDocument>(
+    `/api/v1/organizations/${params.organizationId}/establishments/${params.establishmentId}/documents/${params.documentId}/acknowledge-read`,
+    {
+      method: 'POST',
     },
   )
 }

@@ -1,5 +1,6 @@
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
 import type { DeviationListItem, DeviationServiceArea, DeviationSeverity, DeviationStatus } from '@/deviations/model/deviation.types'
+import { documentNeedsAuditForUser } from '@/documents/model/document.utils'
 import type { ImportantDocumentRecord } from '@/ik-alkohol/model/document.types'
 import { expiryWarningDays, getDocumentsWithStatus, parseLocalDate } from '@/ik-alkohol/model/document.utils'
 import type { TemperatureAlertState, TemperatureUnit } from '@/ik-mat/model/temperature.types'
@@ -49,27 +50,40 @@ export type WorkspaceAttentionItem = {
 type BuildIKMatServiceSummaryOptions = {
   checklistRuns: ChecklistRun[] | null
   checklistNote?: string | null
-  temperatureUnits: TemperatureUnit[]
+  temperatureUnits: TemperatureUnit[] | null
   deviations: DeviationListItem[]
   now?: Date
 }
 
 type BuildIKAlkoholServiceSummaryOptions = {
-  documents: ImportantDocumentRecord[]
+  documents: ImportantDocumentRecord[] | null
   deviations: DeviationListItem[]
+  currentUserId?: string | null
   note?: string | null
 }
 
 type BuildWorkspaceAttentionItemsOptions = {
   checklistRuns: ChecklistRun[]
-  temperatureUnits: TemperatureUnit[]
+  temperatureUnits: TemperatureUnit[] | null
   deviationsByService: Record<DeviationServiceArea, DeviationListItem[]>
-  documents: ImportantDocumentRecord[]
+  documents: ImportantDocumentRecord[] | null
   now?: Date
 }
 
 function formatCount(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`
+}
+
+function formatOptionalCount(
+  count: number | null,
+  singular: string,
+  plural = `${singular}s`,
+): string {
+  if (count === null) {
+    return '—'
+  }
+
+  return formatCount(count, singular, plural)
 }
 
 function formatTemperatureRange(minimum: number, maximum: number): string {
@@ -160,7 +174,7 @@ export function buildIKMatServiceSummary({
   deviations,
   now = new Date(),
 }: BuildIKMatServiceSummaryOptions): WorkspaceServiceSummary {
-  const temperatureSummary = getTemperatureSummary(temperatureUnits, now)
+  const temperatureSummary = temperatureUnits ? getTemperatureSummary(temperatureUnits, now) : null
   const openDeviationCount = deviations.filter((deviation) => isOpenDeviation(deviation.status)).length
   const activeChecklistRunCount =
     checklistRuns?.filter((run) => run.status !== 'COMPLETED' && run.status !== 'CANCELLED').length ?? null
@@ -176,13 +190,14 @@ export function buildIKMatServiceSummary({
     metrics: [
       {
         label: 'Active checklist runs',
-        value: activeChecklistRunCount === null ? '—' : formatCount(activeChecklistRunCount, 'run'),
+        value: formatOptionalCount(activeChecklistRunCount, 'run'),
         tone: activeChecklistRunCount && activeChecklistRunCount > 0 ? 'primary' : 'neutral',
       },
       {
         label: 'Temperature units needing attention',
-        value: formatCount(temperatureSummary.needsAttentionCount, 'unit'),
-        tone: temperatureSummary.needsAttentionCount > 0 ? 'warning' : 'neutral',
+        value: formatOptionalCount(temperatureSummary?.needsAttentionCount ?? null, 'unit'),
+        tone:
+          temperatureSummary && temperatureSummary.needsAttentionCount > 0 ? 'warning' : 'neutral',
       },
       {
         label: 'Open food deviations',
@@ -197,14 +212,16 @@ export function buildIKMatServiceSummary({
 export function buildIKAlkoholServiceSummary({
   documents,
   deviations,
+  currentUserId = null,
   note = null,
 }: BuildIKAlkoholServiceSummaryOptions): WorkspaceServiceSummary {
-  const documentList = getDocumentsWithStatus(documents, expiryWarningDays)
-  const documentsNeedingAttention = documentList.filter((documentItem) => documentItem.status !== 'VALID').length
+  const documentList = documents ? getDocumentsWithStatus(documents, expiryWarningDays) : null
+  const documentsNeedingAttention =
+    documentList?.filter((documentItem) => documentItem.status !== 'VALID').length ?? null
   const openDeviationCount = deviations.filter((deviation) => isOpenDeviation(deviation.status)).length
-  const readyDocumentCount = documentList.filter((documentItem) => documentItem.status !== 'EXPIRED').length
-  const readinessPercentage =
-    documentList.length === 0 ? 0 : Math.round((readyDocumentCount / documentList.length) * 100)
+  const documentsNeedingCurrentUserAudit =
+    documentList?.filter((documentItem) => documentNeedsAuditForUser(documentItem, currentUserId))
+      .length ?? null
 
   return {
     key: 'ik-alkohol',
@@ -222,13 +239,16 @@ export function buildIKAlkoholServiceSummary({
       },
       {
         label: 'Documents needing attention',
-        value: formatCount(documentsNeedingAttention, 'document'),
-        tone: documentsNeedingAttention > 0 ? 'warning' : 'neutral',
+        value: formatOptionalCount(documentsNeedingAttention, 'document'),
+        tone: documentsNeedingAttention && documentsNeedingAttention > 0 ? 'warning' : 'neutral',
       },
       {
-        label: 'Audit readiness',
-        value: `${readinessPercentage}%`,
-        tone: readinessPercentage < 100 ? 'primary' : 'neutral',
+        label: 'Needs your audit',
+        value: formatOptionalCount(documentsNeedingCurrentUserAudit, 'document'),
+        tone:
+          documentsNeedingCurrentUserAudit && documentsNeedingCurrentUserAudit > 0
+            ? 'primary'
+            : 'neutral',
       },
     ],
     note,
@@ -243,8 +263,12 @@ export function buildWorkspaceAttentionItems({
   now = new Date(),
 }: BuildWorkspaceAttentionItemsOptions): WorkspaceAttentionItem[] {
   const attentionItems: WorkspaceAttentionItem[] = []
-  const temperatureUnitsWithStatus = getTemperatureUnitsWithStatus(temperatureUnits, now)
-  const documentsWithStatus = getDocumentsWithStatus(documents, expiryWarningDays)
+  const temperatureUnitsWithStatus = temperatureUnits
+    ? getTemperatureUnitsWithStatus(temperatureUnits, now)
+    : []
+  const documentsWithStatus = documents
+    ? getDocumentsWithStatus(documents, expiryWarningDays)
+    : []
 
   checklistRuns
     .filter((run) => run.status === 'OVERDUE')

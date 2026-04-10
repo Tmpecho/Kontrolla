@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun } from '@/checklists/model/checklist.types'
@@ -11,10 +12,11 @@ import {
   getDeviationServiceAreaForCategory,
   toDeviationCategoryLabel,
 } from '@/deviations/model/deviation.types'
-import { createImportantDocuments } from '@/ik-alkohol/model/document.mock'
-import { createTemperatureUnits } from '@/ik-mat/model/temperature.mock'
+import { listAllEstablishmentDocuments } from '@/documents/api/documents.api'
+import type { EstablishmentDocument } from '@/documents/model/document.types'
+import { listTemperatureUnits } from '@/ik-mat/api/temperature.api'
+import type { TemperatureUnit } from '@/ik-mat/model/temperature.types'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 import {
   buildIKAlkoholServiceSummary,
   buildIKMatServiceSummary,
@@ -22,6 +24,7 @@ import {
 } from '@/workspace/model/workspace-dashboard'
 
 const authStore = useAuthStore()
+const protectedWorkspaceContext = useProtectedWorkspaceContext()
 const checklistRuns = ref<ChecklistRun[] | null>(null)
 const isLoadingChecklistRuns = ref(false)
 const checklistErrorMessage = ref<string | null>(null)
@@ -31,53 +34,34 @@ const deviationsByService = ref<Record<DeviationServiceArea, DeviationListItem[]
 })
 const isLoadingDeviations = ref(false)
 const deviationErrorMessage = ref<string | null>(null)
-
-const importantDocuments = createImportantDocuments()
-const temperatureUnits = createTemperatureUnits()
+const documents = ref<EstablishmentDocument[] | null>(null)
+const isLoadingDocuments = ref(false)
+const documentErrorMessage = ref<string | null>(null)
+const temperatureUnits = ref<TemperatureUnit[] | null>(null)
+const isLoadingTemperatureUnits = ref(false)
+const temperatureErrorMessage = ref<string | null>(null)
+let workspaceRequestSequence = 0
 
 const workspaceContext = computed(() => {
-  if (!authStore.isSessionReady) {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
     return null
   }
 
-  const organizationId = authStore.appContext?.organizationId ?? null
-
-  if (organizationId) {
-    const selectedEstablishmentId = authStore.appContext?.establishmentId ?? null
-
-    if (selectedEstablishmentId) {
-      return {
-        organizationId,
-        establishmentIds: [selectedEstablishmentId],
-      }
-    }
-
-    const establishmentIds = (authStore.establishments ?? []).map((establishment) => establishment.id)
-    if (establishmentIds.length > 0) {
-      return {
-        organizationId,
-        establishmentIds,
-      }
-    }
-  }
-
-  if (!authStore.isAuthenticated) {
-    const defaultOrganizationId = appEnv.defaultOrganizationId
-    const defaultEstablishmentId = appEnv.defaultEstablishmentId
-
-    if (defaultOrganizationId && defaultEstablishmentId) {
-      return {
-        organizationId: defaultOrganizationId,
-        establishmentIds: [defaultEstablishmentId],
-      }
+  if (
+    protectedWorkspaceContext.hasOrganizationContext.value &&
+    protectedWorkspaceContext.availableEstablishmentIds.value.length > 0
+  ) {
+    return {
+      organizationId: protectedWorkspaceContext.organizationId.value!,
+      establishmentIds: protectedWorkspaceContext.availableEstablishmentIds.value,
     }
   }
 
   return null
 })
 
-const checklistNote = computed(() => {
-  if (!authStore.isSessionReady) {
+const ikMatNote = computed(() => {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
     return 'Loading workspace context...'
   }
 
@@ -85,69 +69,114 @@ const checklistNote = computed(() => {
     return 'Workspace overview becomes available when organization context is ready.'
   }
 
-  if (checklistErrorMessage.value && deviationErrorMessage.value) {
-    return `${checklistErrorMessage.value} ${deviationErrorMessage.value}`
-  }
+  const messages = [
+    checklistErrorMessage.value,
+    temperatureErrorMessage.value,
+    deviationErrorMessage.value,
+  ].filter((message): message is string => Boolean(message))
 
-  if (checklistErrorMessage.value) {
-    return checklistErrorMessage.value
-  }
-
-  if (deviationErrorMessage.value) {
-    return deviationErrorMessage.value
-  }
-
-  if (isLoadingChecklistRuns.value && checklistRuns.value === null) {
-    return 'Loading checklist overview...'
-  }
-
-  return null
-})
-
-const deviationNote = computed(() => {
-  if (!authStore.isSessionReady) {
-    return 'Loading workspace context...'
-  }
-
-  if (!workspaceContext.value) {
-    return 'Workspace overview becomes available when organization context is ready.'
-  }
-
-  if (deviationErrorMessage.value) {
-    return deviationErrorMessage.value
+  if (messages.length > 0) {
+    return messages.join(' ')
   }
 
   if (
-    isLoadingDeviations.value &&
-    deviationsByService.value.IK_MAT.length === 0 &&
-    deviationsByService.value.IK_ALKOHOL.length === 0
+    (isLoadingChecklistRuns.value && checklistRuns.value === null) ||
+    (isLoadingTemperatureUnits.value && temperatureUnits.value === null) ||
+    (isLoadingDeviations.value &&
+      deviationsByService.value.IK_MAT.length === 0 &&
+      deviationsByService.value.IK_ALKOHOL.length === 0)
   ) {
-    return 'Loading deviation overview...'
+    return 'Loading IK-mat overview...'
   }
 
   return null
+})
+
+const ikAlkoholNote = computed(() => {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
+    return 'Loading workspace context...'
+  }
+
+  if (!workspaceContext.value) {
+    return 'Workspace overview becomes available when organization context is ready.'
+  }
+
+  const messages = [documentErrorMessage.value, deviationErrorMessage.value].filter(
+    (message): message is string => Boolean(message),
+  )
+
+  if (messages.length > 0) {
+    return messages.join(' ')
+  }
+
+  if (
+    (isLoadingDocuments.value && documents.value === null) ||
+    (isLoadingDeviations.value &&
+      deviationsByService.value.IK_MAT.length === 0 &&
+      deviationsByService.value.IK_ALKOHOL.length === 0)
+  ) {
+    return 'Loading IK-alkohol overview...'
+  }
+
+  return null
+})
+
+const attentionMessage = computed(() => {
+  if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
+    return 'Loading workspace context...'
+  }
+
+  if (!workspaceContext.value) {
+    return 'Workspace overview becomes available when organization context is ready.'
+  }
+
+  if (
+    (isLoadingChecklistRuns.value && checklistRuns.value === null) ||
+    (isLoadingTemperatureUnits.value && temperatureUnits.value === null) ||
+    (isLoadingDocuments.value && documents.value === null) ||
+    (isLoadingDeviations.value &&
+      deviationsByService.value.IK_MAT.length === 0 &&
+      deviationsByService.value.IK_ALKOHOL.length === 0)
+  ) {
+    return 'Loading workspace attention...'
+  }
+
+  if (
+    checklistRuns.value === null ||
+    temperatureUnits.value === null ||
+    documents.value === null ||
+    checklistErrorMessage.value ||
+    temperatureErrorMessage.value ||
+    documentErrorMessage.value ||
+    deviationErrorMessage.value
+  ) {
+    return 'Workspace attention is partially unavailable while some overview data could not be loaded.'
+  }
+
+  return 'No urgent follow-up right now.'
 })
 
 const serviceSummaries = computed(() => [
   buildIKMatServiceSummary({
     checklistRuns: checklistRuns.value,
-    checklistNote: checklistNote.value,
-    temperatureUnits,
+    checklistNote: ikMatNote.value,
+    temperatureUnits: temperatureUnits.value,
     deviations: deviationsByService.value.IK_MAT,
   }),
   buildIKAlkoholServiceSummary({
-    documents: importantDocuments,
+    documents: documents.value,
     deviations: deviationsByService.value.IK_ALKOHOL,
-    note: deviationNote.value,
+    currentUserId: authStore.user?.id ?? null,
+    note: ikAlkoholNote.value,
   }),
 ])
 
 const attentionItems = computed(() => {
   return buildWorkspaceAttentionItems({
     checklistRuns: checklistRuns.value ?? [],
-    temperatureUnits,
+    temperatureUnits: temperatureUnits.value,
     deviationsByService: deviationsByService.value,
-    documents: importantDocuments,
+    documents: documents.value,
   }).slice(0, 5)
 })
 
@@ -259,7 +288,33 @@ async function listAllDeviationsForEstablishment(
   return allDeviations
 }
 
-async function loadChecklistRuns(organizationId: string, establishmentIds: string[]): Promise<void> {
+function hasActiveWorkspaceRequest(requestId: number): boolean {
+  return requestId === workspaceRequestSequence
+}
+
+function resetWorkspaceOverview(): void {
+  checklistRuns.value = null
+  isLoadingChecklistRuns.value = false
+  checklistErrorMessage.value = null
+  deviationsByService.value = {
+    IK_MAT: [],
+    IK_ALKOHOL: [],
+  }
+  isLoadingDeviations.value = false
+  deviationErrorMessage.value = null
+  documents.value = null
+  isLoadingDocuments.value = false
+  documentErrorMessage.value = null
+  temperatureUnits.value = null
+  isLoadingTemperatureUnits.value = false
+  temperatureErrorMessage.value = null
+}
+
+async function loadChecklistRuns(
+  organizationId: string,
+  establishmentIds: string[],
+  requestId: number,
+): Promise<void> {
   isLoadingChecklistRuns.value = true
   checklistErrorMessage.value = null
 
@@ -270,17 +325,31 @@ async function loadChecklistRuns(organizationId: string, establishmentIds: strin
       ),
     )
 
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
     checklistRuns.value = selectLatestChecklistRuns(pages.flat())
   } catch (error) {
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
     checklistRuns.value = null
     checklistErrorMessage.value =
       error instanceof ApiError ? error.message : 'Checklist overview is temporarily unavailable.'
   } finally {
-    isLoadingChecklistRuns.value = false
+    if (hasActiveWorkspaceRequest(requestId)) {
+      isLoadingChecklistRuns.value = false
+    }
   }
 }
 
-async function loadDeviations(organizationId: string, establishmentIds: string[]): Promise<void> {
+async function loadDeviations(
+  organizationId: string,
+  establishmentIds: string[],
+  requestId: number,
+): Promise<void> {
   isLoadingDeviations.value = true
   deviationErrorMessage.value = null
 
@@ -291,12 +360,20 @@ async function loadDeviations(organizationId: string, establishmentIds: string[]
       ),
     )
 
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
     const allDeviations = pages.flat()
     deviationsByService.value = {
       IK_MAT: allDeviations.filter((deviation) => deviation.serviceArea === 'IK_MAT'),
       IK_ALKOHOL: allDeviations.filter((deviation) => deviation.serviceArea === 'IK_ALKOHOL'),
     }
   } catch (error) {
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
     deviationsByService.value = {
       IK_MAT: [],
       IK_ALKOHOL: [],
@@ -304,30 +381,110 @@ async function loadDeviations(organizationId: string, establishmentIds: string[]
     deviationErrorMessage.value =
       error instanceof ApiError ? error.message : 'Deviation overview is temporarily unavailable.'
   } finally {
-    isLoadingDeviations.value = false
+    if (hasActiveWorkspaceRequest(requestId)) {
+      isLoadingDeviations.value = false
+    }
+  }
+}
+
+async function loadDocuments(
+  organizationId: string,
+  establishmentIds: string[],
+  requestId: number,
+): Promise<void> {
+  isLoadingDocuments.value = true
+  documentErrorMessage.value = null
+
+  try {
+    const pages = await Promise.all(
+      establishmentIds.map((establishmentId) =>
+        listAllEstablishmentDocuments({
+          organizationId,
+          establishmentId,
+          serviceArea: 'IK_ALKOHOL',
+          size: 100,
+        }),
+      ),
+    )
+
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
+    documents.value = pages.flat()
+  } catch (error) {
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
+    documents.value = null
+    documentErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Documents overview is temporarily unavailable.'
+  } finally {
+    if (hasActiveWorkspaceRequest(requestId)) {
+      isLoadingDocuments.value = false
+    }
+  }
+}
+
+async function loadTemperatureUnits(
+  organizationId: string,
+  establishmentIds: string[],
+  requestId: number,
+): Promise<void> {
+  isLoadingTemperatureUnits.value = true
+  temperatureErrorMessage.value = null
+
+  try {
+    const pages = await Promise.all(
+      establishmentIds.map((establishmentId) =>
+        listTemperatureUnits({
+          organizationId,
+          establishmentId,
+        }),
+      ),
+    )
+
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
+    temperatureUnits.value = pages.flat()
+  } catch (error) {
+    if (!hasActiveWorkspaceRequest(requestId)) {
+      return
+    }
+
+    temperatureUnits.value = null
+    temperatureErrorMessage.value =
+      error instanceof ApiError
+        ? error.message
+        : 'Temperature overview is temporarily unavailable.'
+  } finally {
+    if (hasActiveWorkspaceRequest(requestId)) {
+      isLoadingTemperatureUnits.value = false
+    }
   }
 }
 
 watch(
   () => workspaceContext.value,
   async (context) => {
-    if (!context) {
-      checklistRuns.value = null
-      checklistErrorMessage.value = null
-      isLoadingChecklistRuns.value = false
-      deviationsByService.value = {
-        IK_MAT: [],
-        IK_ALKOHOL: [],
-      }
-      deviationErrorMessage.value = null
-      isLoadingDeviations.value = false
+    workspaceRequestSequence += 1
+    const requestId = workspaceRequestSequence
 
+    if (!context) {
+      resetWorkspaceOverview()
       return
     }
 
+    resetWorkspaceOverview()
+
     await Promise.all([
-      loadChecklistRuns(context.organizationId, context.establishmentIds),
-      loadDeviations(context.organizationId, context.establishmentIds),
+      loadChecklistRuns(context.organizationId, context.establishmentIds, requestId),
+      loadDeviations(context.organizationId, context.establishmentIds, requestId),
+      loadDocuments(context.organizationId, context.establishmentIds, requestId),
+      loadTemperatureUnits(context.organizationId, context.establishmentIds, requestId),
     ])
   },
   { immediate: true },
@@ -406,7 +563,7 @@ watch(
           </li>
         </ul>
 
-        <p v-else class="attention-empty-state">No urgent follow-up right now.</p>
+        <p v-else class="attention-empty-state">{{ attentionMessage }}</p>
       </div>
     </section>
 

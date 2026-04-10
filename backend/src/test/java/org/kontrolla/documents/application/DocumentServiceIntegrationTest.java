@@ -90,6 +90,7 @@ class DocumentServiceIntegrationTest {
         "  Oslo Municipality  ",
         today.minusDays(365),
         today.plusDays(7),
+        null,
         " alcohol-service-licence.pdf ",
         "application/pdf",
         pdfBytes("license-v1"),
@@ -103,6 +104,7 @@ class DocumentServiceIntegrationTest {
         "Kitchen operations",
         today.minusDays(120),
         today.plusDays(60),
+        null,
         "haccp-binder.pdf",
         "application/pdf",
         pdfBytes("haccp-v1"),
@@ -118,6 +120,7 @@ class DocumentServiceIntegrationTest {
         "  Oslo Municipality Licensing  ",
         today.minusDays(365),
         today.plusDays(45),
+        null,
         currentUser(manager)
     );
 
@@ -186,6 +189,7 @@ class DocumentServiceIntegrationTest {
         "Lina Dahl",
         today,
         today.minusDays(1),
+        null,
         "responsible-service-certificate.pdf",
         "application/pdf",
         pdfBytes("certificate"),
@@ -202,6 +206,7 @@ class DocumentServiceIntegrationTest {
         "Lina Dahl",
         today.minusDays(180),
         today.plusDays(5),
+        null,
         "responsible-service-certificate.pdf",
         "application/pdf",
         pdfBytes("certificate"),
@@ -217,6 +222,7 @@ class DocumentServiceIntegrationTest {
         "Lina Dahl",
         today,
         today.minusDays(2),
+        null,
         currentUser(manager)
     ))
         .isInstanceOf(ApplicationException.class)
@@ -241,6 +247,7 @@ class DocumentServiceIntegrationTest {
         "Bar team",
         today.minusDays(90),
         today.plusDays(30),
+        null,
         "age-control.pdf",
         "application/pdf",
         pdfBytes("age-control"),
@@ -255,6 +262,7 @@ class DocumentServiceIntegrationTest {
         "People operations",
         today.minusDays(180),
         today.plusDays(10),
+        null,
         "staff-register.pdf",
         "application/pdf",
         pdfBytes("staff-register"),
@@ -270,6 +278,7 @@ class DocumentServiceIntegrationTest {
         "Updated holder",
         today.minusDays(90),
         today.plusDays(40),
+        null,
         currentUser(employee)
     )).isInstanceOf(ForbiddenException.class);
 
@@ -292,6 +301,95 @@ class DocumentServiceIntegrationTest {
   }
 
   @Test
+  void managerCanAssignMultipleAuditReadersAndEachAcknowledgesIndividually() {
+    User manager = createUser("documents-audit-manager@example.com", "Manager", "Audit", true);
+    User firstReader = createUser("documents-audit-reader-1@example.com", "Nora", "Hansen", true);
+    User secondReader = createUser("documents-audit-reader-2@example.com", "Lina", "Dahl", true);
+    Organization organization = createOrganization("Kontrolla Document Audit");
+    Establishment establishment = createEstablishment(organization, "Audit Bar");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+    createMembership(organization, firstReader, OrganizationRole.ORG_EMPLOYEE, true);
+    createMembership(organization, secondReader, OrganizationRole.ORG_EMPLOYEE, true);
+    LocalDate today = LocalDate.now(clock);
+
+    Document document = documentService.createDocument(
+        organization.getId(),
+        establishment.getId(),
+        DocumentServiceArea.IK_ALKOHOL,
+        "Responsible service handbook",
+        "Bar team",
+        today.minusDays(60),
+        today.plusDays(30),
+        java.util.List.of(firstReader.getId(), secondReader.getId()),
+        "responsible-service.pdf",
+        "application/pdf",
+        pdfBytes("audit-handbook"),
+        currentUser(manager)
+    );
+
+    Document afterFirstAcknowledgement = documentService.acknowledgeDocumentAudit(
+        organization.getId(),
+        establishment.getId(),
+        document.getId(),
+        currentUser(firstReader)
+    );
+
+    Document afterSecondAcknowledgement = documentService.acknowledgeDocumentAudit(
+        organization.getId(),
+        establishment.getId(),
+        document.getId(),
+        currentUser(secondReader)
+    );
+
+    assertThat(document.getAuditAssignments()).hasSize(2);
+    assertThat(afterFirstAcknowledgement.findAuditAssignment(firstReader.getId()))
+        .get()
+        .extracting(assignment -> assignment.getAcknowledgedAt())
+        .isNotNull();
+    assertThat(afterFirstAcknowledgement.findAuditAssignment(secondReader.getId()))
+        .get()
+        .extracting(assignment -> assignment.getAcknowledgedAt())
+        .isNull();
+    assertThat(afterFirstAcknowledgement.isAuditReady()).isFalse();
+    assertThat(afterSecondAcknowledgement.isAuditReady()).isTrue();
+  }
+
+  @Test
+  void nonAssignedUserCannotAcknowledgeDocumentAudit() {
+    User manager = createUser("documents-audit-manager-2@example.com", "Manager", "Audit", true);
+    User assignedReader = createUser("documents-audit-reader-3@example.com", "Nora", "Hansen", true);
+    User outsiderReader = createUser("documents-audit-outsider@example.com", "Elias", "Berg", true);
+    Organization organization = createOrganization("Kontrolla Document Audit Access");
+    Establishment establishment = createEstablishment(organization, "Audit Bar");
+    createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
+    createMembership(organization, assignedReader, OrganizationRole.ORG_EMPLOYEE, true);
+    createMembership(organization, outsiderReader, OrganizationRole.ORG_EMPLOYEE, true);
+    LocalDate today = LocalDate.now(clock);
+
+    Document document = documentService.createDocument(
+        organization.getId(),
+        establishment.getId(),
+        DocumentServiceArea.IK_ALKOHOL,
+        "Responsible service handbook",
+        "Bar team",
+        today.minusDays(60),
+        today.plusDays(30),
+        java.util.List.of(assignedReader.getId()),
+        "responsible-service.pdf",
+        "application/pdf",
+        pdfBytes("audit-handbook"),
+        currentUser(manager)
+    );
+
+    assertThatThrownBy(() -> documentService.acknowledgeDocumentAudit(
+        organization.getId(),
+        establishment.getId(),
+        document.getId(),
+        currentUser(outsiderReader)
+    )).isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
   void nonPdfFilesAreRejectedForCreateAndReplace() {
     User manager = createUser("documents-pdf-only@example.com", "Manager", "PDF", true);
     Organization organization = createOrganization("Kontrolla Documents PDF Only");
@@ -307,6 +405,7 @@ class DocumentServiceIntegrationTest {
         "Shift supervisors",
         today.minusDays(30),
         today.plusDays(30),
+        null,
         "incident-report.txt",
         "text/plain",
         "plain-text".getBytes(StandardCharsets.UTF_8),
@@ -323,6 +422,7 @@ class DocumentServiceIntegrationTest {
         "Shift supervisors",
         today.minusDays(30),
         today.plusDays(30),
+        null,
         "incident-report.pdf",
         "application/pdf",
         pdfBytes("incident-report"),

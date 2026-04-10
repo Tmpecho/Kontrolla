@@ -12,6 +12,7 @@ import WorkspaceHomePage from '@/workspace/pages/WorkspaceHomePage.vue'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import IKMatChecklistsPage from '@/ik-mat/pages/IKMatChecklistsPage.vue'
 import IKMatTemperaturePage from '@/ik-mat/pages/IKMatTemperaturePage.vue'
+import TemperatureUnitCreatePage from '@/ik-mat/pages/TemperatureUnitCreatePage.vue'
 import DocumentUploadPage from '@/documents/pages/DocumentUploadPage.vue'
 import DocumentsPage from '@/documents/pages/DocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
@@ -109,6 +110,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-mat/temperature',
         name: 'ik-mat-temperature',
         component: IKMatTemperaturePage,
+      },
+      {
+        path: 'ik-mat/temperature/new',
+        name: 'ik-mat-temperature-create',
+        component: TemperatureUnitCreatePage,
       },
       {
         path: 'ik-alkohol',

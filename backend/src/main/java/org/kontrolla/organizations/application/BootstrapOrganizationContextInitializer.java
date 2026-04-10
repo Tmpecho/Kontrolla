@@ -25,6 +25,11 @@ import org.kontrolla.deviations.domain.DeviationEventType;
 import org.kontrolla.deviations.domain.DeviationSeverity;
 import org.kontrolla.deviations.domain.DeviationStatus;
 import org.kontrolla.deviations.infrastructure.DeviationRepository;
+import org.kontrolla.documents.domain.Document;
+import org.kontrolla.documents.domain.DocumentFile;
+import org.kontrolla.documents.domain.DocumentServiceArea;
+import org.kontrolla.documents.infrastructure.DocumentFileRepository;
+import org.kontrolla.documents.infrastructure.DocumentRepository;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
@@ -47,11 +52,13 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -91,6 +98,8 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 	private final ChecklistRunRepository checklistRunRepository;
 	private final ChecklistSchedulerService checklistSchedulerService;
 	private final DeviationRepository deviationRepository;
+	private final DocumentRepository documentRepository;
+	private final DocumentFileRepository documentFileRepository;
 	private final TemperatureUnitRepository temperatureUnitRepository;
 	private final AppSecurityProperties properties;
 	private final PasswordEncoder passwordEncoder;
@@ -104,6 +113,8 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			ChecklistRunRepository checklistRunRepository,
 			ChecklistSchedulerService checklistSchedulerService,
 			DeviationRepository deviationRepository,
+			DocumentRepository documentRepository,
+			DocumentFileRepository documentFileRepository,
 			TemperatureUnitRepository temperatureUnitRepository,
 			AppSecurityProperties properties,
 			PasswordEncoder passwordEncoder
@@ -116,6 +127,8 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		this.checklistRunRepository = checklistRunRepository;
 		this.checklistSchedulerService = checklistSchedulerService;
 		this.deviationRepository = deviationRepository;
+		this.documentRepository = documentRepository;
+		this.documentFileRepository = documentFileRepository;
 		this.temperatureUnitRepository = temperatureUnitRepository;
 		this.properties = properties;
 		this.passwordEncoder = passwordEncoder;
@@ -225,6 +238,7 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		seedAdditionalMembers(seed, organization, organizationName, activeEstablishments);
 
 		bootstrapTemperatureUnits(organization, bootstrapEstablishments);
+		bootstrapDocuments(organization, bootstrapEstablishments);
 
 		checklistActor.ifPresent(actor -> {
 			bootstrapChecklistRuns(organization, bootstrapEstablishments, actor);
@@ -706,6 +720,38 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 		}
 	}
 
+	private void bootstrapDocuments(Organization organization, List<Establishment> establishments) {
+		for (Establishment establishment : establishments) {
+			if (establishment.getStatus() != EstablishmentStatus.ACTIVE) {
+				continue;
+			}
+
+			List<OrganizationMembership> accessibleMemberships = organizationMembershipRepository
+					.findByOrganizationIdAndActiveTrueAndAccessibleEstablishmentId(
+							organization.getId(),
+							establishment.getId(),
+							PageRequest.of(0, 100)
+					)
+					.getContent()
+					.stream()
+					.filter(membership -> membership.getUser().isActive())
+					.toList();
+			Optional<User> actor = resolveBootstrapDocumentActor(accessibleMemberships);
+			if (actor.isEmpty()) {
+				log.warn("Skipped bootstrap documents for {} because no accessible active members were found", establishment.getName());
+				continue;
+			}
+
+			List<User> auditReaders = resolveBootstrapAuditReaders(accessibleMemberships, actor.get());
+			for (BootstrapDocumentSeed seed : buildDocumentSeeds(DocumentServiceArea.IK_ALKOHOL)) {
+				upsertBootstrapDocument(organization, establishment, actor.get(), auditReaders, seed);
+			}
+			for (BootstrapDocumentSeed seed : buildDocumentSeeds(DocumentServiceArea.IK_MAT)) {
+				upsertBootstrapDocument(organization, establishment, actor.get(), auditReaders, seed);
+			}
+		}
+	}
+
 	private void upsertTemperatureUnit(
 			Organization organization,
 			Establishment establishment,
@@ -737,6 +783,237 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 					temperatureUnitRepository.save(created);
 					log.info("Created bootstrap temperature unit {} for {}", seed.name(), establishment.getName());
 				});
+	}
+
+	private Optional<User> resolveBootstrapDocumentActor(List<OrganizationMembership> accessibleMemberships) {
+		return accessibleMemberships.stream()
+				.sorted((left, right) -> Integer.compare(documentActorPriority(left.getRole()), documentActorPriority(right.getRole())))
+				.map(OrganizationMembership::getUser)
+				.findFirst();
+	}
+
+	private int documentActorPriority(OrganizationRole role) {
+		return switch (role) {
+			case ORG_OWNER -> 0;
+			case ORG_ADMIN -> 1;
+			case ORG_MANAGER -> 2;
+			case ORG_EMPLOYEE -> 3;
+		};
+	}
+
+	private List<User> resolveBootstrapAuditReaders(List<OrganizationMembership> accessibleMemberships, User actor) {
+		List<User> prioritizedReaders = accessibleMemberships.stream()
+				.sorted((left, right) -> Integer.compare(auditReaderPriority(left.getRole()), auditReaderPriority(right.getRole())))
+				.map(OrganizationMembership::getUser)
+				.filter(user -> !user.getId().equals(actor.getId()))
+				.toList();
+
+		if (!prioritizedReaders.isEmpty()) {
+			return prioritizedReaders;
+		}
+
+		return List.of(actor);
+	}
+
+	private int auditReaderPriority(OrganizationRole role) {
+		return switch (role) {
+			case ORG_EMPLOYEE -> 0;
+			case ORG_MANAGER -> 1;
+			case ORG_ADMIN -> 2;
+			case ORG_OWNER -> 3;
+		};
+	}
+
+	private void upsertBootstrapDocument(
+			Organization organization,
+			Establishment establishment,
+			User actor,
+			List<User> auditReaders,
+			BootstrapDocumentSeed seed
+	) {
+		LocalDate today = LocalDate.now(DEFAULT_BOOTSTRAP_ZONE);
+		LocalDate issueDate = today.plusDays(seed.issueDateOffsetDays());
+		LocalDate renewalDate = today.plusDays(seed.renewalDateOffsetDays());
+		String fileName = slugify(seed.title()) + ".pdf";
+		byte[] fileContent = buildSamplePdf(seed.title(), seed.serviceArea());
+		List<User> assignedAuditReaders = auditReaders.stream()
+				.limit(seed.auditReaderCount())
+				.toList();
+
+		documentRepository.findByEstablishmentIdAndOrganizationIdAndServiceAreaOrderByTitleAsc(
+				establishment.getId(),
+				organization.getId(),
+				seed.serviceArea()
+		).stream()
+				.filter(existing -> existing.getTitle().equalsIgnoreCase(seed.title()))
+				.findFirst()
+				.ifPresentOrElse(existing -> {
+					existing.setHolderName(seed.holderName());
+					existing.setIssueDate(issueDate);
+					existing.setRenewalDate(renewalDate);
+					existing.setFileName(fileName);
+					existing.setContentType("application/pdf");
+					existing.setFileSizeBytes(fileContent.length);
+					existing.replaceAuditAssignments(assignedAuditReaders);
+
+					Document savedDocument = documentRepository.save(existing);
+					upsertBootstrapDocumentFile(savedDocument, fileContent);
+				}, () -> {
+					Document created = new Document(
+							organization,
+							establishment,
+							actor,
+							seed.serviceArea(),
+							seed.title(),
+							seed.holderName(),
+							issueDate,
+							renewalDate,
+							fileName,
+							"application/pdf",
+							fileContent.length
+					);
+					created.replaceAuditAssignments(assignedAuditReaders);
+					Document savedDocument = documentRepository.save(created);
+					documentFileRepository.save(new DocumentFile(savedDocument.getId(), fileContent));
+					log.info("Created bootstrap document {} for {}", seed.title(), establishment.getName());
+				});
+	}
+
+	private void upsertBootstrapDocumentFile(Document document, byte[] fileContent) {
+		DocumentFile file = documentFileRepository.findById(document.getId())
+				.map(existing -> {
+					existing.replaceContent(fileContent);
+					return existing;
+				})
+				.orElseGet(() -> new DocumentFile(document.getId(), fileContent));
+		documentFileRepository.save(file);
+	}
+
+	private List<BootstrapDocumentSeed> buildDocumentSeeds(DocumentServiceArea serviceArea) {
+		return switch (serviceArea) {
+			case IK_ALKOHOL -> List.of(
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_ALKOHOL,
+							"Alcohol service licence",
+							"Municipal licensing authority",
+							-330,
+							14,
+							0
+					),
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_ALKOHOL,
+							"Manager knowledge test certificate",
+							"Duty manager register",
+							-180,
+							160,
+							0
+					),
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_ALKOHOL,
+							"Age verification routine",
+							"Front-of-house operations",
+							-90,
+							240,
+							3
+					),
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_ALKOHOL,
+							"Service refusal routine",
+							"Bar operations",
+							-60,
+							300,
+							3
+					)
+			);
+			case IK_MAT -> List.of(
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_MAT,
+							"HACCP / food safety plan",
+							"Kitchen operations",
+							-210,
+							21,
+							0
+					),
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_MAT,
+							"Cleaning and sanitation routine",
+							"Sanitation lead",
+							-90,
+							180,
+							3
+					),
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_MAT,
+							"Allergen handling procedure",
+							"Kitchen operations",
+							-120,
+							260,
+							3
+					),
+					new BootstrapDocumentSeed(
+							DocumentServiceArea.IK_MAT,
+							"Temperature monitoring routine",
+							"Cold storage team",
+							-60,
+							320,
+							2
+					)
+			);
+		};
+	}
+
+	private byte[] buildSamplePdf(String title, DocumentServiceArea serviceArea) {
+		String stream = """
+				BT
+				/F1 20 Tf
+				72 720 Td
+				(%s) Tj
+				0 -28 Td
+				/F1 12 Tf
+				(%s) Tj
+				0 -20 Td
+				(%s) Tj
+				ET
+				""".formatted(
+				escapePdfText(title),
+				escapePdfText(serviceArea.name().replace('_', ' ')),
+				escapePdfText("Empty sample")
+		);
+		String objectOne = "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
+		String objectTwo = "2 0 obj\n<< /Type /Pages /Count 1 /Kids [3 0 R] >>\nendobj\n";
+		String objectThree = "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n";
+		String objectFour = "4 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n"
+				.formatted(stream.getBytes(StandardCharsets.US_ASCII).length, stream);
+		String objectFive = "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n";
+
+		List<String> objects = List.of(objectOne, objectTwo, objectThree, objectFour, objectFive);
+		StringBuilder pdf = new StringBuilder("%PDF-1.4\n");
+		List<Integer> offsets = new ArrayList<>();
+		for (String object : objects) {
+			offsets.add(pdf.toString().getBytes(StandardCharsets.US_ASCII).length);
+			pdf.append(object);
+		}
+
+		int xrefOffset = pdf.toString().getBytes(StandardCharsets.US_ASCII).length;
+		pdf.append("xref\n");
+		pdf.append("0 ").append(objects.size() + 1).append("\n");
+		pdf.append("0000000000 65535 f \n");
+		for (Integer offset : offsets) {
+			pdf.append(String.format("%010d 00000 n \n", offset));
+		}
+		pdf.append("trailer\n");
+		pdf.append("<< /Size ").append(objects.size() + 1).append(" /Root 1 0 R >>\n");
+		pdf.append("startxref\n");
+		pdf.append(xrefOffset).append("\n");
+		pdf.append("%%EOF\n");
+		return pdf.toString().getBytes(StandardCharsets.US_ASCII);
+	}
+
+	private String escapePdfText(String value) {
+		return value
+				.replace("\\", "\\\\")
+				.replace("(", "\\(")
+				.replace(")", "\\)");
 	}
 
 	private List<BootstrapTemperatureUnitSeed> buildTemperatureUnitSeeds(EstablishmentType type) {
@@ -1555,6 +1832,16 @@ public class BootstrapOrganizationContextInitializer implements ApplicationRunne
 			LocalTime dueByTime,
 			BigDecimal minimumTemperature,
 			BigDecimal maximumTemperature
+	) {
+	}
+
+	private record BootstrapDocumentSeed(
+			DocumentServiceArea serviceArea,
+			String title,
+			String holderName,
+			int issueDateOffsetDays,
+			int renewalDateOffsetDays,
+			int auditReaderCount
 	) {
 	}
 }

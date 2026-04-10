@@ -2,18 +2,19 @@
 import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { listAllEstablishmentDocuments } from '@/documents/api/documents.api'
 import type {
   DocumentServiceArea,
   EstablishmentDocument,
 } from '@/documents/model/document.types'
 import {
+  documentNeedsAuditForUser,
   expiryWarningDays,
   parseLocalDate,
   sortDocumentsByRenewalDate,
 } from '@/documents/model/document.utils'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 
 const props = withDefaults(defineProps<{
   serviceArea?: DocumentServiceArea
@@ -24,27 +25,29 @@ const props = withDefaults(defineProps<{
 })
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 const documents = ref<EstablishmentDocument[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const currentUserId = computed(() => authStore.user?.id ?? null)
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
 const missingContextMessage = computed(() => {
-  if (organizationId.value && establishmentId.value) {
+  if (workspaceContext.isStartupPending.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Documents are unavailable until organization context is ready.'
+  if (workspaceContext.hasEstablishmentContext.value) {
+    return null
   }
 
-  return 'Set the default organization and establishment IDs or sign in with an organization context to load documents.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment to load documents.'
+  }
+
+  return 'Documents are unavailable until organization context is ready.'
 })
 
 const documentsWithStatus = computed(() => sortDocumentsByRenewalDate(documents.value))
@@ -57,16 +60,9 @@ const expiringCount = computed(() => {
   return documentsWithStatus.value.filter((documentRecord) => documentRecord.status === 'EXPIRING').length
 })
 
-const readyCount = computed(() => {
-  return documentsWithStatus.value.filter((documentRecord) => documentRecord.status !== 'EXPIRED').length
-})
-
-const readinessPercentage = computed(() => {
-  if (documentsWithStatus.value.length === 0) {
-    return 0
-  }
-
-  return Math.round((readyCount.value / documentsWithStatus.value.length) * 100)
+const documentsNeedingCurrentUserAuditCount = computed(() => {
+  return documentsWithStatus.value.filter((documentRecord) =>
+    documentNeedsAuditForUser(documentRecord, currentUserId.value)).length
 })
 
 const nextRenewalDocument = computed(() => documentsWithStatus.value[0] ?? null)
@@ -160,10 +156,13 @@ async function loadDocuments(): Promise<void> {
       </div>
 
       <div class="summary-card summary-card-readiness">
-        <p class="summary-label">Audit readiness</p>
-        <p class="summary-value">{{ readinessPercentage }}%</p>
+        <p class="summary-label">Needs your audit</p>
+        <p class="summary-value">
+          {{ documentsNeedingCurrentUserAuditCount }}
+          {{ documentsNeedingCurrentUserAuditCount === 1 ? 'document' : 'documents' }}
+        </p>
         <p class="summary-hint">
-          {{ readyCount }}/{{ documentsWithStatus.length }} documents ready for audit
+          Assigned to you and awaiting acknowledgement.
         </p>
       </div>
     </div>

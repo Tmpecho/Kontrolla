@@ -13,7 +13,7 @@ import type {
   OrganizationRole,
 } from '@/account/model/organization-members.types'
 import { useAuthStore } from '@/auth/model/auth.store'
-import { appEnv } from '@/shared/config/env'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import { ApiError } from '@/shared/api/http'
 
 type EditableMembership = OrganizationMembership & {
@@ -34,6 +34,7 @@ type MemberProvisionDraft = {
 }
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 
 const organizationRoles: Array<{ value: OrganizationRole; label: string; description: string }> = [
   {
@@ -79,7 +80,7 @@ const createDraft = ref<MemberProvisionDraft>({
 })
 
 const resolvedOrganizationId = computed(() => {
-  return authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null
+  return workspaceContext.organizationId.value
 })
 
 const resolvedOrganizationName = computed(() => {
@@ -351,10 +352,7 @@ watch(
   <div class="directory-page app-page">
     <section v-if="!resolvedOrganizationId" class="notice-panel app-panel">
       <h2>Organization context required</h2>
-      <p>
-        This page needs an organization context. Sign in with an organization membership or set
-        `VITE_DEFAULT_ORGANIZATION_ID` in development.
-      </p>
+      <p>This page needs an organization context before members can be managed.</p>
     </section>
 
     <section v-else-if="!canManageMembers" class="notice-panel app-panel">

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 import {
+  acknowledgeDocumentRead,
   createDocument,
   deleteDocument,
   downloadDocumentFile,
@@ -90,6 +91,7 @@ describe('documents.api', () => {
               contentType: 'application/pdf',
               fileSizeBytes: 2048,
               status: 'VALID',
+              auditAssignments: [],
               createdAt: '2026-01-01T08:00:00Z',
               updatedAt: '2026-01-01T08:00:00Z',
             },
@@ -122,6 +124,7 @@ describe('documents.api', () => {
               contentType: 'application/pdf',
               fileSizeBytes: 1024,
               status: 'EXPIRING',
+              auditAssignments: [],
               createdAt: '2026-01-01T08:00:00Z',
               updatedAt: '2026-01-01T08:00:00Z',
             },
@@ -194,6 +197,7 @@ describe('documents.api', () => {
         contentType: 'application/pdf',
         fileSizeBytes: 2048,
         status: 'VALID',
+        auditAssignments: [],
         createdAt: '2026-01-01T08:00:00Z',
         updatedAt: '2026-01-01T08:00:00Z',
       }), {
@@ -212,6 +216,7 @@ describe('documents.api', () => {
       holderName: 'Oslo Municipality',
       issueDate: '2026-01-01',
       renewalDate: '2026-10-01',
+      auditUserIds: ['user-2', 'user-3'],
       file: new File(['%PDF-1.7'], 'alcohol-service-licence.pdf', { type: 'application/pdf' }),
     })
 
@@ -223,6 +228,9 @@ describe('documents.api', () => {
     )
     expect(requestInit.method).toBe('POST')
     expect(requestInit.body).toBeInstanceOf(FormData)
+    const metadata = (requestInit.body as FormData).get('metadata')
+    expect(metadata).toBeInstanceOf(Blob)
+    await expect((metadata as Blob).text()).resolves.toContain('"auditUserIds":["user-2","user-3"]')
   })
 
   it('downloads a document file from the file endpoint', async () => {
@@ -281,6 +289,70 @@ describe('documents.api', () => {
       'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/documents/doc-1',
       expect.objectContaining({
         method: 'DELETE',
+        credentials: 'include',
+      }),
+    )
+  })
+
+  it('acknowledges document reads with the acknowledgement endpoint', async () => {
+    const fetchMock = fetch as Mock
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        token: 'csrf-token',
+        headerName: 'X-XSRF-TOKEN',
+        parameterName: '_csrf',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        id: 'doc-1',
+        organizationId: 'org-1',
+        establishmentId: 'est-1',
+        createdByUserId: 'user-1',
+        serviceArea: 'IK_ALKOHOL',
+        title: 'Alcohol service licence',
+        holderName: 'Oslo Municipality',
+        issueDate: '2026-01-01',
+        renewalDate: '2026-10-01',
+        fileName: 'alcohol-service-licence.pdf',
+        contentType: 'application/pdf',
+        fileSizeBytes: 2048,
+        status: 'VALID',
+        auditAssignments: [
+          {
+            userId: 'user-2',
+            userEmail: 'reader@example.com',
+            userFirstName: 'Reader',
+            userLastName: 'One',
+            acknowledgedAt: '2026-04-09T10:15:00Z',
+          },
+        ],
+        createdAt: '2026-01-01T08:00:00Z',
+        updatedAt: '2026-01-01T08:00:00Z',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
+
+    await acknowledgeDocumentRead({
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+      documentId: 'doc-1',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/organizations/org-1/establishments/est-1/documents/doc-1/acknowledge-read',
+      expect.objectContaining({
+        method: 'POST',
         credentials: 'include',
       }),
     )

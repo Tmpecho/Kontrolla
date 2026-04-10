@@ -2,8 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
+import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
 import TemperatureSparkline from '@/ik-mat/components/TemperatureSparkline.vue'
-import { createTemperatureLog, listTemperatureUnits } from '@/ik-mat/api/temperature.api'
+import {
+  createTemperatureLog,
+  deleteTemperatureUnit,
+  listTemperatureUnits,
+} from '@/ik-mat/api/temperature.api'
 import AppOverlay from '@/shared/components/overlay/AppOverlay.vue'
 import type {
   TemperatureAlertState,
@@ -20,7 +25,6 @@ import {
   isTemperatureWithinRange,
 } from '@/ik-mat/model/temperature.utils'
 import { ApiError } from '@/shared/api/http'
-import { appEnv } from '@/shared/config/env'
 
 type TemperatureFilter = 'ALL' | 'OVERDUE' | 'DUE_SOON'
 type SaveState = 'IDLE' | 'SAVING'
@@ -34,6 +38,7 @@ type TemperatureSaveResult = {
 }
 
 const authStore = useAuthStore()
+const workspaceContext = useProtectedWorkspaceContext()
 
 const units = ref<TemperatureUnit[]>([])
 const now = ref(new Date())
@@ -49,6 +54,8 @@ const latestSaveResult = ref<TemperatureSaveResult | null>(null)
 const isMobileEditor = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
+const actionErrorMessage = ref<string | null>(null)
+const activeDeleteUnitId = ref<string | null>(null)
 
 let nowRefreshTimer: number | null = null
 let requestSequence = 0
@@ -59,25 +66,35 @@ const filterOptions: Array<{ value: TemperatureFilter; label: string }> = [
   { value: 'DUE_SOON', label: 'Due soon' },
 ]
 
-const organizationId = computed(
-  () => authStore.appContext?.organizationId ?? appEnv.defaultOrganizationId ?? null,
-)
-const establishmentId = computed(
-  () => authStore.appContext?.establishmentId ?? appEnv.defaultEstablishmentId ?? null,
-)
+const organizationId = workspaceContext.organizationId
+const establishmentId = workspaceContext.establishmentId
 
-const hasTemperatureContext = computed(() => Boolean(organizationId.value && establishmentId.value))
+const hasTemperatureContext = computed(() => workspaceContext.hasEstablishmentContext.value)
+const canManageTemperatureUnits = computed(() => {
+  if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
+    return true
+  }
+
+  return (
+    authStore.appContext?.organizationRole === 'ORG_OWNER' ||
+    authStore.appContext?.organizationRole === 'ORG_ADMIN'
+  )
+})
 
 const missingContextMessage = computed(() => {
+  if (workspaceContext.isStartupPending.value) {
+    return null
+  }
+
   if (hasTemperatureContext.value) {
     return null
   }
 
-  if (!appEnv.isDevelopment) {
-    return 'Temperature logs cannot be loaded until organization and establishment context is available.'
+  if (workspaceContext.requiresEstablishmentSelection.value) {
+    return 'Choose an establishment to load temperature units.'
   }
 
-  return 'Set VITE_DEFAULT_ORGANIZATION_ID and VITE_DEFAULT_ESTABLISHMENT_ID or sign in with an organization context to load temperature units.'
+  return 'Temperature logs cannot be loaded until organization and establishment context is available.'
 })
 
 const unitsWithStatus = computed<TemperatureUnitListItem[]>(() => {
@@ -247,6 +264,10 @@ function getDueIndicatorTone(loggingStatus: TemperatureLoggingStatus): string {
   }
 }
 
+function isDeletingUnit(unitId: string): boolean {
+  return activeDeleteUnitId.value === unitId
+}
+
 function resetDraft(): void {
   draftTemperature.value = ''
   draftMeasuredAt.value = formatDateTimeInputValue(new Date())
@@ -413,6 +434,7 @@ async function loadTemperatureUnits(): Promise<void> {
 
   isLoading.value = true
   errorMessage.value = null
+  actionErrorMessage.value = null
 
   try {
     const nextUnits = await listTemperatureUnits({
@@ -436,6 +458,51 @@ async function loadTemperatureUnits(): Promise<void> {
   } finally {
     if (currentRequestId === requestSequence) {
       isLoading.value = false
+    }
+  }
+}
+
+async function handleDeleteUnit(unit: TemperatureUnitListItem): Promise<void> {
+  const resolvedOrganizationId = organizationId.value
+  const resolvedEstablishmentId = establishmentId.value
+
+  if (
+    !resolvedOrganizationId ||
+    !resolvedEstablishmentId ||
+    !canManageTemperatureUnits.value ||
+    isDeletingUnit(unit.id)
+  ) {
+    return
+  }
+
+  if (!window.confirm(`Delete "${unit.name}"? This cannot be undone.`)) {
+    return
+  }
+
+  actionErrorMessage.value = null
+  activeDeleteUnitId.value = unit.id
+
+  try {
+    await deleteTemperatureUnit({
+      organizationId: resolvedOrganizationId,
+      establishmentId: resolvedEstablishmentId,
+      temperatureUnitId: unit.id,
+    })
+
+    units.value = units.value.filter((existingUnit) => existingUnit.id !== unit.id)
+
+    if (editingUnitId.value === unit.id) {
+      closeEditor()
+    }
+    if (latestSaveResult.value?.unitId === unit.id) {
+      latestSaveResult.value = null
+    }
+  } catch (error) {
+    actionErrorMessage.value =
+      error instanceof ApiError ? error.message : 'Could not delete the temperature unit.'
+  } finally {
+    if (activeDeleteUnitId.value === unit.id) {
+      activeDeleteUnitId.value = null
     }
   }
 }
@@ -473,6 +540,14 @@ watch([organizationId, establishmentId], () => {
           up immediately when a reading falls outside the acceptable range.
         </p>
       </div>
+
+      <RouterLink
+        v-if="canManageTemperatureUnits"
+        :to="{ name: 'ik-mat-temperature-create' }"
+        class="header-action-link"
+      >
+        Add new unit
+      </RouterLink>
     </header>
 
     <section v-if="showSummary" class="summary-grid" aria-label="Temperature overview">
@@ -552,6 +627,10 @@ watch([organizationId, establishmentId], () => {
         </div>
       </div>
 
+      <p v-if="actionErrorMessage" class="action-error-message">
+        {{ actionErrorMessage }}
+      </p>
+
       <div v-if="missingContextMessage" class="empty-state">
         <p>{{ missingContextMessage }}</p>
       </div>
@@ -615,9 +694,21 @@ watch([organizationId, establishmentId], () => {
             </div>
 
             <div class="temperature-actions">
-              <button type="button" class="row-action" @click="openEditor(unit.id)">
-                Log reading
-              </button>
+              <div class="temperature-action-buttons">
+                <button type="button" class="row-action" @click="openEditor(unit.id)">
+                  Log reading
+                </button>
+
+                <button
+                  v-if="canManageTemperatureUnits"
+                  type="button"
+                  class="row-action row-action-delete"
+                  :disabled="isDeletingUnit(unit.id)"
+                  @click="handleDeleteUnit(unit)"
+                >
+                  {{ isDeletingUnit(unit.id) ? 'Deleting...' : 'Delete unit' }}
+                </button>
+              </div>
 
               <div
                 v-if="getSaveFeedback(unit.id)"
@@ -780,6 +871,7 @@ watch([organizationId, establishmentId], () => {
 
 <style scoped>
 .page-subtitle,
+.action-error-message,
 .summary-label,
 .summary-value,
 .summary-support,
@@ -802,6 +894,25 @@ watch([organizationId, establishmentId], () => {
 .page-subtitle {
   max-width: 72ch;
   color: var(--color-text-secondary);
+}
+
+.action-error-message {
+  color: var(--color-critical);
+}
+
+.header-action-link {
+  flex-shrink: 0;
+  text-decoration: none;
+  padding: 0.875rem 1rem;
+  border-radius: 4px;
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.header-action-link:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 88%, black);
 }
 
 .summary-grid {
@@ -980,6 +1091,12 @@ watch([organizationId, establishmentId], () => {
   grid-area: actions;
 }
 
+.temperature-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .temperature-location,
 .temperature-range,
 .due-indicator,
@@ -1086,6 +1203,15 @@ watch([organizationId, establishmentId], () => {
 .editor-button:hover,
 .editor-close-button:hover {
   background-color: var(--color-surface);
+}
+
+.row-action-delete {
+  border-color: color-mix(in srgb, var(--color-critical) 30%, var(--color-border-muted));
+  color: var(--color-critical);
+}
+
+.row-action-delete:hover {
+  background-color: color-mix(in srgb, var(--color-critical) 8%, var(--color-container));
 }
 
 .editor-button-primary {
@@ -1268,6 +1394,16 @@ watch([organizationId, establishmentId], () => {
 }
 
 @media (max-width: 720px) {
+  .page-header {
+    flex-direction: column;
+  }
+
+  .header-action-link {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
   .summary-grid,
   .temperature-row {
     grid-template-columns: 1fr;
@@ -1310,6 +1446,10 @@ watch([organizationId, establishmentId], () => {
   .save-feedback,
   .deviation-link {
     width: 100%;
+  }
+
+  .temperature-action-buttons {
+    flex-direction: column;
   }
 
   .row-action,

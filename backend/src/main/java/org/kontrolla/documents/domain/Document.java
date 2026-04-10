@@ -7,7 +7,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
@@ -16,6 +18,12 @@ import org.kontrolla.iam.domain.User;
 import org.kontrolla.organizations.domain.Organization;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 @Getter
 @Entity
@@ -69,6 +77,10 @@ public class Document extends AbstractAuditableUuidEntity {
   @Column(name = "file_size_bytes", nullable = false)
   private long fileSizeBytes;
 
+  @Getter(AccessLevel.NONE)
+  @OneToMany(mappedBy = "document", orphanRemoval = true, cascade = jakarta.persistence.CascadeType.ALL)
+  private final List<DocumentAuditAssignment> auditAssignments = new ArrayList<>();
+
   protected Document() {
   }
 
@@ -116,5 +128,45 @@ public class Document extends AbstractAuditableUuidEntity {
     }
 
     return DocumentStatus.VALID;
+  }
+
+  public List<DocumentAuditAssignment> getAuditAssignments() {
+    return List.copyOf(auditAssignments);
+  }
+
+  public void replaceAuditAssignments(List<User> users) {
+    Set<UUID> nextUserIds = users.stream()
+        .map(User::getId)
+        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+
+    auditAssignments.removeIf(assignment -> !nextUserIds.contains(assignment.getUser().getId()));
+
+    Set<UUID> existingUserIds = auditAssignments.stream()
+        .map(assignment -> assignment.getUser().getId())
+        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+
+    for (User user : users) {
+      if (existingUserIds.contains(user.getId())) {
+        continue;
+      }
+
+      addAuditAssignment(user);
+    }
+  }
+
+  public Optional<DocumentAuditAssignment> findAuditAssignment(UUID userId) {
+    return auditAssignments.stream()
+        .filter(assignment -> assignment.getUser().getId().equals(userId))
+        .findFirst();
+  }
+
+  public boolean isAuditReady() {
+    return auditAssignments.stream().allMatch(DocumentAuditAssignment::isAcknowledged);
+  }
+
+  private void addAuditAssignment(User user) {
+    DocumentAuditAssignment assignment = new DocumentAuditAssignment(user);
+    assignment.attachTo(this);
+    auditAssignments.add(assignment);
   }
 }

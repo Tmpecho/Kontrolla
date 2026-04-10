@@ -5,21 +5,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import IKMatDashboardPage from '@/ik-mat/pages/IKMatDashboardPage.vue'
 import { ApiError } from '@/shared/api/http'
 
-const { listChecklistRunsMock, appEnvMock, authStoreMock } = vi.hoisted(() => ({
+const { listChecklistRunsMock, authStoreMock } = vi.hoisted(() => ({
   listChecklistRunsMock: vi.fn(),
-  appEnvMock: {
-    mode: 'test',
-    isDevelopment: true,
-    isProduction: false,
-    apiBaseUrl: 'http://localhost:8080',
-    defaultOrganizationId: 'org-1' as string | undefined,
-    defaultEstablishmentId: 'est-1' as string | undefined,
-    showDevLoginHint: false,
-  },
   authStoreMock: {
     isSessionReady: true,
-    isAuthenticated: false,
-    appContext: null as
+    isStartupPending: false,
+    appContext: {
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+    } as
       | {
           organizationId: string | null
           establishmentId: string | null
@@ -46,9 +40,40 @@ vi.mock('@/auth/model/auth.store', () => ({
   useAuthStore: () => authStoreMock,
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  appEnv: appEnvMock,
-}))
+vi.mock('@/auth/model/workspace-context', async () => {
+  const { computed } = await import('vue')
+
+  return {
+    useProtectedWorkspaceContext: () => ({
+      organizationId: computed(() => authStoreMock.appContext?.organizationId ?? null),
+      establishmentId: computed(() => authStoreMock.appContext?.establishmentId ?? null),
+      availableEstablishmentIds: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        if (selectedEstablishmentId) {
+          return [selectedEstablishmentId]
+        }
+
+        return authStoreMock.establishments.map((establishment) => establishment.id)
+      }),
+      isStartupPending: computed(() => authStoreMock.isStartupPending),
+      requiresEstablishmentSelection: computed(() => authStoreMock.requiresEstablishmentSelection),
+      hasOrganizationContext: computed(() => Boolean(authStoreMock.appContext?.organizationId)),
+      hasEstablishmentContext: computed(() => {
+        return Boolean(
+          authStoreMock.appContext?.organizationId && authStoreMock.appContext?.establishmentId,
+        )
+      }),
+      hasAccessibleEstablishmentContext: computed(() => {
+        const selectedEstablishmentId = authStoreMock.appContext?.establishmentId ?? null
+        const availableEstablishmentIds = selectedEstablishmentId
+          ? [selectedEstablishmentId]
+          : authStoreMock.establishments.map((establishment) => establishment.id)
+
+        return Boolean(authStoreMock.appContext?.organizationId && availableEstablishmentIds.length > 0)
+      }),
+    }),
+  }
+})
 
 function createDeferred<T>() {
   let resolve: (value: T) => void
@@ -92,13 +117,12 @@ function mountPage() {
 describe('IKMatDashboardPage', () => {
   afterEach(() => {
     listChecklistRunsMock.mockReset()
-    appEnvMock.isDevelopment = true
-    appEnvMock.isProduction = false
-    appEnvMock.defaultOrganizationId = 'org-1'
-    appEnvMock.defaultEstablishmentId = 'est-1'
     authStoreMock.isSessionReady = true
-    authStoreMock.isAuthenticated = false
-    authStoreMock.appContext = null
+    authStoreMock.isStartupPending = false
+    authStoreMock.appContext = {
+      organizationId: 'org-1',
+      establishmentId: 'est-1',
+    }
     authStoreMock.establishments = []
     authStoreMock.requiresEstablishmentSelection = false
   })
@@ -218,7 +242,6 @@ describe('IKMatDashboardPage', () => {
   })
 
   it('keeps runs from different establishments when they share a checklist definition group', async () => {
-    authStoreMock.isAuthenticated = true
     authStoreMock.appContext = {
       organizationId: 'org-1',
       establishmentId: null,
@@ -334,10 +357,8 @@ describe('IKMatDashboardPage', () => {
   })
 
   it('renders a generic missing context message outside development', async () => {
-    appEnvMock.isDevelopment = false
-    appEnvMock.isProduction = true
-    appEnvMock.defaultOrganizationId = undefined
-    appEnvMock.defaultEstablishmentId = undefined
+    authStoreMock.appContext = null
+    authStoreMock.establishments = []
 
     const wrapper = mountPage()
     await flushPromises()
