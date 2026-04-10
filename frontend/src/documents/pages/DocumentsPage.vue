@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Download, Trash2 } from 'lucide-vue-next'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
@@ -560,9 +561,12 @@ async function loadDocuments(): Promise<void> {
                   type="button"
                   class="document-action-button document-action-button-download"
                   :disabled="isDownloadingDocument(documentRecord.id) || isDeletingDocument(documentRecord.id)"
+                  :aria-label="isDownloadingDocument(documentRecord.id) ? 'Downloading document' : 'Download document'"
+                  :title="isDownloadingDocument(documentRecord.id) ? 'Downloading document' : 'Download document'"
                   @click="handleDownloadDocument(documentRecord)"
                 >
-                  {{ isDownloadingDocument(documentRecord.id) ? 'Downloading...' : 'Download' }}
+                  <span v-if="isDownloadingDocument(documentRecord.id)">Downloading...</span>
+                  <Download v-else :size="16" aria-hidden="true" />
                 </button>
 
                 <button
@@ -570,9 +574,12 @@ async function loadDocuments(): Promise<void> {
                   type="button"
                   class="document-action-button document-action-button-delete"
                   :disabled="isDeletingDocument(documentRecord.id) || isDownloadingDocument(documentRecord.id)"
+                  :aria-label="isDeletingDocument(documentRecord.id) ? 'Deleting document' : 'Delete document'"
+                  :title="isDeletingDocument(documentRecord.id) ? 'Deleting document' : 'Delete document'"
                   @click="handleDeleteDocument(documentRecord)"
                 >
-                  {{ isDeletingDocument(documentRecord.id) ? 'Deleting...' : 'Delete' }}
+                  <span v-if="isDeletingDocument(documentRecord.id)">Deleting...</span>
+                  <Trash2 v-else :size="16" aria-hidden="true" />
                 </button>
               </div>
             </td>
@@ -821,6 +828,11 @@ async function loadDocuments(): Promise<void> {
 }
 
 .document-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-xs);
