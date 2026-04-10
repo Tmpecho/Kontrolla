@@ -1,12 +1,10 @@
 package org.kontrolla.iam.application;
 
+import java.util.UUID;
 import org.kontrolla.organizations.domain.OrganizationRole;
 
-import java.util.UUID;
-
 /**
- * Resolved organization and establishment context associated with an
- * authenticated user session.
+ * Resolved organization and establishment context associated with an authenticated user session.
  *
  * @param organizationId the selected organization identifier
  * @param organizationName the selected organization name
@@ -15,10 +13,8 @@ import java.util.UUID;
  * @param establishmentName the selected establishment name
  */
 public record UserAppContext(
-		UUID organizationId,
-		String organizationName,
-		OrganizationRole organizationRole,
-		UUID establishmentId,
-		String establishmentName
-) {
-}
+    UUID organizationId,
+    String organizationName,
+    OrganizationRole organizationRole,
+    UUID establishmentId,
+    String establishmentName) {}

@@ -1,5 +1,7 @@
 package org.kontrolla.iam.application;
 
+import java.util.Optional;
+import java.util.Set;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.infrastructure.UserRepository;
 import org.kontrolla.iam.security.AppSecurityProperties;
@@ -12,75 +14,73 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-import java.util.Set;
-
-/**
- * Development-only bootstrapper that ensures configured non-admin users exist.
- */
+/** Development-only bootstrapper that ensures configured non-admin users exist. */
 @Component
 @Profile("dev")
 @Order(10)
 public class BootstrapUserInitializer implements ApplicationRunner {
 
-	private static final Logger log = LoggerFactory.getLogger(BootstrapUserInitializer.class);
+  private static final Logger log = LoggerFactory.getLogger(BootstrapUserInitializer.class);
 
-	private final UserRepository userRepository;
-	private final PasswordEncoder passwordEncoder;
-	private final AppSecurityProperties properties;
+  private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
+  private final AppSecurityProperties properties;
 
-	/**
-	 * Creates the bootstrap user initializer.
-	 *
-	 * @param userRepository repository for users
-	 * @param passwordEncoder encoder for seeded passwords
-	 * @param properties bootstrap security properties
-	 */
-	public BootstrapUserInitializer(
-			UserRepository userRepository,
-			PasswordEncoder passwordEncoder,
-			AppSecurityProperties properties
-	) {
-		this.userRepository = userRepository;
-		this.passwordEncoder = passwordEncoder;
-		this.properties = properties;
-	}
+  /**
+   * Creates the bootstrap user initializer.
+   *
+   * @param userRepository repository for users
+   * @param passwordEncoder encoder for seeded passwords
+   * @param properties bootstrap security properties
+   */
+  public BootstrapUserInitializer(
+      UserRepository userRepository,
+      PasswordEncoder passwordEncoder,
+      AppSecurityProperties properties) {
+    this.userRepository = userRepository;
+    this.passwordEncoder = passwordEncoder;
+    this.properties = properties;
+  }
 
-	/**
-	 * Creates or updates configured bootstrap users in development.
-	 *
-	 * @param args application startup arguments
-	 */
-	@Override
-	@Transactional
-	public void run(org.springframework.boot.ApplicationArguments args) {
-		upsertUser(properties.getBootstrapUser());
-		properties.getBootstrapEmployees().forEach(this::upsertUser);
-	}
+  /**
+   * Creates or updates configured bootstrap users in development.
+   *
+   * @param args application startup arguments
+   */
+  @Override
+  @Transactional
+  public void run(org.springframework.boot.ApplicationArguments args) {
+    upsertUser(properties.getBootstrapUser());
+    properties.getBootstrapEmployees().forEach(this::upsertUser);
+  }
 
-	private void upsertUser(AppSecurityProperties.BootstrapUser bootstrapUser) {
-		String email = Optional.ofNullable(bootstrapUser.getEmail()).orElse("").trim();
-		String password = Optional.ofNullable(bootstrapUser.getPassword()).orElse("").trim();
-		if (email.isBlank() || password.isBlank()) {
-			return;
-		}
+  private void upsertUser(AppSecurityProperties.BootstrapUser bootstrapUser) {
+    String email = Optional.ofNullable(bootstrapUser.getEmail()).orElse("").trim();
+    String password = Optional.ofNullable(bootstrapUser.getPassword()).orElse("").trim();
+    if (email.isBlank() || password.isBlank()) {
+      return;
+    }
 
-		userRepository.findByEmailIgnoreCase(email).ifPresentOrElse(existing -> {
-			if (!existing.isActive()) {
-				existing.setActive(true);
-				log.info("Activated bootstrap user {}", email);
-			}
-		}, () -> {
-			User created = new User(
-					email,
-					bootstrapUser.getFirstName(),
-					bootstrapUser.getLastName(),
-					passwordEncoder.encode(password),
-					true,
-					Set.of()
-			);
-			userRepository.save(created);
-			log.info("Created bootstrap user {}", email);
-		});
-	}
+    userRepository
+        .findByEmailIgnoreCase(email)
+        .ifPresentOrElse(
+            existing -> {
+              if (!existing.isActive()) {
+                existing.setActive(true);
+                log.info("Activated bootstrap user {}", email);
+              }
+            },
+            () -> {
+              User created =
+                  new User(
+                      email,
+                      bootstrapUser.getFirstName(),
+                      bootstrapUser.getLastName(),
+                      passwordEncoder.encode(password),
+                      true,
+                      Set.of());
+              userRepository.save(created);
+              log.info("Created bootstrap user {}", email);
+            });
+  }
 }

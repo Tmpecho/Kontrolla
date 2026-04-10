@@ -1,8 +1,7 @@
 package org.kontrolla.checklists.application;
 
-import org.kontrolla.checklists.domain.ChecklistTaskKind;
-
 import java.math.BigDecimal;
+import org.kontrolla.checklists.domain.ChecklistTaskKind;
 
 /**
  * Application input describing one checklist definition task.
@@ -17,13 +16,11 @@ import java.math.BigDecimal;
  * @param maximumAllowedValue the maximum allowed value, if applicable
  */
 public record ChecklistDefinitionTaskInput(
-		String title,
-		String details,
-		ChecklistTaskKind taskKind,
-		boolean required,
-		int sortOrder,
-		String measurementUnit,
-		BigDecimal minimumAllowedValue,
-		BigDecimal maximumAllowedValue
-) {
-}
+    String title,
+    String details,
+    ChecklistTaskKind taskKind,
+    boolean required,
+    int sortOrder,
+    String measurementUnit,
+    BigDecimal minimumAllowedValue,
+    BigDecimal maximumAllowedValue) {}

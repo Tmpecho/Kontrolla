@@ -9,6 +9,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,17 +24,7 @@ import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.organizations.domain.Organization;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-
-/**
- * Persisted document metadata together with assigned audit acknowledgements.
- */
+/** Persisted document metadata together with assigned audit acknowledgements. */
 @Getter
 @Entity
 @Table(name = "documents")
@@ -81,11 +78,13 @@ public class Document extends AbstractAuditableUuidEntity {
   private long fileSizeBytes;
 
   @Getter(AccessLevel.NONE)
-  @OneToMany(mappedBy = "document", orphanRemoval = true, cascade = jakarta.persistence.CascadeType.ALL)
+  @OneToMany(
+      mappedBy = "document",
+      orphanRemoval = true,
+      cascade = jakarta.persistence.CascadeType.ALL)
   private final List<DocumentAuditAssignment> auditAssignments = new ArrayList<>();
 
-  protected Document() {
-  }
+  protected Document() {}
 
   /**
    * Creates a document metadata record.
@@ -113,8 +112,7 @@ public class Document extends AbstractAuditableUuidEntity {
       LocalDate renewalDate,
       String fileName,
       String contentType,
-      long fileSizeBytes
-  ) {
+      long fileSizeBytes) {
     this.organization = organization;
     this.establishment = establishment;
     this.createdByUser = createdByUser;
@@ -129,8 +127,7 @@ public class Document extends AbstractAuditableUuidEntity {
   }
 
   /**
-   * Calculates the current status of the document using the default warning
-   * threshold.
+   * Calculates the current status of the document using the default warning threshold.
    *
    * @param today the current date
    * @return the calculated document status
@@ -140,8 +137,7 @@ public class Document extends AbstractAuditableUuidEntity {
   }
 
   /**
-   * Calculates the current status of the document using a custom warning
-   * threshold.
+   * Calculates the current status of the document using a custom warning threshold.
    *
    * @param today the current date
    * @param warningDays the number of days before renewal to report expiring status
@@ -178,15 +174,17 @@ public class Document extends AbstractAuditableUuidEntity {
    * @param users the users that should remain assigned
    */
   public void replaceAuditAssignments(List<User> users) {
-    Set<UUID> nextUserIds = users.stream()
-        .map(User::getId)
-        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    Set<UUID> nextUserIds =
+        users.stream()
+            .map(User::getId)
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
     auditAssignments.removeIf(assignment -> !nextUserIds.contains(assignment.getUser().getId()));
 
-    Set<UUID> existingUserIds = auditAssignments.stream()
-        .map(assignment -> assignment.getUser().getId())
-        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    Set<UUID> existingUserIds =
+        auditAssignments.stream()
+            .map(assignment -> assignment.getUser().getId())
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
     for (User user : users) {
       if (existingUserIds.contains(user.getId())) {

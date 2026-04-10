@@ -8,7 +8,4 @@ import org.kontrolla.deviations.domain.DeviationStatus;
  *
  * @param status the new deviation status
  */
-public record UpdateDeviationStatusRequest(
-		@NotNull DeviationStatus status
-) {
-}
+public record UpdateDeviationStatusRequest(@NotNull DeviationStatus status) {}

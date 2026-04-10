@@ -6,16 +6,13 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
 import lombok.Getter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 import org.kontrolla.iam.domain.User;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-
-/**
- * Persisted temperature reading recorded for a temperature-controlled unit.
- */
+/** Persisted temperature reading recorded for a temperature-controlled unit. */
 @Getter
 @Entity
 @Table(name = "temperature_logs")
@@ -38,8 +35,7 @@ public class TemperatureLog extends AbstractAuditableUuidEntity {
   @JoinColumn(name = "logged_by_user_id", nullable = false)
   private User loggedByUser;
 
-  protected TemperatureLog() {
-  }
+  protected TemperatureLog() {}
 
   /**
    * Creates a temperature log entry.
@@ -50,11 +46,7 @@ public class TemperatureLog extends AbstractAuditableUuidEntity {
    * @param loggedByUser the user who recorded the reading
    */
   public TemperatureLog(
-      Instant measuredAt,
-      BigDecimal temperatureCelsius,
-      String note,
-      User loggedByUser
-  ) {
+      Instant measuredAt, BigDecimal temperatureCelsius, String note, User loggedByUser) {
     this.measuredAt = measuredAt;
     this.temperatureCelsius = temperatureCelsius;
     this.note = note;

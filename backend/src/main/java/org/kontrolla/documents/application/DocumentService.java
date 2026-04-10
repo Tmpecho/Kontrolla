@@ -1,5 +1,11 @@
 package org.kontrolla.documents.application;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.UUID;
 import org.kontrolla.common.exception.ApplicationException;
 import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
@@ -15,8 +21,8 @@ import org.kontrolla.iam.application.UserAccessService;
 import org.kontrolla.iam.domain.User;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.application.OrganizationAccessService;
-import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.domain.Organization;
+import org.kontrolla.organizations.domain.OrganizationMembership;
 import org.kontrolla.organizations.infrastructure.OrganizationMembershipRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,17 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.LocalDate;
-import java.time.Instant;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.UUID;
-
-/**
- * Handles document lifecycle operations, file storage, and audit
- * acknowledgements.
- */
+/** Handles document lifecycle operations, file storage, and audit acknowledgements. */
 @Service
 public class DocumentService {
 
@@ -67,8 +63,7 @@ public class DocumentService {
       EstablishmentService establishmentService,
       UserAccessService userAccessService,
       OrganizationMembershipRepository organizationMembershipRepository,
-      Clock clock
-  ) {
+      Clock clock) {
     this.documentRepository = documentRepository;
     this.documentFileRepository = documentFileRepository;
     this.organizationAccessService = organizationAccessService;
@@ -94,15 +89,10 @@ public class DocumentService {
       UUID establishmentId,
       DocumentServiceArea serviceArea,
       CurrentUser currentUser,
-      Pageable pageable
-  ) {
+      Pageable pageable) {
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     return documentRepository.findByEstablishmentIdAndOrganizationIdAndServiceArea(
-        establishmentId,
-        organizationId,
-        serviceArea,
-        pageable
-    );
+        establishmentId, organizationId, serviceArea, pageable);
   }
 
   /**
@@ -116,11 +106,7 @@ public class DocumentService {
    */
   @Transactional(readOnly = true)
   public Document getDocument(
-      UUID organizationId,
-      UUID establishmentId,
-      UUID documentId,
-      CurrentUser currentUser
-  ) {
+      UUID organizationId, UUID establishmentId, UUID documentId, CurrentUser currentUser) {
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     return findDocumentOrThrow(organizationId, establishmentId, documentId);
   }
@@ -136,26 +122,25 @@ public class DocumentService {
    */
   @Transactional(readOnly = true)
   public DocumentFileDownload getDocumentFile(
-      UUID organizationId,
-      UUID establishmentId,
-      UUID documentId,
-      CurrentUser currentUser
-  ) {
+      UUID organizationId, UUID establishmentId, UUID documentId, CurrentUser currentUser) {
     Document document = getDocument(organizationId, establishmentId, documentId, currentUser);
-    DocumentFile documentFile = documentFileRepository.findById(documentId)
-        .orElseThrow(() -> new ResourceNotFoundException("document_file_not_found", "Document file not found"));
+    DocumentFile documentFile =
+        documentFileRepository
+            .findById(documentId)
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "document_file_not_found", "Document file not found"));
 
     return new DocumentFileDownload(
         document.getFileName(),
         document.getContentType(),
         document.getFileSizeBytes(),
-        documentFile.getContent()
-    );
+        documentFile.getContent());
   }
 
   /**
-   * Creates a new document together with its stored PDF file and audit
-   * assignments.
+   * Creates a new document together with its stored PDF file and audit assignments.
    *
    * @param organizationId the organization identifier
    * @param establishmentId the establishment identifier
@@ -184,29 +169,29 @@ public class DocumentService {
       String fileName,
       String contentType,
       byte[] fileContent,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
     organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
-    Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+    Establishment establishment =
+        establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     User createdByUser = userAccessService.getCurrentUserOrThrow(currentUser);
     List<User> auditUsers = resolveAuditUsers(organizationId, establishmentId, auditUserIds);
     validateDateRange(issueDate, renewalDate);
     validatePdfFile(contentType, fileContent);
 
-    Document document = new Document(
-        organization,
-        establishment,
-        createdByUser,
-        serviceArea,
-        normalizeRequiredText(title),
-        normalizeRequiredText(holderName),
-        issueDate,
-        renewalDate,
-        normalizeFileName(fileName),
-        PDF_CONTENT_TYPE,
-        fileContent.length
-    );
+    Document document =
+        new Document(
+            organization,
+            establishment,
+            createdByUser,
+            serviceArea,
+            normalizeRequiredText(title),
+            normalizeRequiredText(holderName),
+            issueDate,
+            renewalDate,
+            normalizeFileName(fileName),
+            PDF_CONTENT_TYPE,
+            fileContent.length);
     document.replaceAuditAssignments(auditUsers);
 
     Document savedDocument = documentRepository.save(document);
@@ -240,8 +225,7 @@ public class DocumentService {
       LocalDate issueDate,
       LocalDate renewalDate,
       List<UUID> auditUserIds,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     List<User> auditUsers = resolveAuditUsers(organizationId, establishmentId, auditUserIds);
@@ -278,8 +262,7 @@ public class DocumentService {
       String fileName,
       String contentType,
       byte[] fileContent,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     validatePdfFile(contentType, fileContent);
@@ -289,12 +272,15 @@ public class DocumentService {
     document.setContentType(PDF_CONTENT_TYPE);
     document.setFileSizeBytes(fileContent.length);
 
-    DocumentFile documentFile = documentFileRepository.findById(documentId)
-        .map(existingFile -> {
-          existingFile.replaceContent(fileContent);
-          return existingFile;
-        })
-        .orElseGet(() -> new DocumentFile(documentId, fileContent));
+    DocumentFile documentFile =
+        documentFileRepository
+            .findById(documentId)
+            .map(
+                existingFile -> {
+                  existingFile.replaceContent(fileContent);
+                  return existingFile;
+                })
+            .orElseGet(() -> new DocumentFile(documentId, fileContent));
 
     documentFileRepository.save(documentFile);
     return documentRepository.save(document);
@@ -310,11 +296,7 @@ public class DocumentService {
    */
   @Transactional
   public void deleteDocument(
-      UUID organizationId,
-      UUID establishmentId,
-      UUID documentId,
-      CurrentUser currentUser
-  ) {
+      UUID organizationId, UUID establishmentId, UUID documentId, CurrentUser currentUser) {
     organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 
@@ -324,8 +306,7 @@ public class DocumentService {
   }
 
   /**
-   * Records acknowledgement of a document audit assignment for the current
-   * user.
+   * Records acknowledgement of a document audit assignment for the current user.
    *
    * @param organizationId the organization identifier
    * @param establishmentId the establishment identifier
@@ -335,28 +316,29 @@ public class DocumentService {
    */
   @Transactional
   public Document acknowledgeDocumentAudit(
-      UUID organizationId,
-      UUID establishmentId,
-      UUID documentId,
-      CurrentUser currentUser
-  ) {
+      UUID organizationId, UUID establishmentId, UUID documentId, CurrentUser currentUser) {
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 
     Document document = findDocumentOrThrow(organizationId, establishmentId, documentId);
     User actor = userAccessService.getCurrentUserOrThrow(currentUser);
-    DocumentAuditAssignment assignment = document.findAuditAssignment(actor.getId())
-        .orElseThrow(() -> new ForbiddenException(
-            "document_audit_acknowledgement_forbidden",
-            "You are not assigned to acknowledge this document"
-        ));
+    DocumentAuditAssignment assignment =
+        document
+            .findAuditAssignment(actor.getId())
+            .orElseThrow(
+                () ->
+                    new ForbiddenException(
+                        "document_audit_acknowledgement_forbidden",
+                        "You are not assigned to acknowledge this document"));
 
     assignment.acknowledge(Instant.now(clock));
     return documentRepository.save(document);
   }
 
   private Document findDocumentOrThrow(UUID organizationId, UUID establishmentId, UUID documentId) {
-    return documentRepository.findByIdAndEstablishmentIdAndOrganizationId(documentId, establishmentId, organizationId)
-        .orElseThrow(() -> new ResourceNotFoundException("document_not_found", "Document not found"));
+    return documentRepository
+        .findByIdAndEstablishmentIdAndOrganizationId(documentId, establishmentId, organizationId)
+        .orElseThrow(
+            () -> new ResourceNotFoundException("document_not_found", "Document not found"));
   }
 
   private void validateDateRange(LocalDate issueDate, LocalDate renewalDate) {
@@ -364,26 +346,19 @@ public class DocumentService {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "invalid_document_dates",
-          "Renewal date cannot be before issue date"
-      );
+          "Renewal date cannot be before issue date");
     }
   }
 
   private void validatePdfFile(String contentType, byte[] fileContent) {
     if (fileContent == null || fileContent.length == 0) {
       throw new ApplicationException(
-          HttpStatus.BAD_REQUEST,
-          "document_file_required",
-          "A PDF file is required"
-      );
+          HttpStatus.BAD_REQUEST, "document_file_required", "A PDF file is required");
     }
 
     if (contentType == null || !PDF_CONTENT_TYPE.equalsIgnoreCase(contentType.strip())) {
       throw new ApplicationException(
-          HttpStatus.BAD_REQUEST,
-          "invalid_document_file_type",
-          "Only PDF files are supported"
-      );
+          HttpStatus.BAD_REQUEST, "invalid_document_file_type", "Only PDF files are supported");
     }
   }
 
@@ -391,7 +366,8 @@ public class DocumentService {
     return value.strip();
   }
 
-  private List<User> resolveAuditUsers(UUID organizationId, UUID establishmentId, List<UUID> auditUserIds) {
+  private List<User> resolveAuditUsers(
+      UUID organizationId, UUID establishmentId, List<UUID> auditUserIds) {
     if (auditUserIds == null || auditUserIds.isEmpty()) {
       return List.of();
     }
@@ -404,16 +380,17 @@ public class DocumentService {
 
   private User getAuditUserOrThrow(UUID organizationId, UUID establishmentId, UUID userId) {
     User user = userAccessService.getUserOrThrow(userId);
-    boolean hasActiveMembership = organizationMembershipRepository.findByOrganizationIdAndUserId(organizationId, userId)
-        .filter(OrganizationMembership::isActive)
-        .filter(membership -> membership.hasEstablishmentAccess(establishmentId))
-        .isPresent();
+    boolean hasActiveMembership =
+        organizationMembershipRepository
+            .findByOrganizationIdAndUserId(organizationId, userId)
+            .filter(OrganizationMembership::isActive)
+            .filter(membership -> membership.hasEstablishmentAccess(establishmentId))
+            .isPresent();
 
     if (!user.isActive() || !hasActiveMembership) {
       throw new ForbiddenException(
           "document_audit_user_forbidden",
-          "Documents can only be assigned for audit acknowledgement to active members with access to the establishment"
-      );
+          "Documents can only be assigned for audit acknowledgement to active members with access to the establishment");
     }
 
     return user;
@@ -422,7 +399,8 @@ public class DocumentService {
   private String normalizeFileName(String fileName) {
     String normalized = fileName == null ? "" : fileName.strip().replace('\\', '/');
     int lastSeparatorIndex = normalized.lastIndexOf('/');
-    String baseName = lastSeparatorIndex >= 0 ? normalized.substring(lastSeparatorIndex + 1) : normalized;
+    String baseName =
+        lastSeparatorIndex >= 0 ? normalized.substring(lastSeparatorIndex + 1) : normalized;
     return baseName.isBlank() ? "document.pdf" : baseName;
   }
 }

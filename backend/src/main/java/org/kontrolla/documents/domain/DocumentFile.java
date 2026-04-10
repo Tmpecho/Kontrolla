@@ -5,15 +5,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+import java.util.UUID;
 import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.util.UUID;
-
-/**
- * Persisted binary file content for a document.
- */
+/** Persisted binary file content for a document. */
 @Getter
 @Entity
 @Table(name = "document_files")
@@ -28,8 +25,7 @@ public class DocumentFile {
   @Column(nullable = false, columnDefinition = "LONGBLOB")
   private byte[] content;
 
-  protected DocumentFile() {
-  }
+  protected DocumentFile() {}
 
   /**
    * Creates stored file content for a document.

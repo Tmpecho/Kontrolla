@@ -8,8 +8,4 @@ import java.time.Instant;
  * @param expiresAt when the invite expires
  * @param inviteUrl the invite URL exposed to the caller, if configured
  */
-public record IssuedInvite(
-		Instant expiresAt,
-		String inviteUrl
-) {
-}
+public record IssuedInvite(Instant expiresAt, String inviteUrl) {}

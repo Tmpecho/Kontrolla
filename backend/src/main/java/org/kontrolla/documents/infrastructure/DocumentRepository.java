@@ -1,5 +1,8 @@
 package org.kontrolla.documents.infrastructure;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.kontrolla.documents.domain.Document;
 import org.kontrolla.documents.domain.DocumentServiceArea;
 import org.springframework.data.domain.Page;
@@ -7,14 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-/**
- * Repository for document metadata queries scoped by establishment and service
- * area.
- */
+/** Repository for document metadata queries scoped by establishment and service area. */
 public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
   /**
@@ -26,19 +22,19 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
    * @param pageable pagination information
    * @return a page of matching documents
    */
-  @EntityGraph(attributePaths = {
-      "organization",
-      "establishment",
-      "createdByUser",
-      "auditAssignments",
-      "auditAssignments.user"
-  })
+  @EntityGraph(
+      attributePaths = {
+        "organization",
+        "establishment",
+        "createdByUser",
+        "auditAssignments",
+        "auditAssignments.user"
+      })
   Page<Document> findByEstablishmentIdAndOrganizationIdAndServiceArea(
       UUID establishmentId,
       UUID organizationId,
       DocumentServiceArea serviceArea,
-      Pageable pageable
-  );
+      Pageable pageable);
 
   /**
    * Finds a document by id scoped to an establishment and organization.
@@ -48,18 +44,16 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
    * @param organizationId the organization identifier
    * @return the matching document, if present
    */
-  @EntityGraph(attributePaths = {
-      "organization",
-      "establishment",
-      "createdByUser",
-      "auditAssignments",
-      "auditAssignments.user"
-  })
+  @EntityGraph(
+      attributePaths = {
+        "organization",
+        "establishment",
+        "createdByUser",
+        "auditAssignments",
+        "auditAssignments.user"
+      })
   Optional<Document> findByIdAndEstablishmentIdAndOrganizationId(
-      UUID id,
-      UUID establishmentId,
-      UUID organizationId
-  );
+      UUID id, UUID establishmentId, UUID organizationId);
 
   /**
    * Returns documents for an establishment and service area ordered by title.
@@ -69,16 +63,14 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
    * @param serviceArea the document service area
    * @return the matching documents
    */
-  @EntityGraph(attributePaths = {
-      "organization",
-      "establishment",
-      "createdByUser",
-      "auditAssignments",
-      "auditAssignments.user"
-  })
+  @EntityGraph(
+      attributePaths = {
+        "organization",
+        "establishment",
+        "createdByUser",
+        "auditAssignments",
+        "auditAssignments.user"
+      })
   List<Document> findByEstablishmentIdAndOrganizationIdAndServiceAreaOrderByTitleAsc(
-      UUID establishmentId,
-      UUID organizationId,
-      DocumentServiceArea serviceArea
-  );
+      UUID establishmentId, UUID organizationId, DocumentServiceArea serviceArea);
 }

@@ -1,12 +1,11 @@
 package org.kontrolla.deviations.api;
 
+import java.time.Instant;
+import java.util.UUID;
 import org.kontrolla.deviations.domain.Deviation;
 import org.kontrolla.deviations.domain.DeviationCategory;
 import org.kontrolla.deviations.domain.DeviationSeverity;
 import org.kontrolla.deviations.domain.DeviationStatus;
-
-import java.time.Instant;
-import java.util.UUID;
 
 /**
  * API response describing a deviation summary.
@@ -25,40 +24,38 @@ import java.util.UUID;
  * @param updatedAt when the deviation was last updated
  */
 public record DeviationResponse(
-		UUID id,
-		UUID organizationId,
-		UUID establishmentId,
-		UUID createdByUserId,
-		UUID assignedToUserId,
-		String title,
-		String description,
-		DeviationStatus status,
-		DeviationSeverity severity,
-		DeviationCategory category,
-		Instant createdAt,
-		Instant updatedAt
-) {
+    UUID id,
+    UUID organizationId,
+    UUID establishmentId,
+    UUID createdByUserId,
+    UUID assignedToUserId,
+    String title,
+    String description,
+    DeviationStatus status,
+    DeviationSeverity severity,
+    DeviationCategory category,
+    Instant createdAt,
+    Instant updatedAt) {
 
-	/**
-	 * Maps a deviation entity to the API response shape.
-	 *
-	 * @param deviation the deviation to map
-	 * @return the mapped response
-	 */
-	public static DeviationResponse from(Deviation deviation) {
-		return new DeviationResponse(
-				deviation.getId(),
-				deviation.getOrganization().getId(),
-				deviation.getEstablishment().getId(),
-				deviation.getCreatedByUser().getId(),
-				deviation.getAssignedToUser() == null ? null : deviation.getAssignedToUser().getId(),
-				deviation.getTitle(),
-				deviation.getDescription(),
-				deviation.getStatus(),
-				deviation.getSeverity(),
-				deviation.getCategory(),
-				deviation.getCreatedAt(),
-				deviation.getUpdatedAt()
-		);
-	}
+  /**
+   * Maps a deviation entity to the API response shape.
+   *
+   * @param deviation the deviation to map
+   * @return the mapped response
+   */
+  public static DeviationResponse from(Deviation deviation) {
+    return new DeviationResponse(
+        deviation.getId(),
+        deviation.getOrganization().getId(),
+        deviation.getEstablishment().getId(),
+        deviation.getCreatedByUser().getId(),
+        deviation.getAssignedToUser() == null ? null : deviation.getAssignedToUser().getId(),
+        deviation.getTitle(),
+        deviation.getDescription(),
+        deviation.getStatus(),
+        deviation.getSeverity(),
+        deviation.getCategory(),
+        deviation.getCreatedAt(),
+        deviation.getUpdatedAt());
+  }
 }

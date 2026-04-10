@@ -1,14 +1,13 @@
 package org.kontrolla.documents.api;
 
-import org.kontrolla.documents.domain.Document;
-import org.kontrolla.documents.domain.DocumentServiceArea;
-import org.kontrolla.documents.domain.DocumentStatus;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.kontrolla.documents.domain.Document;
+import org.kontrolla.documents.domain.DocumentServiceArea;
+import org.kontrolla.documents.domain.DocumentStatus;
 
 /**
  * API response describing a document and its audit state.
@@ -46,12 +45,10 @@ public record DocumentResponse(
     DocumentStatus status,
     List<DocumentAuditAssignmentResponse> auditAssignments,
     Instant createdAt,
-    Instant updatedAt
-) {
+    Instant updatedAt) {
 
   /**
-   * Maps a document entity to the API response shape using the supplied clock
-   * to derive status.
+   * Maps a document entity to the API response shape using the supplied clock to derive status.
    *
    * @param document the document to map
    * @param clock the clock used to calculate document status
@@ -72,11 +69,8 @@ public record DocumentResponse(
         document.getContentType(),
         document.getFileSizeBytes(),
         document.getStatus(LocalDate.now(clock)),
-        document.getAuditAssignments().stream()
-            .map(DocumentAuditAssignmentResponse::from)
-            .toList(),
+        document.getAuditAssignments().stream().map(DocumentAuditAssignmentResponse::from).toList(),
         document.getCreatedAt(),
-        document.getUpdatedAt()
-    );
+        document.getUpdatedAt());
   }
 }

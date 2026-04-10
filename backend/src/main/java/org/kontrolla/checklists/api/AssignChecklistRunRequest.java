@@ -2,7 +2,6 @@ package org.kontrolla.checklists.api;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -11,7 +10,4 @@ import java.util.UUID;
  *
  * @param assignedUserIds identifiers of the users to assign
  */
-public record AssignChecklistRunRequest(
-		@NotEmpty List<@NotNull UUID> assignedUserIds
-) {
-}
+public record AssignChecklistRunRequest(@NotEmpty List<@NotNull UUID> assignedUserIds) {}

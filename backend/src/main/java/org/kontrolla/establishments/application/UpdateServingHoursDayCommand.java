@@ -12,9 +12,4 @@ import java.time.LocalTime;
  * @param closesAt the closing time, if open
  */
 public record UpdateServingHoursDayCommand(
-    DayOfWeek dayOfWeek,
-    boolean closed,
-    LocalTime opensAt,
-    LocalTime closesAt
-) {
-}
+    DayOfWeek dayOfWeek, boolean closed, LocalTime opensAt, LocalTime closesAt) {}

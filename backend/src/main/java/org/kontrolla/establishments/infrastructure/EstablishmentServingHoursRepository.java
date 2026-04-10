@@ -1,16 +1,14 @@
 package org.kontrolla.establishments.infrastructure;
 
-import org.kontrolla.establishments.domain.EstablishmentServingHours;
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.kontrolla.establishments.domain.EstablishmentServingHours;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-/**
- * Repository for establishment serving-hours records.
- */
-public interface EstablishmentServingHoursRepository extends JpaRepository<EstablishmentServingHours, UUID> {
+/** Repository for establishment serving-hours records. */
+public interface EstablishmentServingHoursRepository
+    extends JpaRepository<EstablishmentServingHours, UUID> {
 
   /**
    * Returns serving-hours records for an establishment ordered by weekday.
@@ -28,7 +26,5 @@ public interface EstablishmentServingHoursRepository extends JpaRepository<Estab
    * @return the matching serving-hours record, if present
    */
   Optional<EstablishmentServingHours> findByEstablishmentIdAndDayOfWeek(
-      UUID establishmentId,
-      java.time.DayOfWeek dayOfWeek
-  );
+      UUID establishmentId, java.time.DayOfWeek dayOfWeek);
 }

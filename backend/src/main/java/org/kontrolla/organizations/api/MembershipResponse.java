@@ -1,11 +1,10 @@
 package org.kontrolla.organizations.api;
 
-import org.kontrolla.organizations.domain.OrganizationMembership;
-import org.kontrolla.organizations.domain.OrganizationRole;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.kontrolla.organizations.domain.OrganizationMembership;
+import org.kontrolla.organizations.domain.OrganizationRole;
 
 /**
  * API response describing an organization membership.
@@ -23,41 +22,41 @@ import java.util.UUID;
  * @param updatedAt when the membership was last updated
  */
 public record MembershipResponse(
-		UUID id,
-		UUID userId,
-		String userEmail,
-		String userFirstName,
-		String userLastName,
-		OrganizationRole role,
-		boolean active,
-		boolean allEstablishments,
-		List<MembershipEstablishmentResponse> establishments,
-		Instant createdAt,
-		Instant updatedAt
-) {
+    UUID id,
+    UUID userId,
+    String userEmail,
+    String userFirstName,
+    String userLastName,
+    OrganizationRole role,
+    boolean active,
+    boolean allEstablishments,
+    List<MembershipEstablishmentResponse> establishments,
+    Instant createdAt,
+    Instant updatedAt) {
 
-	/**
-	 * Maps a membership entity to the API response shape.
-	 *
-	 * @param membership the membership to map
-	 * @return the mapped response
-	 */
-	public static MembershipResponse from(OrganizationMembership membership) {
-		return new MembershipResponse(
-				membership.getId(),
-				membership.getUser().getId(),
-				membership.getUser().getEmail(),
-				membership.getUser().getFirstName(),
-				membership.getUser().getLastName(),
-				membership.getRole(),
-				membership.isActive(),
-				membership.isAccessAllEstablishments(),
-				membership.getAccessibleEstablishments().stream()
-						.map(MembershipEstablishmentResponse::from)
-						.sorted(java.util.Comparator.comparing(MembershipEstablishmentResponse::name, String.CASE_INSENSITIVE_ORDER))
-						.toList(),
-				membership.getCreatedAt(),
-				membership.getUpdatedAt()
-		);
-	}
+  /**
+   * Maps a membership entity to the API response shape.
+   *
+   * @param membership the membership to map
+   * @return the mapped response
+   */
+  public static MembershipResponse from(OrganizationMembership membership) {
+    return new MembershipResponse(
+        membership.getId(),
+        membership.getUser().getId(),
+        membership.getUser().getEmail(),
+        membership.getUser().getFirstName(),
+        membership.getUser().getLastName(),
+        membership.getRole(),
+        membership.isActive(),
+        membership.isAccessAllEstablishments(),
+        membership.getAccessibleEstablishments().stream()
+            .map(MembershipEstablishmentResponse::from)
+            .sorted(
+                java.util.Comparator.comparing(
+                    MembershipEstablishmentResponse::name, String.CASE_INSENSITIVE_ORDER))
+            .toList(),
+        membership.getCreatedAt(),
+        membership.getUpdatedAt());
+  }
 }

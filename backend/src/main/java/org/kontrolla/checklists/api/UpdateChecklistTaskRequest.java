@@ -1,9 +1,9 @@
 package org.kontrolla.checklists.api;
 
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
 import org.kontrolla.checklists.domain.ChecklistTaskExecutionStatus;
 import org.kontrolla.checklists.domain.ChecklistVerificationResult;
-import java.math.BigDecimal;
 
 /**
  * Request payload for updating a single checklist task execution.
@@ -15,9 +15,8 @@ import java.math.BigDecimal;
  * @param enteredText entered text for text-entry tasks
  */
 public record UpdateChecklistTaskRequest(
-        @NotNull ChecklistTaskExecutionStatus executionStatus,
-        String comment,
-        ChecklistVerificationResult verificationResult,
-        BigDecimal measuredValue,
-        String enteredText
-) {}
+    @NotNull ChecklistTaskExecutionStatus executionStatus,
+    String comment,
+    ChecklistVerificationResult verificationResult,
+    BigDecimal measuredValue,
+    String enteredText) {}

@@ -1,9 +1,8 @@
 package org.kontrolla.establishments.application;
 
-import org.kontrolla.establishments.domain.EstablishmentServingHours;
-
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import org.kontrolla.establishments.domain.EstablishmentServingHours;
 
 /**
  * Application-layer view of serving hours for a single day.
@@ -14,11 +13,7 @@ import java.time.LocalTime;
  * @param closesAt the closing time, if open
  */
 public record ServingHoursDayView(
-    DayOfWeek dayOfWeek,
-    boolean closed,
-    LocalTime opensAt,
-    LocalTime closesAt
-) {
+    DayOfWeek dayOfWeek, boolean closed, LocalTime opensAt, LocalTime closesAt) {
 
   /**
    * Maps serving-hours entity data to the application view model.
@@ -28,11 +23,7 @@ public record ServingHoursDayView(
    */
   public static ServingHoursDayView from(EstablishmentServingHours hours) {
     return new ServingHoursDayView(
-        hours.getDayOfWeek(),
-        hours.isClosed(),
-        hours.getOpensAt(),
-        hours.getClosesAt()
-    );
+        hours.getDayOfWeek(), hours.isClosed(), hours.getOpensAt(), hours.getClosesAt());
   }
 
   /**

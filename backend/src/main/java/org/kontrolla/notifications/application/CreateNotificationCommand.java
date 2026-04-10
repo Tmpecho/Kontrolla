@@ -1,10 +1,9 @@
 package org.kontrolla.notifications.application;
 
+import java.util.UUID;
 import org.kontrolla.notifications.domain.NotificationResourceType;
 import org.kontrolla.notifications.domain.NotificationServiceArea;
 import org.kontrolla.notifications.domain.NotificationType;
-
-import java.util.UUID;
 
 /**
  * Command for creating a notification for a user.
@@ -21,15 +20,13 @@ import java.util.UUID;
  * @param resourceId the identifier of the related resource
  */
 public record CreateNotificationCommand(
-		UUID recipientUserId,
-		UUID actorUserId,
-		UUID organizationId,
-		UUID establishmentId,
-		NotificationServiceArea serviceArea,
-		NotificationType type,
-		String title,
-		String message,
-		NotificationResourceType resourceType,
-		UUID resourceId
-) {
-}
+    UUID recipientUserId,
+    UUID actorUserId,
+    UUID organizationId,
+    UUID establishmentId,
+    NotificationServiceArea serviceArea,
+    NotificationType type,
+    String title,
+    String message,
+    NotificationResourceType resourceType,
+    UUID resourceId) {}

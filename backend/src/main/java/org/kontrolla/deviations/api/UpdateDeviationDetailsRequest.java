@@ -15,9 +15,7 @@ import org.kontrolla.deviations.domain.DeviationSeverity;
  * @param severity the deviation severity
  */
 public record UpdateDeviationDetailsRequest(
-		@NotBlank @Size(max = 255) String title,
-		@NotBlank @Size(max = 2000) String description,
-		@NotNull DeviationCategory category,
-		@NotNull DeviationSeverity severity
-) {
-}
+    @NotBlank @Size(max = 255) String title,
+    @NotBlank @Size(max = 2000) String description,
+    @NotNull DeviationCategory category,
+    @NotNull DeviationSeverity severity) {}

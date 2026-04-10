@@ -1,12 +1,11 @@
 package org.kontrolla.notifications.api;
 
+import java.time.Instant;
+import java.util.UUID;
 import org.kontrolla.notifications.domain.Notification;
 import org.kontrolla.notifications.domain.NotificationResourceType;
 import org.kontrolla.notifications.domain.NotificationServiceArea;
 import org.kontrolla.notifications.domain.NotificationType;
-
-import java.time.Instant;
-import java.util.UUID;
 
 /**
  * API response describing a notification delivered to a user.
@@ -25,40 +24,38 @@ import java.util.UUID;
  * @param readAt when the notification was read, if applicable
  */
 public record NotificationResponse(
-		UUID id,
-		UUID recipientUserId,
-		UUID organizationId,
-		UUID establishmentId,
-		NotificationServiceArea serviceArea,
-		NotificationType type,
-		String title,
-		String message,
-		NotificationResourceType resourceType,
-		UUID resourceId,
-		Instant createdAt,
-		Instant readAt
-) {
+    UUID id,
+    UUID recipientUserId,
+    UUID organizationId,
+    UUID establishmentId,
+    NotificationServiceArea serviceArea,
+    NotificationType type,
+    String title,
+    String message,
+    NotificationResourceType resourceType,
+    UUID resourceId,
+    Instant createdAt,
+    Instant readAt) {
 
-	/**
-	 * Maps a notification entity to the API response shape.
-	 *
-	 * @param notification the notification to map
-	 * @return the mapped response
-	 */
-	public static NotificationResponse from(Notification notification) {
-		return new NotificationResponse(
-				notification.getId(),
-				notification.getRecipientUserId(),
-				notification.getOrganizationId(),
-				notification.getEstablishmentId(),
-				notification.getServiceArea(),
-				notification.getType(),
-				notification.getTitle(),
-				notification.getMessage(),
-				notification.getResourceType(),
-				notification.getResourceId(),
-				notification.getCreatedAt(),
-				notification.getReadAt()
-		);
-	}
+  /**
+   * Maps a notification entity to the API response shape.
+   *
+   * @param notification the notification to map
+   * @return the mapped response
+   */
+  public static NotificationResponse from(Notification notification) {
+    return new NotificationResponse(
+        notification.getId(),
+        notification.getRecipientUserId(),
+        notification.getOrganizationId(),
+        notification.getEstablishmentId(),
+        notification.getServiceArea(),
+        notification.getType(),
+        notification.getTitle(),
+        notification.getMessage(),
+        notification.getResourceType(),
+        notification.getResourceId(),
+        notification.getCreatedAt(),
+        notification.getReadAt());
+  }
 }

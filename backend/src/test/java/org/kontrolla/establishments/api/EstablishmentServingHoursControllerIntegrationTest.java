@@ -1,6 +1,17 @@
 package org.kontrolla.establishments.api;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.establishments.domain.Establishment;
@@ -26,49 +37,28 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.DayOfWeek;
-import java.time.LocalTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class EstablishmentServingHoursControllerIntegrationTest {
 
-  @Autowired
-  private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-  @Autowired
-  private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-  @Autowired
-  private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-  @Autowired
-  private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-  @Autowired
-  private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-  @Autowired
-  private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-  @Autowired
-  private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-  @Autowired
-  private JwtService jwtService;
+  @Autowired private JwtService jwtService;
 
-  @Autowired
-  private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
   @BeforeEach
   void setUp() {
@@ -84,22 +74,30 @@ class EstablishmentServingHoursControllerIntegrationTest {
 
     String token = issueAccessToken(manager);
 
-    List<UpdateServingHoursDayRequest> request = List.of(
-        new UpdateServingHoursDayRequest(DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.TUESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.WEDNESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.THURSDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.FRIDAY, false, LocalTime.of(10, 0), LocalTime.of(23, 30)),
-        new UpdateServingHoursDayRequest(DayOfWeek.SATURDAY, false, LocalTime.of(12, 0), LocalTime.of(23, 30)),
-        new UpdateServingHoursDayRequest(DayOfWeek.SUNDAY, true, null, null)
-    );
+    List<UpdateServingHoursDayRequest> request =
+        List.of(
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.TUESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.WEDNESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.THURSDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.FRIDAY, false, LocalTime.of(10, 0), LocalTime.of(23, 30)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.SATURDAY, false, LocalTime.of(12, 0), LocalTime.of(23, 30)),
+            new UpdateServingHoursDayRequest(DayOfWeek.SUNDAY, true, null, null));
 
-    mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .with(csrf())
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+    mockMvc
+        .perform(
+            put("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(7))
         .andExpect(jsonPath("$[0].dayOfWeek").value("MONDAY"))
@@ -111,9 +109,11 @@ class EstablishmentServingHoursControllerIntegrationTest {
         .andExpect(jsonPath("$[6].opensAt").doesNotExist())
         .andExpect(jsonPath("$[6].closesAt").doesNotExist());
 
-    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+    mockMvc
+        .perform(
+            get("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(7))
         .andExpect(jsonPath("$[4].dayOfWeek").value("FRIDAY"))
@@ -134,27 +134,37 @@ class EstablishmentServingHoursControllerIntegrationTest {
     String managerToken = issueAccessToken(manager);
     String employeeToken = issueAccessToken(employee);
 
-    mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .with(csrf())
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(openWeekRequest(LocalTime.of(9, 0), LocalTime.of(21, 0)))))
+    mockMvc
+        .perform(
+            put("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + managerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        openWeekRequest(LocalTime.of(9, 0), LocalTime.of(21, 0)))))
         .andExpect(status().isOk());
 
-    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken))
+    mockMvc
+        .perform(
+            get("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(7))
         .andExpect(jsonPath("$[0].opensAt").value("09:00:00"));
 
-    mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .with(csrf())
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(openWeekRequest(LocalTime.of(11, 0), LocalTime.of(23, 0)))))
+    mockMvc
+        .perform(
+            put("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + employeeToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        openWeekRequest(LocalTime.of(11, 0), LocalTime.of(23, 0)))))
         .andExpect(status().isForbidden());
   }
 
@@ -167,9 +177,11 @@ class EstablishmentServingHoursControllerIntegrationTest {
 
     String token = issueAccessToken(employee);
 
-    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+    mockMvc
+        .perform(
+            get("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(7))
         .andExpect(jsonPath("$[0].dayOfWeek").value("MONDAY"))
@@ -187,21 +199,29 @@ class EstablishmentServingHoursControllerIntegrationTest {
 
     String token = issueAccessToken(manager);
 
-    List<UpdateServingHoursDayRequest> invalidRequest = List.of(
-        new UpdateServingHoursDayRequest(DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.TUESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.WEDNESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.THURSDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.FRIDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayRequest(DayOfWeek.SATURDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0))
-    );
+    List<UpdateServingHoursDayRequest> invalidRequest =
+        List.of(
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.TUESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.WEDNESDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.THURSDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.FRIDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayRequest(
+                DayOfWeek.SATURDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)));
 
-    mockMvc.perform(put("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organization.getId(), establishment.getId()))
-            .with(csrf())
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(invalidRequest)))
+    mockMvc
+        .perform(
+            put("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organization.getId(), establishment.getId()))
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidRequest)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("invalid_serving_hours"));
   }
@@ -218,27 +238,24 @@ class EstablishmentServingHoursControllerIntegrationTest {
 
     String outsiderToken = issueAccessToken(outsider);
 
-    mockMvc.perform(get("/api/v1/organizations/%s/establishments/%s/serving-hours"
-            .formatted(organizationA.getId(), establishment.getId()))
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
+    mockMvc
+        .perform(
+            get("/api/v1/organizations/%s/establishments/%s/serving-hours"
+                    .formatted(organizationA.getId(), establishment.getId()))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken))
         .andExpect(status().isForbidden());
   }
 
-  private List<UpdateServingHoursDayRequest> openWeekRequest(LocalTime opensAt, LocalTime closesAt) {
+  private List<UpdateServingHoursDayRequest> openWeekRequest(
+      LocalTime opensAt, LocalTime closesAt) {
     return Arrays.stream(DayOfWeek.values())
         .map(day -> new UpdateServingHoursDayRequest(day, false, opensAt, closesAt))
         .toList();
   }
 
   private User createUser(String email) {
-    return userRepository.saveAndFlush(new User(
-        email,
-        "Test",
-        "User",
-        passwordEncoder.encode("password123"),
-        true,
-        Set.of()
-    ));
+    return userRepository.saveAndFlush(
+        new User(email, "Test", "User", passwordEncoder.encode("password123"), true, Set.of()));
   }
 
   private Organization createOrganization(String name) {
@@ -246,16 +263,14 @@ class EstablishmentServingHoursControllerIntegrationTest {
   }
 
   private Establishment createEstablishment(Organization organization, String name) {
-    return establishmentRepository.saveAndFlush(new Establishment(
-        organization,
-        name,
-        EstablishmentType.BAR,
-        EstablishmentStatus.ACTIVE
-    ));
+    return establishmentRepository.saveAndFlush(
+        new Establishment(organization, name, EstablishmentType.BAR, EstablishmentStatus.ACTIVE));
   }
 
-  private void createMembership(Organization organization, User user, OrganizationRole role, boolean active) {
-    organizationMembershipRepository.saveAndFlush(new OrganizationMembership(organization, user, role, active));
+  private void createMembership(
+      Organization organization, User user, OrganizationRole role, boolean active) {
+    organizationMembershipRepository.saveAndFlush(
+        new OrganizationMembership(organization, user, role, active));
   }
 
   private String issueAccessToken(User user) {

@@ -8,7 +8,4 @@ import jakarta.validation.constraints.Size;
  *
  * @param password the password chosen while accepting the invite
  */
-public record AcceptInviteRequest(
-		@NotBlank @Size(min = 8, max = 200) String password
-) {
-}
+public record AcceptInviteRequest(@NotBlank @Size(min = 8, max = 200) String password) {}

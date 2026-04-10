@@ -8,15 +8,12 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import lombok.Getter;
 import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 
-import java.time.DayOfWeek;
-import java.time.LocalTime;
-
-/**
- * Persisted serving-hours configuration for a single establishment weekday.
- */
+/** Persisted serving-hours configuration for a single establishment weekday. */
 @Getter
 @Entity
 @Table(name = "establishment_serving_hours")
@@ -39,8 +36,7 @@ public class EstablishmentServingHours extends AbstractAuditableUuidEntity {
   @Column(name = "closes_at")
   private LocalTime closesAt;
 
-  protected EstablishmentServingHours() {
-  }
+  protected EstablishmentServingHours() {}
 
   /**
    * Creates serving-hours configuration for a specific weekday.
@@ -56,8 +52,7 @@ public class EstablishmentServingHours extends AbstractAuditableUuidEntity {
       DayOfWeek dayOfWeek,
       boolean closed,
       LocalTime opensAt,
-      LocalTime closesAt
-  ) {
+      LocalTime closesAt) {
     this.establishment = establishment;
     this.dayOfWeek = dayOfWeek;
     this.closed = closed;

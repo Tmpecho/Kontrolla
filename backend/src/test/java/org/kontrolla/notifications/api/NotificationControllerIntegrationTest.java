@@ -1,7 +1,16 @@
 package org.kontrolla.notifications.api;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.establishments.domain.Establishment;
@@ -32,247 +41,235 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.Instant;
-import java.util.Set;
-import java.util.UUID;
-
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class NotificationControllerIntegrationTest {
 
-	@Autowired
-	private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-	@Autowired
-	private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-	@Autowired
-	private RefreshTokenRepository refreshTokenRepository;
+  @Autowired private RefreshTokenRepository refreshTokenRepository;
 
-	@Autowired
-	private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-	@Autowired
-	private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-	@Autowired
-	private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-	@Autowired
-	private NotificationRepository notificationRepository;
+  @Autowired private NotificationRepository notificationRepository;
 
-	@Autowired
-	private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-	@Autowired
-	private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
-	@BeforeEach
-	void setUp() {
-		testDataCleaner.clearAll();
-	}
+  @BeforeEach
+  void setUp() {
+    testDataCleaner.clearAll();
+  }
 
-	@Test
-	void notificationEndpointsAreScopedToTheAuthenticatedUser() throws Exception {
-		User recipient = createUser("recipient@example.com");
-		User otherUser = createUser("other@example.com");
-		Organization organization = createOrganization("Notification Org");
-		Establishment establishment = createEstablishment(organization, "Notification Restaurant");
-		createMembership(organization, recipient, OrganizationRole.ORG_EMPLOYEE, true);
-		createMembership(organization, otherUser, OrganizationRole.ORG_EMPLOYEE, true);
+  @Test
+  void notificationEndpointsAreScopedToTheAuthenticatedUser() throws Exception {
+    User recipient = createUser("recipient@example.com");
+    User otherUser = createUser("other@example.com");
+    Organization organization = createOrganization("Notification Org");
+    Establishment establishment = createEstablishment(organization, "Notification Restaurant");
+    createMembership(organization, recipient, OrganizationRole.ORG_EMPLOYEE, true);
+    createMembership(organization, otherUser, OrganizationRole.ORG_EMPLOYEE, true);
 
-		Notification unread = createNotification(
-				recipient.getId(),
-				organization.getId(),
-				establishment.getId(),
-				NotificationType.CHECKLIST_ASSIGNED,
-				"Morning shift",
-				"You were assigned the morning shift checklist."
-		);
-		Notification read = createNotification(
-				recipient.getId(),
-				organization.getId(),
-				establishment.getId(),
-				NotificationType.DEVIATION_STATUS_CHANGED,
-				"Fridge deviation",
-				"The deviation status changed."
-		);
-		read.markRead(Instant.parse("2026-04-07T10:00:00Z"));
-		notificationRepository.saveAndFlush(read);
-		createNotification(
-				otherUser.getId(),
-				organization.getId(),
-				establishment.getId(),
-				NotificationType.DEVIATION_NOTE_ADDED,
-				"Other user notification",
-				"This should not be visible."
-		);
+    Notification unread =
+        createNotification(
+            recipient.getId(),
+            organization.getId(),
+            establishment.getId(),
+            NotificationType.CHECKLIST_ASSIGNED,
+            "Morning shift",
+            "You were assigned the morning shift checklist.");
+    Notification read =
+        createNotification(
+            recipient.getId(),
+            organization.getId(),
+            establishment.getId(),
+            NotificationType.DEVIATION_STATUS_CHANGED,
+            "Fridge deviation",
+            "The deviation status changed.");
+    read.markRead(Instant.parse("2026-04-07T10:00:00Z"));
+    notificationRepository.saveAndFlush(read);
+    createNotification(
+        otherUser.getId(),
+        organization.getId(),
+        establishment.getId(),
+        NotificationType.DEVIATION_NOTE_ADDED,
+        "Other user notification",
+        "This should not be visible.");
 
-		String token = login("recipient@example.com", "password123");
+    String token = login("recipient@example.com", "password123");
 
-		mockMvc.perform(get("/api/v1/notifications")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.items.length()").value(2))
-				.andExpect(jsonPath("$.items[0].id").value(unread.getId().toString()))
-				.andExpect(jsonPath("$.items[0].readAt").doesNotExist())
-				.andExpect(jsonPath("$.items[1].id").value(read.getId().toString()));
+    mockMvc
+        .perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.items[0].id").value(unread.getId().toString()))
+        .andExpect(jsonPath("$.items[0].readAt").doesNotExist())
+        .andExpect(jsonPath("$.items[1].id").value(read.getId().toString()));
 
-		mockMvc.perform(get("/api/v1/notifications?status=UNREAD")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.items.length()").value(1))
-				.andExpect(jsonPath("$.items[0].id").value(unread.getId().toString()));
+    mockMvc
+        .perform(
+            get("/api/v1/notifications?status=UNREAD")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(unread.getId().toString()));
 
-		mockMvc.perform(get("/api/v1/notifications/unread-count")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.unreadCount").value(1));
-	}
+    mockMvc
+        .perform(
+            get("/api/v1/notifications/unread-count")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.unreadCount").value(1));
+  }
 
-	@Test
-	void notificationReadEndpointsPersistReadState() throws Exception {
-		User recipient = createUser("read-recipient@example.com");
-		Organization organization = createOrganization("Notification Read Org");
-		Establishment establishment = createEstablishment(organization, "Notification Read Restaurant");
-		createMembership(organization, recipient, OrganizationRole.ORG_EMPLOYEE, true);
+  @Test
+  void notificationReadEndpointsPersistReadState() throws Exception {
+    User recipient = createUser("read-recipient@example.com");
+    Organization organization = createOrganization("Notification Read Org");
+    Establishment establishment = createEstablishment(organization, "Notification Read Restaurant");
+    createMembership(organization, recipient, OrganizationRole.ORG_EMPLOYEE, true);
 
-		Notification first = createNotification(
-				recipient.getId(),
-				organization.getId(),
-				establishment.getId(),
-				NotificationType.CHECKLIST_ASSIGNED,
-				"Opening checklist",
-				"You were assigned the opening checklist."
-		);
-		Notification second = createNotification(
-				recipient.getId(),
-				organization.getId(),
-				establishment.getId(),
-				NotificationType.CHECKLIST_OVERDUE,
-				"Closing checklist overdue",
-				"The assigned checklist is overdue."
-		);
+    Notification first =
+        createNotification(
+            recipient.getId(),
+            organization.getId(),
+            establishment.getId(),
+            NotificationType.CHECKLIST_ASSIGNED,
+            "Opening checklist",
+            "You were assigned the opening checklist.");
+    Notification second =
+        createNotification(
+            recipient.getId(),
+            organization.getId(),
+            establishment.getId(),
+            NotificationType.CHECKLIST_OVERDUE,
+            "Closing checklist overdue",
+            "The assigned checklist is overdue.");
 
-		String token = login("read-recipient@example.com", "password123");
+    String token = login("read-recipient@example.com", "password123");
 
-		mockMvc.perform(post("/api/v1/notifications/%s/read".formatted(first.getId()))
-						.with(csrf())
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.id").value(first.getId().toString()))
-				.andExpect(jsonPath("$.readAt").isNotEmpty());
+    mockMvc
+        .perform(
+            post("/api/v1/notifications/%s/read".formatted(first.getId()))
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(first.getId().toString()))
+        .andExpect(jsonPath("$.readAt").isNotEmpty());
 
-		mockMvc.perform(get("/api/v1/notifications/unread-count")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.unreadCount").value(1));
+    mockMvc
+        .perform(
+            get("/api/v1/notifications/unread-count")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.unreadCount").value(1));
 
-		mockMvc.perform(post("/api/v1/notifications/read-all")
-						.with(csrf())
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.unreadCount").value(0));
+    mockMvc
+        .perform(
+            post("/api/v1/notifications/read-all")
+                .with(csrf())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.unreadCount").value(0));
 
-		mockMvc.perform(get("/api/v1/notifications/unread-count")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.unreadCount").value(0));
+    mockMvc
+        .perform(
+            get("/api/v1/notifications/unread-count")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.unreadCount").value(0));
 
-		mockMvc.perform(get("/api/v1/notifications?status=UNREAD")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.items.length()").value(0));
+    mockMvc
+        .perform(
+            get("/api/v1/notifications?status=UNREAD")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(0));
 
-		notificationRepository.findById(second.getId())
-				.filter(notification -> notification.getReadAt() != null)
-				.orElseThrow();
-	}
+    notificationRepository
+        .findById(second.getId())
+        .filter(notification -> notification.getReadAt() != null)
+        .orElseThrow();
+  }
 
-	private Notification createNotification(
-			UUID recipientUserId,
-			UUID organizationId,
-			UUID establishmentId,
-			NotificationType type,
-			String title,
-			String message
-	) {
-		return notificationRepository.saveAndFlush(new Notification(
-				recipientUserId,
-				organizationId,
-				establishmentId,
-				NotificationServiceArea.IK_MAT,
-				type,
-				title,
-				message,
-				type.name().startsWith("CHECKLIST") ? NotificationResourceType.CHECKLIST_RUN : NotificationResourceType.DEVIATION,
-				UUID.randomUUID()
-		));
-	}
+  private Notification createNotification(
+      UUID recipientUserId,
+      UUID organizationId,
+      UUID establishmentId,
+      NotificationType type,
+      String title,
+      String message) {
+    return notificationRepository.saveAndFlush(
+        new Notification(
+            recipientUserId,
+            organizationId,
+            establishmentId,
+            NotificationServiceArea.IK_MAT,
+            type,
+            title,
+            message,
+            type.name().startsWith("CHECKLIST")
+                ? NotificationResourceType.CHECKLIST_RUN
+                : NotificationResourceType.DEVIATION,
+            UUID.randomUUID()));
+  }
 
-	private User createUser(String email) {
-		User user = new User(
-				email,
-				"Test",
-				"User",
-				passwordEncoder.encode("password123"),
-				true,
-				Set.of()
-		);
-		return userRepository.saveAndFlush(user);
-	}
+  private User createUser(String email) {
+    User user =
+        new User(email, "Test", "User", passwordEncoder.encode("password123"), true, Set.of());
+    return userRepository.saveAndFlush(user);
+  }
 
-	private Organization createOrganization(String name) {
-		Organization organization = new Organization(name, OrganizationStatus.ACTIVE);
-		return organizationRepository.saveAndFlush(organization);
-	}
+  private Organization createOrganization(String name) {
+    Organization organization = new Organization(name, OrganizationStatus.ACTIVE);
+    return organizationRepository.saveAndFlush(organization);
+  }
 
-	private Establishment createEstablishment(Organization organization, String name) {
-		Establishment establishment = new Establishment(
-				organization,
-				name,
-				EstablishmentType.RESTAURANT,
-				EstablishmentStatus.ACTIVE
-		);
-		return establishmentRepository.saveAndFlush(establishment);
-	}
+  private Establishment createEstablishment(Organization organization, String name) {
+    Establishment establishment =
+        new Establishment(
+            organization, name, EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE);
+    return establishmentRepository.saveAndFlush(establishment);
+  }
 
-	private OrganizationMembership createMembership(
-			Organization organization,
-			User user,
-			OrganizationRole role,
-			boolean active
-	) {
-		OrganizationMembership membership = new OrganizationMembership(organization, user, role, active);
-		return organizationMembershipRepository.saveAndFlush(membership);
-	}
+  private OrganizationMembership createMembership(
+      Organization organization, User user, OrganizationRole role, boolean active) {
+    OrganizationMembership membership =
+        new OrganizationMembership(organization, user, role, active);
+    return organizationMembershipRepository.saveAndFlush(membership);
+  }
 
-	private String login(String email, String password) throws Exception {
-		String response = mockMvc.perform(post("/api/v1/auth/login")
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
+  private String login(String email, String password) throws Exception {
+    String response =
+        mockMvc
+            .perform(
+                post("/api/v1/auth/login")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
 								{
 								  "email": "%s",
 								  "password": "%s"
 								}
-								""".formatted(email, password)))
-				.andExpect(status().isOk())
-				.andReturn()
-				.getResponse()
-				.getContentAsString();
+								"""
+                            .formatted(email, password)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
 
-		JsonNode json = objectMapper.readTree(response);
-		return json.get("accessToken").asText();
-	}
+    JsonNode json = objectMapper.readTree(response);
+    return json.get("accessToken").asText();
+  }
 }

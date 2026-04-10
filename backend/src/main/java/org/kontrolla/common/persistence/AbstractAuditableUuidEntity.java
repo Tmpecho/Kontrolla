@@ -1,47 +1,45 @@
 package org.kontrolla.common.persistence;
 
 import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
-import java.util.UUID;
-
 /**
- * Base JPA entity that provides a UUID identifier together with automatic
- * creation and update timestamps.
+ * Base JPA entity that provides a UUID identifier together with automatic creation and update
+ * timestamps.
  */
 @Getter
 @MappedSuperclass
 public abstract class AbstractAuditableUuidEntity {
 
-	@Id
-	@JdbcTypeCode(SqlTypes.CHAR)
-	@Column(nullable = false, updatable = false, length = 36)
-	private UUID id;
+  @Id
+  @JdbcTypeCode(SqlTypes.CHAR)
+  @Column(nullable = false, updatable = false, length = 36)
+  private UUID id;
 
-	@Column(nullable = false, updatable = false)
-	private Instant createdAt;
+  @Column(nullable = false, updatable = false)
+  private Instant createdAt;
 
-	@Column(nullable = false)
-	private Instant updatedAt;
+  @Column(nullable = false)
+  private Instant updatedAt;
 
-	@PrePersist
-	protected void onCreate() {
-		Instant now = Instant.now();
-		if (id == null) {
-			id = UUID.randomUUID();
-		}
-		if (createdAt == null) {
-			createdAt = now;
-		}
-		updatedAt = now;
-	}
+  @PrePersist
+  protected void onCreate() {
+    Instant now = Instant.now();
+    if (id == null) {
+      id = UUID.randomUUID();
+    }
+    if (createdAt == null) {
+      createdAt = now;
+    }
+    updatedAt = now;
+  }
 
-	@PreUpdate
-	protected void onUpdate() {
-		updatedAt = Instant.now();
-	}
-
+  @PreUpdate
+  protected void onUpdate() {
+    updatedAt = Instant.now();
+  }
 }

@@ -1,11 +1,10 @@
 package org.kontrolla.establishments.api;
 
+import java.time.Instant;
+import java.util.UUID;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
-
-import java.time.Instant;
-import java.util.UUID;
 
 /**
  * API response describing an establishment.
@@ -19,30 +18,28 @@ import java.util.UUID;
  * @param updatedAt when the establishment was last updated
  */
 public record EstablishmentResponse(
-		UUID id,
-		UUID organizationId,
-		String name,
-		EstablishmentType type,
-		EstablishmentStatus status,
-		Instant createdAt,
-		Instant updatedAt
-) {
+    UUID id,
+    UUID organizationId,
+    String name,
+    EstablishmentType type,
+    EstablishmentStatus status,
+    Instant createdAt,
+    Instant updatedAt) {
 
-	/**
-	 * Maps an establishment entity to the API response shape.
-	 *
-	 * @param establishment the establishment to map
-	 * @return the mapped response
-	 */
-	public static EstablishmentResponse from(Establishment establishment) {
-		return new EstablishmentResponse(
-				establishment.getId(),
-				establishment.getOrganization().getId(),
-				establishment.getName(),
-				establishment.getType(),
-				establishment.getStatus(),
-				establishment.getCreatedAt(),
-				establishment.getUpdatedAt()
-		);
-	}
+  /**
+   * Maps an establishment entity to the API response shape.
+   *
+   * @param establishment the establishment to map
+   * @return the mapped response
+   */
+  public static EstablishmentResponse from(Establishment establishment) {
+    return new EstablishmentResponse(
+        establishment.getId(),
+        establishment.getOrganization().getId(),
+        establishment.getName(),
+        establishment.getType(),
+        establishment.getStatus(),
+        establishment.getCreatedAt(),
+        establishment.getUpdatedAt());
+  }
 }

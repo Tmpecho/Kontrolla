@@ -1,10 +1,9 @@
 package org.kontrolla.organizations.api;
 
 import jakarta.validation.constraints.NotNull;
-import org.kontrolla.organizations.domain.OrganizationRole;
-
 import java.util.List;
 import java.util.UUID;
+import org.kontrolla.organizations.domain.OrganizationRole;
 
 /**
  * Request payload for creating an organization membership for an existing user.
@@ -16,10 +15,8 @@ import java.util.UUID;
  * @param establishmentIds explicit establishment scope, if any
  */
 public record CreateMembershipRequest(
-		@NotNull UUID userId,
-		@NotNull OrganizationRole role,
-		Boolean active,
-		Boolean allEstablishments,
-		List<UUID> establishmentIds
-) {
-}
+    @NotNull UUID userId,
+    @NotNull OrganizationRole role,
+    Boolean active,
+    Boolean allEstablishments,
+    List<UUID> establishmentIds) {}

@@ -1,7 +1,6 @@
 package org.kontrolla.deviations.api;
 
 import jakarta.validation.constraints.NotNull;
-
 import java.util.UUID;
 
 /**
@@ -9,7 +8,4 @@ import java.util.UUID;
  *
  * @param assignedUserId the user to assign to the deviation
  */
-public record AssignDeviationRequest(
-		@NotNull UUID assignedUserId
-) {
-}
+public record AssignDeviationRequest(@NotNull UUID assignedUserId) {}

@@ -1,5 +1,10 @@
 package org.kontrolla.organizations.application;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.kontrolla.audit.application.AuditRecord;
 import org.kontrolla.audit.application.AuditRecorder;
 import org.kontrolla.audit.domain.AuditAction;
@@ -26,15 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-/**
- * Handles organization lifecycle operations and membership management.
- */
+/** Handles organization lifecycle operations and membership management. */
 @Service
 public class OrganizationService {
 
@@ -48,8 +45,7 @@ public class OrganizationService {
   private final AuditRecorder auditRecorder;
 
   /**
-   * Creates the organization service with persistence, access, invite, and
-   * audit dependencies.
+   * Creates the organization service with persistence, access, invite, and audit dependencies.
    *
    * @param organizationRepository repository for organizations
    * @param membershipRepository repository for memberships
@@ -68,8 +64,7 @@ public class OrganizationService {
       UserAdministrationService userAdministrationService,
       UserInviteService userInviteService,
       OrganizationAccessService organizationAccessService,
-      AuditRecorder auditRecorder
-  ) {
+      AuditRecorder auditRecorder) {
     this.organizationRepository = organizationRepository;
     this.membershipRepository = membershipRepository;
     this.establishmentRepository = establishmentRepository;
@@ -119,8 +114,8 @@ public class OrganizationService {
   }
 
   /**
-   * Lists memberships for an organization, optionally filtered by
-   * establishment access and inactive state.
+   * Lists memberships for an organization, optionally filtered by establishment access and inactive
+   * state.
    *
    * @param organizationId the organization identifier
    * @param currentUser the authenticated user
@@ -135,23 +130,17 @@ public class OrganizationService {
       CurrentUser currentUser,
       Pageable pageable,
       boolean includeInactive,
-      UUID establishmentId
-  ) {
+      UUID establishmentId) {
     organizationAccessService.getOrganizationOrThrow(organizationId);
     if (establishmentId != null) {
-      organizationAccessService.requireEstablishmentAccess(currentUser, organizationId, establishmentId);
+      organizationAccessService.requireEstablishmentAccess(
+          currentUser, organizationId, establishmentId);
       if (includeInactive) {
         return membershipRepository.findByOrganizationIdAndAccessibleEstablishmentId(
-            organizationId,
-            establishmentId,
-            pageable
-        );
+            organizationId, establishmentId, pageable);
       }
       return membershipRepository.findByOrganizationIdAndActiveTrueAndAccessibleEstablishmentId(
-          organizationId,
-          establishmentId,
-          pageable
-      );
+          organizationId, establishmentId, pageable);
     }
 
     organizationAccessService.requireOrganizationReadAccess(currentUser, organizationId);
@@ -181,31 +170,25 @@ public class OrganizationService {
       boolean active,
       Boolean allEstablishments,
       Collection<UUID> establishmentIds,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
     organizationAccessService.requireMembershipManagement(currentUser, organizationId);
 
     if (membershipRepository.findByOrganizationIdAndUserId(organizationId, userId).isPresent()) {
-      throw new ConflictException("membership_already_exists", "The user is already a member of this organization");
+      throw new ConflictException(
+          "membership_already_exists", "The user is already a member of this organization");
     }
 
-    org.kontrolla.iam.domain.User user = userRepository.findById(userId)
-        .orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
+    org.kontrolla.iam.domain.User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("user_not_found", "User not found"));
 
-    MembershipScope membershipScope = resolveRequestedMembershipScope(
-        organizationId,
-        role,
-        allEstablishments,
-        establishmentIds
-    );
-    OrganizationMembership membership = new OrganizationMembership(
-        organization,
-        user,
-        role,
-        active,
-        membershipScope.accessAllEstablishments()
-    );
+    MembershipScope membershipScope =
+        resolveRequestedMembershipScope(organizationId, role, allEstablishments, establishmentIds);
+    OrganizationMembership membership =
+        new OrganizationMembership(
+            organization, user, role, active, membershipScope.accessAllEstablishments());
     membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
     membership = membershipRepository.save(membership);
     auditRecorder.record(membershipCreateAudit(membership));
@@ -213,8 +196,7 @@ public class OrganizationService {
   }
 
   /**
-   * Creates a managed user, adds an organization membership, and issues an
-   * invite.
+   * Creates a managed user, adds an organization membership, and issues an invite.
    *
    * @param organizationId the organization identifier
    * @param email the invited user's email
@@ -237,36 +219,28 @@ public class OrganizationService {
       boolean active,
       Boolean allEstablishments,
       Collection<UUID> establishmentIds,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
     organizationAccessService.requireMembershipManagement(currentUser, organizationId);
 
-    org.kontrolla.iam.domain.User user = userAdministrationService.createInvitedUser(email, firstName, lastName);
-    MembershipScope membershipScope = resolveRequestedMembershipScope(
-        organizationId,
-        role,
-        allEstablishments,
-        establishmentIds
-    );
-    OrganizationMembership membership = new OrganizationMembership(
-        organization,
-        user,
-        role,
-        active,
-        membershipScope.accessAllEstablishments()
-    );
+    org.kontrolla.iam.domain.User user =
+        userAdministrationService.createInvitedUser(email, firstName, lastName);
+    MembershipScope membershipScope =
+        resolveRequestedMembershipScope(organizationId, role, allEstablishments, establishmentIds);
+    OrganizationMembership membership =
+        new OrganizationMembership(
+            organization, user, role, active, membershipScope.accessAllEstablishments());
     membership.replaceAccessibleEstablishments(membershipScope.accessibleEstablishments());
     membership = membershipRepository.save(membership);
     IssuedInvite issuedInvite = userInviteService.issueOrganizationInvite(user, organization);
     auditRecorder.record(managedUserCreateAudit(organization.getId(), user));
     auditRecorder.record(membershipCreateAudit(membership));
-    return new ManagedMembershipProvision(membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
+    return new ManagedMembershipProvision(
+        membership, issuedInvite.expiresAt(), issuedInvite.inviteUrl());
   }
 
   /**
-   * Updates role, active state, and establishment scope for an existing
-   * membership.
+   * Updates role, active state, and establishment scope for an existing membership.
    *
    * @param organizationId the organization identifier
    * @param membershipId the membership identifier
@@ -285,22 +259,21 @@ public class OrganizationService {
       boolean active,
       Boolean allEstablishments,
       Collection<UUID> establishmentIds,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     organizationAccessService.getOrganizationOrThrow(organizationId);
     organizationAccessService.requireMembershipManagement(currentUser, organizationId);
 
-    OrganizationMembership membership = membershipRepository.findByIdAndOrganizationId(membershipId, organizationId)
-        .orElseThrow(() -> new ResourceNotFoundException("membership_not_found", "Membership not found"));
+    OrganizationMembership membership =
+        membershipRepository
+            .findByIdAndOrganizationId(membershipId, organizationId)
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException("membership_not_found", "Membership not found"));
     MembershipAuditState beforeUpdate = membershipAuditState(membership);
 
-    MembershipScope membershipScope = resolveUpdatedMembershipScope(
-        organizationId,
-        membership,
-        role,
-        allEstablishments,
-        establishmentIds
-    );
+    MembershipScope membershipScope =
+        resolveUpdatedMembershipScope(
+            organizationId, membership, role, allEstablishments, establishmentIds);
     membership.setRole(role);
     membership.setActive(active);
     membership.setAccessAllEstablishments(membershipScope.accessAllEstablishments());
@@ -316,13 +289,12 @@ public class OrganizationService {
       UUID organizationId,
       OrganizationRole role,
       Boolean allEstablishments,
-      Collection<UUID> establishmentIds
-  ) {
-    boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments, establishmentIds, true);
+      Collection<UUID> establishmentIds) {
+    boolean accessAllEstablishments =
+        resolveAccessAllEstablishments(role, allEstablishments, establishmentIds, true);
     return new MembershipScope(
         accessAllEstablishments,
-        resolveAccessibleEstablishments(organizationId, accessAllEstablishments, establishmentIds)
-    );
+        resolveAccessibleEstablishments(organizationId, accessAllEstablishments, establishmentIds));
   }
 
   private MembershipScope resolveUpdatedMembershipScope(
@@ -330,8 +302,7 @@ public class OrganizationService {
       OrganizationMembership membership,
       OrganizationRole role,
       Boolean allEstablishments,
-      Collection<UUID> establishmentIds
-  ) {
+      Collection<UUID> establishmentIds) {
     if (role == OrganizationRole.ORG_OWNER || role == OrganizationRole.ORG_ADMIN) {
       return new MembershipScope(true, List.of());
     }
@@ -342,23 +313,21 @@ public class OrganizationService {
           membership.isAccessAllEstablishments(),
           membership.isAccessAllEstablishments()
               ? List.of()
-              : List.copyOf(membership.getAccessibleEstablishments())
-      );
+              : List.copyOf(membership.getAccessibleEstablishments()));
     }
 
-    boolean accessAllEstablishments = resolveAccessAllEstablishments(role, allEstablishments, establishmentIds, true);
+    boolean accessAllEstablishments =
+        resolveAccessAllEstablishments(role, allEstablishments, establishmentIds, true);
     return new MembershipScope(
         accessAllEstablishments,
-        resolveAccessibleEstablishments(organizationId, accessAllEstablishments, establishmentIds)
-    );
+        resolveAccessibleEstablishments(organizationId, accessAllEstablishments, establishmentIds));
   }
 
   private boolean resolveAccessAllEstablishments(
       OrganizationRole role,
       Boolean allEstablishments,
       Collection<UUID> establishmentIds,
-      boolean defaultAllEstablishments
-  ) {
+      boolean defaultAllEstablishments) {
     if (role == OrganizationRole.ORG_OWNER || role == OrganizationRole.ORG_ADMIN) {
       return true;
     }
@@ -375,10 +344,7 @@ public class OrganizationService {
   }
 
   private List<Establishment> resolveAccessibleEstablishments(
-      UUID organizationId,
-      boolean accessAllEstablishments,
-      Collection<UUID> establishmentIds
-  ) {
+      UUID organizationId, boolean accessAllEstablishments, Collection<UUID> establishmentIds) {
     if (accessAllEstablishments) {
       return List.of();
     }
@@ -386,38 +352,39 @@ public class OrganizationService {
     if (establishmentIds == null || establishmentIds.isEmpty()) {
       throw new ConflictException(
           "membership_establishments_required",
-          "At least one establishment must be assigned when organization-wide access is disabled"
-      );
+          "At least one establishment must be assigned when organization-wide access is disabled");
     }
 
     List<UUID> distinctEstablishmentIds = establishmentIds.stream().distinct().toList();
-    List<Establishment> establishments = establishmentRepository.findByOrganizationIdAndIdIn(
-        organizationId,
-        distinctEstablishmentIds
-    );
+    List<Establishment> establishments =
+        establishmentRepository.findByOrganizationIdAndIdIn(
+            organizationId, distinctEstablishmentIds);
     if (establishments.size() != distinctEstablishmentIds.size()) {
       throw new ResourceNotFoundException(
           "membership_establishment_not_found",
-          "One or more establishments were not found in the organization"
-      );
+          "One or more establishments were not found in the organization");
     }
 
     return establishments;
   }
 
-  private AuditRecord managedUserCreateAudit(UUID organizationId, org.kontrolla.iam.domain.User user) {
-    return AuditRecord.builder(AuditAction.USER_CREATE, AuditOutcome.SUCCESS, "managed_user_created")
+  private AuditRecord managedUserCreateAudit(
+      UUID organizationId, org.kontrolla.iam.domain.User user) {
+    return AuditRecord.builder(
+            AuditAction.USER_CREATE, AuditOutcome.SUCCESS, "managed_user_created")
         .organizationId(organizationId)
         .target(AuditTargetType.USER, user.getId())
         .metadata("createdEmail", user.getEmail())
         .metadata("active", user.isActive())
-        .metadata("globalRoles", user.getGlobalRoles().stream().map(GlobalRole::name).sorted().toList())
+        .metadata(
+            "globalRoles", user.getGlobalRoles().stream().map(GlobalRole::name).sorted().toList())
         .metadata("creationPath", "managed_invite")
         .build();
   }
 
   private AuditRecord membershipCreateAudit(OrganizationMembership membership) {
-    return AuditRecord.builder(AuditAction.MEMBERSHIP_CREATE, AuditOutcome.SUCCESS, "membership_created")
+    return AuditRecord.builder(
+            AuditAction.MEMBERSHIP_CREATE, AuditOutcome.SUCCESS, "membership_created")
         .organizationId(membership.getOrganization().getId())
         .target(AuditTargetType.MEMBERSHIP, membership.getId())
         .metadata(membershipIdentityMetadata(membership))
@@ -425,8 +392,10 @@ public class OrganizationService {
         .build();
   }
 
-  private AuditRecord membershipUpdateAudit(OrganizationMembership membership, MembershipAuditState beforeUpdate) {
-    return AuditRecord.builder(AuditAction.MEMBERSHIP_UPDATE, AuditOutcome.SUCCESS, "membership_updated")
+  private AuditRecord membershipUpdateAudit(
+      OrganizationMembership membership, MembershipAuditState beforeUpdate) {
+    return AuditRecord.builder(
+            AuditAction.MEMBERSHIP_UPDATE, AuditOutcome.SUCCESS, "membership_updated")
         .organizationId(membership.getOrganization().getId())
         .target(AuditTargetType.MEMBERSHIP, membership.getId())
         .metadata(membershipIdentityMetadata(membership))
@@ -460,21 +429,15 @@ public class OrganizationService {
         membership.getAccessibleEstablishments().stream()
             .map(Establishment::getId)
             .sorted()
-            .toList()
-    );
+            .toList());
   }
 
   private record MembershipScope(
-      boolean accessAllEstablishments,
-      List<Establishment> accessibleEstablishments
-  ) {
-  }
+      boolean accessAllEstablishments, List<Establishment> accessibleEstablishments) {}
 
   private record MembershipAuditState(
       OrganizationRole role,
       boolean active,
       boolean accessAllEstablishments,
-      List<UUID> establishmentIds
-  ) {
-  }
+      List<UUID> establishmentIds) {}
 }

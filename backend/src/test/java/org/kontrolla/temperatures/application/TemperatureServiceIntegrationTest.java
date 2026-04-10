@@ -1,10 +1,18 @@
 package org.kontrolla.temperatures.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.common.exception.ApplicationException;
-import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.common.exception.ConflictException;
+import org.kontrolla.common.exception.ForbiddenException;
 import org.kontrolla.establishments.domain.Establishment;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
@@ -28,42 +36,25 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 @SpringBootTest
 @ActiveProfiles("test")
 class TemperatureServiceIntegrationTest {
 
-  @Autowired
-  private TemperatureService temperatureService;
+  @Autowired private TemperatureService temperatureService;
 
-  @Autowired
-  private TemperatureUnitRepository temperatureUnitRepository;
+  @Autowired private TemperatureUnitRepository temperatureUnitRepository;
 
-  @Autowired
-  private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-  @Autowired
-  private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-  @Autowired
-  private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-  @Autowired
-  private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-  @Autowired
-  private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-  @Autowired
-  private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
   @BeforeEach
   void setUp() {
@@ -79,60 +70,59 @@ class TemperatureServiceIntegrationTest {
     createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
     createMembership(organization, previousLogger, OrganizationRole.ORG_EMPLOYEE, true);
 
-    TemperatureUnit freezer = createTemperatureUnit(
-        organization,
-        establishment,
-        "Dessert freezer",
-        "Cold dessert station",
-        TemperatureUnitType.FREEZER,
-        LocalTime.of(20, 30),
-        new BigDecimal("-23.00"),
-        new BigDecimal("-18.00")
-    );
-    freezer.addLog(new TemperatureLog(
-        Instant.parse("2026-04-08T18:05:00Z"),
-        new BigDecimal("-20.60"),
-        "Evening close completed.",
-        previousLogger
-    ));
+    TemperatureUnit freezer =
+        createTemperatureUnit(
+            organization,
+            establishment,
+            "Dessert freezer",
+            "Cold dessert station",
+            TemperatureUnitType.FREEZER,
+            LocalTime.of(20, 30),
+            new BigDecimal("-23.00"),
+            new BigDecimal("-18.00"));
+    freezer.addLog(
+        new TemperatureLog(
+            Instant.parse("2026-04-08T18:05:00Z"),
+            new BigDecimal("-20.60"),
+            "Evening close completed.",
+            previousLogger));
     temperatureUnitRepository.saveAndFlush(freezer);
 
-    TemperatureUnit fridge = createTemperatureUnit(
-        organization,
-        establishment,
-        "Sushi prep fridge",
-        "Hot kitchen",
-        TemperatureUnitType.FRIDGE,
-        LocalTime.of(8, 30),
-        new BigDecimal("2.00"),
-        new BigDecimal("4.00")
-    );
+    TemperatureUnit fridge =
+        createTemperatureUnit(
+            organization,
+            establishment,
+            "Sushi prep fridge",
+            "Hot kitchen",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 30),
+            new BigDecimal("2.00"),
+            new BigDecimal("4.00"));
     temperatureUnitRepository.saveAndFlush(fridge);
 
-    List<TemperatureUnitView> units = temperatureService.listTemperatureUnits(
-        organization.getId(),
-        establishment.getId(),
-        currentUser(employee)
-    );
+    List<TemperatureUnitView> units =
+        temperatureService.listTemperatureUnits(
+            organization.getId(), establishment.getId(), currentUser(employee));
 
-    TemperatureLogEntryView createdLog = temperatureService.createTemperatureLog(
-        organization.getId(),
-        establishment.getId(),
-        fridge.getId(),
-        new CreateTemperatureLogCommand(
-            new BigDecimal("3.20"),
-            Instant.parse("2026-04-09T06:10:00Z"),
-            "  Opening check completed.  "
-        ),
-        currentUser(employee)
-    );
+    TemperatureLogEntryView createdLog =
+        temperatureService.createTemperatureLog(
+            organization.getId(),
+            establishment.getId(),
+            fridge.getId(),
+            new CreateTemperatureLogCommand(
+                new BigDecimal("3.20"),
+                Instant.parse("2026-04-09T06:10:00Z"),
+                "  Opening check completed.  "),
+            currentUser(employee));
 
-    TemperatureUnit persistedFridge = temperatureUnitRepository
-        .findByEstablishmentIdAndOrganizationIdOrderByNameAsc(establishment.getId(), organization.getId())
-        .stream()
-        .filter(unit -> unit.getId().equals(fridge.getId()))
-        .findFirst()
-        .orElseThrow();
+    TemperatureUnit persistedFridge =
+        temperatureUnitRepository
+            .findByEstablishmentIdAndOrganizationIdOrderByNameAsc(
+                establishment.getId(), organization.getId())
+            .stream()
+            .filter(unit -> unit.getId().equals(fridge.getId()))
+            .findFirst()
+            .orElseThrow();
 
     assertThat(units).hasSize(2);
     assertThat(units.get(0).name()).isEqualTo("Dessert freezer");
@@ -144,7 +134,8 @@ class TemperatureServiceIntegrationTest {
     assertThat(createdLog.note()).isEqualTo("Opening check completed.");
     assertThat(createdLog.loggedByName()).isEqualTo("Maria Nilsen");
     assertThat(persistedFridge.getLogs()).hasSize(1);
-    assertThat(persistedFridge.getLogs().getFirst().getLoggedByUser().getId()).isEqualTo(employee.getId());
+    assertThat(persistedFridge.getLogs().getFirst().getLoggedByUser().getId())
+        .isEqualTo(employee.getId());
   }
 
   @Test
@@ -154,29 +145,27 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Freezer Room");
     createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
 
-    TemperatureUnit unit = createTemperatureUnit(
-        organization,
-        establishment,
-        "Frozen storage A",
-        "Basement freezer room",
-        TemperatureUnitType.FREEZER,
-        LocalTime.of(7, 45),
-        new BigDecimal("-24.00"),
-        new BigDecimal("-18.00")
-    );
+    TemperatureUnit unit =
+        createTemperatureUnit(
+            organization,
+            establishment,
+            "Frozen storage A",
+            "Basement freezer room",
+            TemperatureUnitType.FREEZER,
+            LocalTime.of(7, 45),
+            new BigDecimal("-24.00"),
+            new BigDecimal("-18.00"));
     temperatureUnitRepository.saveAndFlush(unit);
 
-    assertThatThrownBy(() -> temperatureService.createTemperatureLog(
-        organization.getId(),
-        establishment.getId(),
-        unit.getId(),
-        new CreateTemperatureLogCommand(
-            new BigDecimal("-17.40"),
-            Instant.parse("2026-04-09T05:45:00Z"),
-            "   "
-        ),
-        currentUser(employee)
-    ))
+    assertThatThrownBy(
+            () ->
+                temperatureService.createTemperatureLog(
+                    organization.getId(),
+                    establishment.getId(),
+                    unit.getId(),
+                    new CreateTemperatureLogCommand(
+                        new BigDecimal("-17.40"), Instant.parse("2026-04-09T05:45:00Z"), "   "),
+                    currentUser(employee)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("A note is required for out-of-range temperature readings");
   }
@@ -191,36 +180,33 @@ class TemperatureServiceIntegrationTest {
     createMembership(organizationA, member, OrganizationRole.ORG_EMPLOYEE, true);
     createMembership(organizationB, outsider, OrganizationRole.ORG_EMPLOYEE, true);
 
-    TemperatureUnit unit = createTemperatureUnit(
-        organizationA,
-        establishment,
-        "Bar garnish fridge",
-        "Front bar",
-        TemperatureUnitType.FRIDGE,
-        LocalTime.of(10, 15),
-        new BigDecimal("2.00"),
-        new BigDecimal("5.00")
-    );
+    TemperatureUnit unit =
+        createTemperatureUnit(
+            organizationA,
+            establishment,
+            "Bar garnish fridge",
+            "Front bar",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(10, 15),
+            new BigDecimal("2.00"),
+            new BigDecimal("5.00"));
     temperatureUnitRepository.saveAndFlush(unit);
 
-    assertThatThrownBy(() -> temperatureService.listTemperatureUnits(
-        organizationA.getId(),
-        establishment.getId(),
-        currentUser(outsider)
-    ))
+    assertThatThrownBy(
+            () ->
+                temperatureService.listTemperatureUnits(
+                    organizationA.getId(), establishment.getId(), currentUser(outsider)))
         .isInstanceOf(ForbiddenException.class);
 
-    assertThatThrownBy(() -> temperatureService.createTemperatureLog(
-        organizationA.getId(),
-        establishment.getId(),
-        unit.getId(),
-        new CreateTemperatureLogCommand(
-            new BigDecimal("4.40"),
-            Instant.parse("2026-04-09T08:00:00Z"),
-            null
-        ),
-        currentUser(outsider)
-    ))
+    assertThatThrownBy(
+            () ->
+                temperatureService.createTemperatureLog(
+                    organizationA.getId(),
+                    establishment.getId(),
+                    unit.getId(),
+                    new CreateTemperatureLogCommand(
+                        new BigDecimal("4.40"), Instant.parse("2026-04-09T08:00:00Z"), null),
+                    currentUser(outsider)))
         .isInstanceOf(ForbiddenException.class);
   }
 
@@ -231,28 +217,27 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Prep Kitchen");
     createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
 
-    TemperatureUnitView createdUnit = temperatureService.createTemperatureUnit(
-        organization.getId(),
-        establishment.getId(),
-        new CreateTemperatureUnitCommand(
-            " Prep fridge ",
-            " Main prep line ",
-            TemperatureUnitType.FRIDGE,
-            LocalTime.of(8, 15),
-            new BigDecimal("2.00"),
-            new BigDecimal("4.00")
-        ),
-        currentUser(admin)
-    );
+    TemperatureUnitView createdUnit =
+        temperatureService.createTemperatureUnit(
+            organization.getId(),
+            establishment.getId(),
+            new CreateTemperatureUnitCommand(
+                " Prep fridge ",
+                " Main prep line ",
+                TemperatureUnitType.FRIDGE,
+                LocalTime.of(8, 15),
+                new BigDecimal("2.00"),
+                new BigDecimal("4.00")),
+            currentUser(admin));
 
     assertThat(createdUnit.name()).isEqualTo("Prep fridge");
     assertThat(createdUnit.location()).isEqualTo("Main prep line");
     assertThat(createdUnit.type()).isEqualTo(TemperatureUnitType.FRIDGE);
     assertThat(createdUnit.logs()).isEmpty();
-    assertThat(temperatureUnitRepository.findByEstablishmentIdAndOrganizationIdOrderByNameAsc(
-        establishment.getId(),
-        organization.getId()
-    )).hasSize(1);
+    assertThat(
+            temperatureUnitRepository.findByEstablishmentIdAndOrganizationIdOrderByNameAsc(
+                establishment.getId(), organization.getId()))
+        .hasSize(1);
   }
 
   @Test
@@ -262,19 +247,19 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Prep Kitchen");
     createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
 
-    assertThatThrownBy(() -> temperatureService.createTemperatureUnit(
-        organization.getId(),
-        establishment.getId(),
-        new CreateTemperatureUnitCommand(
-            "Prep fridge",
-            "Main prep line",
-            TemperatureUnitType.FRIDGE,
-            LocalTime.of(8, 15),
-            new BigDecimal("2.00"),
-            new BigDecimal("4.00")
-        ),
-        currentUser(employee)
-    ))
+    assertThatThrownBy(
+            () ->
+                temperatureService.createTemperatureUnit(
+                    organization.getId(),
+                    establishment.getId(),
+                    new CreateTemperatureUnitCommand(
+                        "Prep fridge",
+                        "Main prep line",
+                        TemperatureUnitType.FRIDGE,
+                        LocalTime.of(8, 15),
+                        new BigDecimal("2.00"),
+                        new BigDecimal("4.00")),
+                    currentUser(employee)))
         .isInstanceOf(ForbiddenException.class);
   }
 
@@ -285,30 +270,30 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Prep Kitchen");
     createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
 
-    temperatureUnitRepository.saveAndFlush(createTemperatureUnit(
-        organization,
-        establishment,
-        "Prep fridge",
-        "Main prep line",
-        TemperatureUnitType.FRIDGE,
-        LocalTime.of(8, 15),
-        new BigDecimal("2.00"),
-        new BigDecimal("4.00")
-    ));
+    temperatureUnitRepository.saveAndFlush(
+        createTemperatureUnit(
+            organization,
+            establishment,
+            "Prep fridge",
+            "Main prep line",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 15),
+            new BigDecimal("2.00"),
+            new BigDecimal("4.00")));
 
-    assertThatThrownBy(() -> temperatureService.createTemperatureUnit(
-        organization.getId(),
-        establishment.getId(),
-        new CreateTemperatureUnitCommand(
-            " prep fridge ",
-            "Cold room",
-            TemperatureUnitType.FREEZER,
-            LocalTime.of(9, 0),
-            new BigDecimal("-24.00"),
-            new BigDecimal("-18.00")
-        ),
-        currentUser(admin)
-    ))
+    assertThatThrownBy(
+            () ->
+                temperatureService.createTemperatureUnit(
+                    organization.getId(),
+                    establishment.getId(),
+                    new CreateTemperatureUnitCommand(
+                        " prep fridge ",
+                        "Cold room",
+                        TemperatureUnitType.FREEZER,
+                        LocalTime.of(9, 0),
+                        new BigDecimal("-24.00"),
+                        new BigDecimal("-18.00")),
+                    currentUser(admin)))
         .isInstanceOf(ConflictException.class)
         .hasMessage("A temperature unit with that name already exists for this establishment");
   }
@@ -320,19 +305,19 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Prep Kitchen");
     createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
 
-    assertThatThrownBy(() -> temperatureService.createTemperatureUnit(
-        organization.getId(),
-        establishment.getId(),
-        new CreateTemperatureUnitCommand(
-            "Prep fridge",
-            "Main prep line",
-            TemperatureUnitType.FRIDGE,
-            LocalTime.of(8, 15),
-            new BigDecimal("5.00"),
-            new BigDecimal("2.00")
-        ),
-        currentUser(admin)
-    ))
+    assertThatThrownBy(
+            () ->
+                temperatureService.createTemperatureUnit(
+                    organization.getId(),
+                    establishment.getId(),
+                    new CreateTemperatureUnitCommand(
+                        "Prep fridge",
+                        "Main prep line",
+                        TemperatureUnitType.FRIDGE,
+                        LocalTime.of(8, 15),
+                        new BigDecimal("5.00"),
+                        new BigDecimal("2.00")),
+                    currentUser(admin)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Maximum temperature cannot be below minimum temperature");
   }
@@ -344,23 +329,20 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Prep Kitchen");
     createMembership(organization, admin, OrganizationRole.ORG_ADMIN, true);
 
-    TemperatureUnit unit = temperatureUnitRepository.saveAndFlush(createTemperatureUnit(
-        organization,
-        establishment,
-        "Prep fridge",
-        "Main prep line",
-        TemperatureUnitType.FRIDGE,
-        LocalTime.of(8, 15),
-        new BigDecimal("2.00"),
-        new BigDecimal("4.00")
-    ));
+    TemperatureUnit unit =
+        temperatureUnitRepository.saveAndFlush(
+            createTemperatureUnit(
+                organization,
+                establishment,
+                "Prep fridge",
+                "Main prep line",
+                TemperatureUnitType.FRIDGE,
+                LocalTime.of(8, 15),
+                new BigDecimal("2.00"),
+                new BigDecimal("4.00")));
 
     temperatureService.deleteTemperatureUnit(
-        organization.getId(),
-        establishment.getId(),
-        unit.getId(),
-        currentUser(admin)
-    );
+        organization.getId(), establishment.getId(), unit.getId(), currentUser(admin));
 
     assertThat(temperatureUnitRepository.findById(unit.getId())).isEmpty();
   }
@@ -372,37 +354,37 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Kitchen");
     createMembership(organization, logger, OrganizationRole.ORG_EMPLOYEE, true);
 
-    TemperatureUnit unit = createTemperatureUnit(
-        organization,
-        establishment,
-        "Walk-in fridge",
-        "Receiving room",
-        TemperatureUnitType.FRIDGE,
-        LocalTime.of(8, 30),
-        new BigDecimal("2.00"),
-        new BigDecimal("4.00")
-    );
+    TemperatureUnit unit =
+        createTemperatureUnit(
+            organization,
+            establishment,
+            "Walk-in fridge",
+            "Receiving room",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 30),
+            new BigDecimal("2.00"),
+            new BigDecimal("4.00"));
 
     for (int i = 0; i < 8; i++) {
-      unit.addLog(new TemperatureLog(
-          Instant.parse("2026-04-%02dT06:10:00Z".formatted(9 - i)),
-          new BigDecimal("3.20"),
-          "Log %d".formatted(i),
-          logger
-      ));
+      unit.addLog(
+          new TemperatureLog(
+              Instant.parse("2026-04-%02dT06:10:00Z".formatted(9 - i)),
+              new BigDecimal("3.20"),
+              "Log %d".formatted(i),
+              logger));
     }
     temperatureUnitRepository.saveAndFlush(unit);
 
-    List<TemperatureUnitView> units = temperatureService.listTemperatureUnits(
-        organization.getId(),
-        establishment.getId(),
-        currentUser(logger)
-    );
+    List<TemperatureUnitView> units =
+        temperatureService.listTemperatureUnits(
+            organization.getId(), establishment.getId(), currentUser(logger));
 
     assertThat(units).hasSize(1);
     assertThat(units.getFirst().logs()).hasSize(7);
-    assertThat(units.getFirst().logs().getFirst().measuredAt()).isEqualTo(Instant.parse("2026-04-09T06:10:00Z"));
-    assertThat(units.getFirst().logs().getLast().measuredAt()).isEqualTo(Instant.parse("2026-04-03T06:10:00Z"));
+    assertThat(units.getFirst().logs().getFirst().measuredAt())
+        .isEqualTo(Instant.parse("2026-04-09T06:10:00Z"));
+    assertThat(units.getFirst().logs().getLast().measuredAt())
+        .isEqualTo(Instant.parse("2026-04-03T06:10:00Z"));
   }
 
   @Test
@@ -412,43 +394,36 @@ class TemperatureServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Kitchen");
     createMembership(organization, logger, OrganizationRole.ORG_EMPLOYEE, true);
 
-    TemperatureUnit unit = createTemperatureUnit(
-        organization,
-        establishment,
-        "Sushi prep fridge",
-        "Hot kitchen",
-        TemperatureUnitType.FRIDGE,
-        LocalTime.of(8, 30),
-        new BigDecimal("2.00"),
-        new BigDecimal("4.00")
-    );
-    unit.addLog(new TemperatureLog(
-        Instant.parse("2026-04-09T06:10:00Z"),
-        new BigDecimal("3.20"),
-        "Opening check completed.",
-        logger
-    ));
+    TemperatureUnit unit =
+        createTemperatureUnit(
+            organization,
+            establishment,
+            "Sushi prep fridge",
+            "Hot kitchen",
+            TemperatureUnitType.FRIDGE,
+            LocalTime.of(8, 30),
+            new BigDecimal("2.00"),
+            new BigDecimal("4.00"));
+    unit.addLog(
+        new TemperatureLog(
+            Instant.parse("2026-04-09T06:10:00Z"),
+            new BigDecimal("3.20"),
+            "Opening check completed.",
+            logger));
     temperatureUnitRepository.saveAndFlush(unit);
 
-    List<TemperatureUnitView> units = temperatureService.listTemperatureUnits(
-        organization.getId(),
-        establishment.getId(),
-        currentUser(logger)
-    );
+    List<TemperatureUnitView> units =
+        temperatureService.listTemperatureUnits(
+            organization.getId(), establishment.getId(), currentUser(logger));
 
     assertThat(units).hasSize(1);
-    assertThat(units.getFirst().logs().getFirst().loggedByName()).isEqualTo("temperature-fallback@example.com");
+    assertThat(units.getFirst().logs().getFirst().loggedByName())
+        .isEqualTo("temperature-fallback@example.com");
   }
 
   private User createUser(String email, String firstName, String lastName) {
-    User user = new User(
-        email,
-        firstName,
-        lastName,
-        passwordEncoder.encode("password123"),
-        true,
-        Set.of()
-    );
+    User user =
+        new User(email, firstName, lastName, passwordEncoder.encode("password123"), true, Set.of());
     return userRepository.saveAndFlush(user);
   }
 
@@ -457,16 +432,15 @@ class TemperatureServiceIntegrationTest {
   }
 
   private Establishment createEstablishment(Organization organization, String name) {
-    return establishmentRepository.saveAndFlush(new Establishment(
-        organization,
-        name,
-        EstablishmentType.RESTAURANT,
-        EstablishmentStatus.ACTIVE
-    ));
+    return establishmentRepository.saveAndFlush(
+        new Establishment(
+            organization, name, EstablishmentType.RESTAURANT, EstablishmentStatus.ACTIVE));
   }
 
-  private void createMembership(Organization organization, User user, OrganizationRole role, boolean active) {
-    organizationMembershipRepository.saveAndFlush(new OrganizationMembership(organization, user, role, active));
+  private void createMembership(
+      Organization organization, User user, OrganizationRole role, boolean active) {
+    organizationMembershipRepository.saveAndFlush(
+        new OrganizationMembership(organization, user, role, active));
   }
 
   private TemperatureUnit createTemperatureUnit(
@@ -477,8 +451,7 @@ class TemperatureServiceIntegrationTest {
       TemperatureUnitType type,
       LocalTime dueByTime,
       BigDecimal minimumTemperature,
-      BigDecimal maximumTemperature
-  ) {
+      BigDecimal maximumTemperature) {
     return new TemperatureUnit(
         organization,
         establishment,
@@ -487,8 +460,7 @@ class TemperatureServiceIntegrationTest {
         type,
         dueByTime,
         minimumTemperature,
-        maximumTemperature
-    );
+        maximumTemperature);
   }
 
   private CurrentUser currentUser(User user) {

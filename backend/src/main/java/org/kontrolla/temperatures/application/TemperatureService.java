@@ -1,5 +1,7 @@
 package org.kontrolla.temperatures.application;
 
+import java.util.List;
+import java.util.UUID;
 import org.kontrolla.common.exception.ApplicationException;
 import org.kontrolla.common.exception.ConflictException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
@@ -18,13 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
-
-/**
- * Coordinates temperature unit management and temperature logging for an
- * establishment.
- */
+/** Coordinates temperature unit management and temperature logging for an establishment. */
 @Service
 public class TemperatureService {
 
@@ -48,8 +44,7 @@ public class TemperatureService {
       TemperatureLogRepository temperatureLogRepository,
       OrganizationAccessService organizationAccessService,
       EstablishmentService establishmentService,
-      UserAccessService userAccessService
-  ) {
+      UserAccessService userAccessService) {
     this.temperatureUnitRepository = temperatureUnitRepository;
     this.temperatureLogRepository = temperatureLogRepository;
     this.organizationAccessService = organizationAccessService;
@@ -67,15 +62,11 @@ public class TemperatureService {
    */
   @Transactional(readOnly = true)
   public List<TemperatureUnitView> listTemperatureUnits(
-      UUID organizationId,
-      UUID establishmentId,
-      CurrentUser currentUser
-  ) {
+      UUID organizationId, UUID establishmentId, CurrentUser currentUser) {
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
-    return temperatureUnitRepository.findByEstablishmentIdAndOrganizationIdOrderByNameAsc(
-            establishmentId,
-            organizationId
-        ).stream()
+    return temperatureUnitRepository
+        .findByEstablishmentIdAndOrganizationIdOrderByNameAsc(establishmentId, organizationId)
+        .stream()
         .map(TemperatureUnitView::from)
         .toList();
   }
@@ -94,37 +85,37 @@ public class TemperatureService {
       UUID organizationId,
       UUID establishmentId,
       CreateTemperatureUnitCommand command,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     organizationAccessService.requireMembershipManagement(currentUser, organizationId);
     Organization organization = organizationAccessService.getOrganizationOrThrow(organizationId);
-    Establishment establishment = establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
+    Establishment establishment =
+        establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     validateCreateUnitCommand(command);
 
     String normalizedName = normalizeRequiredText(command.name());
     String normalizedLocation = normalizeRequiredText(command.location());
 
-    boolean duplicateExists = temperatureUnitRepository
-        .findByEstablishmentIdAndOrganizationIdOrderByNameAsc(establishmentId, organizationId)
-        .stream()
-        .anyMatch(unit -> unit.getName().equalsIgnoreCase(normalizedName));
+    boolean duplicateExists =
+        temperatureUnitRepository
+            .findByEstablishmentIdAndOrganizationIdOrderByNameAsc(establishmentId, organizationId)
+            .stream()
+            .anyMatch(unit -> unit.getName().equalsIgnoreCase(normalizedName));
     if (duplicateExists) {
       throw new ConflictException(
           "temperature_unit_already_exists",
-          "A temperature unit with that name already exists for this establishment"
-      );
+          "A temperature unit with that name already exists for this establishment");
     }
 
-    TemperatureUnit unit = new TemperatureUnit(
-        organization,
-        establishment,
-        normalizedName,
-        normalizedLocation,
-        command.type(),
-        command.dueByTime(),
-        command.minimumTemperature(),
-        command.maximumTemperature()
-    );
+    TemperatureUnit unit =
+        new TemperatureUnit(
+            organization,
+            establishment,
+            normalizedName,
+            normalizedLocation,
+            command.type(),
+            command.dueByTime(),
+            command.minimumTemperature(),
+            command.maximumTemperature());
 
     return TemperatureUnitView.from(temperatureUnitRepository.save(unit));
   }
@@ -145,28 +136,26 @@ public class TemperatureService {
       UUID establishmentId,
       UUID temperatureUnitId,
       CreateTemperatureLogCommand command,
-      CurrentUser currentUser
-  ) {
+      CurrentUser currentUser) {
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
     validateCreateCommand(command);
 
-    TemperatureUnit temperatureUnit = temperatureUnitRepository
-        .findByIdAndEstablishmentIdAndOrganizationId(temperatureUnitId, establishmentId, organizationId)
-        .orElseThrow(() -> new ResourceNotFoundException(
-            "temperature_unit_not_found",
-            "Temperature unit not found"
-        ));
+    TemperatureUnit temperatureUnit =
+        temperatureUnitRepository
+            .findByIdAndEstablishmentIdAndOrganizationId(
+                temperatureUnitId, establishmentId, organizationId)
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "temperature_unit_not_found", "Temperature unit not found"));
     User actor = userAccessService.getCurrentUserOrThrow(currentUser);
     String normalizedNote = normalizeOptionalText(command.note());
 
     validateOutOfRangeNote(temperatureUnit, command, normalizedNote);
 
-    TemperatureLog temperatureLog = new TemperatureLog(
-        command.measuredAt(),
-        command.temperatureCelsius(),
-        normalizedNote,
-        actor
-    );
+    TemperatureLog temperatureLog =
+        new TemperatureLog(
+            command.measuredAt(), command.temperatureCelsius(), normalizedNote, actor);
     temperatureUnit.addLog(temperatureLog);
     TemperatureLog persistedTemperatureLog = temperatureLogRepository.saveAndFlush(temperatureLog);
 
@@ -183,20 +172,18 @@ public class TemperatureService {
    */
   @Transactional
   public void deleteTemperatureUnit(
-      UUID organizationId,
-      UUID establishmentId,
-      UUID temperatureUnitId,
-      CurrentUser currentUser
-  ) {
+      UUID organizationId, UUID establishmentId, UUID temperatureUnitId, CurrentUser currentUser) {
     organizationAccessService.requireMembershipManagement(currentUser, organizationId);
     establishmentService.getEstablishment(organizationId, establishmentId, currentUser);
 
-    TemperatureUnit temperatureUnit = temperatureUnitRepository
-        .findByIdAndEstablishmentIdAndOrganizationId(temperatureUnitId, establishmentId, organizationId)
-        .orElseThrow(() -> new ResourceNotFoundException(
-            "temperature_unit_not_found",
-            "Temperature unit not found"
-        ));
+    TemperatureUnit temperatureUnit =
+        temperatureUnitRepository
+            .findByIdAndEstablishmentIdAndOrganizationId(
+                temperatureUnitId, establishmentId, organizationId)
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "temperature_unit_not_found", "Temperature unit not found"));
 
     temperatureUnitRepository.delete(temperatureUnit);
   }
@@ -206,24 +193,17 @@ public class TemperatureService {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_log_required",
-          "Temperature log payload is required"
-      );
+          "Temperature log payload is required");
     }
 
     if (command.temperatureCelsius() == null) {
       throw new ApplicationException(
-          HttpStatus.BAD_REQUEST,
-          "temperature_required",
-          "Temperature is required"
-      );
+          HttpStatus.BAD_REQUEST, "temperature_required", "Temperature is required");
     }
 
     if (command.measuredAt() == null) {
       throw new ApplicationException(
-          HttpStatus.BAD_REQUEST,
-          "measured_at_required",
-          "Measured timestamp is required"
-      );
+          HttpStatus.BAD_REQUEST, "measured_at_required", "Measured timestamp is required");
     }
   }
 
@@ -232,54 +212,43 @@ public class TemperatureService {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_unit_required",
-          "Temperature unit payload is required"
-      );
+          "Temperature unit payload is required");
     }
 
     if (command.type() == null) {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_unit_type_required",
-          "Temperature unit type is required"
-      );
+          "Temperature unit type is required");
     }
 
     if (command.dueByTime() == null) {
       throw new ApplicationException(
-          HttpStatus.BAD_REQUEST,
-          "temperature_due_time_required",
-          "Due time is required"
-      );
+          HttpStatus.BAD_REQUEST, "temperature_due_time_required", "Due time is required");
     }
 
     if (command.minimumTemperature() == null || command.maximumTemperature() == null) {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_range_required",
-          "Minimum and maximum temperatures are required"
-      );
+          "Minimum and maximum temperatures are required");
     }
 
     if (command.maximumTemperature().compareTo(command.minimumTemperature()) < 0) {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "invalid_temperature_range",
-          "Maximum temperature cannot be below minimum temperature"
-      );
+          "Maximum temperature cannot be below minimum temperature");
     }
   }
 
   private void validateOutOfRangeNote(
-      TemperatureUnit temperatureUnit,
-      CreateTemperatureLogCommand command,
-      String normalizedNote
-  ) {
+      TemperatureUnit temperatureUnit, CreateTemperatureLogCommand command, String normalizedNote) {
     if (!temperatureUnit.isWithinRange(command.temperatureCelsius()) && normalizedNote == null) {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_note_required",
-          "A note is required for out-of-range temperature readings"
-      );
+          "A note is required for out-of-range temperature readings");
     }
   }
 
@@ -297,8 +266,7 @@ public class TemperatureService {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_unit_field_required",
-          "Required text fields must be provided"
-      );
+          "Required text fields must be provided");
     }
 
     String normalized = value.trim();
@@ -306,8 +274,7 @@ public class TemperatureService {
       throw new ApplicationException(
           HttpStatus.BAD_REQUEST,
           "temperature_unit_field_required",
-          "Required text fields must not be blank"
-      );
+          "Required text fields must not be blank");
     }
 
     return normalized;

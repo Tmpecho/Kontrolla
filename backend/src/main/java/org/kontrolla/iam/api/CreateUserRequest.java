@@ -3,9 +3,8 @@ package org.kontrolla.iam.api;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import org.kontrolla.iam.domain.GlobalRole;
-
 import java.util.Set;
+import org.kontrolla.iam.domain.GlobalRole;
 
 /**
  * Request payload for creating a user administratively.
@@ -18,11 +17,9 @@ import java.util.Set;
  * @param globalRoles the user's global roles
  */
 public record CreateUserRequest(
-		@NotBlank @Email String email,
-		@NotBlank @Size(max = 255) String firstName,
-		@NotBlank @Size(max = 255) String lastName,
-		@NotBlank @Size(min = 8, max = 200) String password,
-		Boolean active,
-		Set<GlobalRole> globalRoles
-) {
-}
+    @NotBlank @Email String email,
+    @NotBlank @Size(max = 255) String firstName,
+    @NotBlank @Size(max = 255) String lastName,
+    @NotBlank @Size(min = 8, max = 200) String password,
+    Boolean active,
+    Set<GlobalRole> globalRoles) {}

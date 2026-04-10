@@ -1,5 +1,14 @@
 package org.kontrolla.establishments.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kontrolla.common.exception.ApplicationException;
@@ -23,40 +32,23 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.DayOfWeek;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 @SpringBootTest
 @ActiveProfiles("test")
 class EstablishmentServiceIntegrationTest {
 
-  @Autowired
-  private EstablishmentService establishmentService;
+  @Autowired private EstablishmentService establishmentService;
 
-  @Autowired
-  private OrganizationRepository organizationRepository;
+  @Autowired private OrganizationRepository organizationRepository;
 
-  @Autowired
-  private EstablishmentRepository establishmentRepository;
+  @Autowired private EstablishmentRepository establishmentRepository;
 
-  @Autowired
-  private OrganizationMembershipRepository organizationMembershipRepository;
+  @Autowired private OrganizationMembershipRepository organizationMembershipRepository;
 
-  @Autowired
-  private UserRepository userRepository;
+  @Autowired private UserRepository userRepository;
 
-  @Autowired
-  private PasswordEncoder passwordEncoder;
+  @Autowired private PasswordEncoder passwordEncoder;
 
-  @Autowired
-  private TestDataCleaner testDataCleaner;
+  @Autowired private TestDataCleaner testDataCleaner;
 
   @BeforeEach
   void setUp() {
@@ -70,23 +62,16 @@ class EstablishmentServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Downtown Bar");
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
 
-    List<UpdateServingHoursDayCommand> commands = weeklySchedule(
-        LocalTime.of(10, 0),
-        LocalTime.of(22, 0)
-    );
+    List<UpdateServingHoursDayCommand> commands =
+        weeklySchedule(LocalTime.of(10, 0), LocalTime.of(22, 0));
 
-    List<ServingHoursDayView> updated = establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        commands,
-        currentUser(manager)
-    );
+    List<ServingHoursDayView> updated =
+        establishmentService.updateServingHours(
+            organization.getId(), establishment.getId(), commands, currentUser(manager));
 
-    List<ServingHoursDayView> reloaded = establishmentService.getServingHours(
-        organization.getId(),
-        establishment.getId(),
-        currentUser(manager)
-    );
+    List<ServingHoursDayView> reloaded =
+        establishmentService.getServingHours(
+            organization.getId(), establishment.getId(), currentUser(manager));
 
     assertThat(updated).hasSize(7);
     assertThat(updated)
@@ -94,11 +79,13 @@ class EstablishmentServiceIntegrationTest {
         .containsExactly(DayOfWeek.values());
 
     assertThat(reloaded).hasSize(7);
-    assertThat(reloaded).allSatisfy(day -> {
-      assertThat(day.closed()).isFalse();
-      assertThat(day.opensAt()).isEqualTo(LocalTime.of(10, 0));
-      assertThat(day.closesAt()).isEqualTo(LocalTime.of(22, 0));
-    });
+    assertThat(reloaded)
+        .allSatisfy(
+            day -> {
+              assertThat(day.closed()).isFalse();
+              assertThat(day.opensAt()).isEqualTo(LocalTime.of(10, 0));
+              assertThat(day.closesAt()).isEqualTo(LocalTime.of(22, 0));
+            });
   }
 
   @Test
@@ -108,21 +95,21 @@ class EstablishmentServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Quiet Cafe");
     createMembership(organization, employee, OrganizationRole.ORG_EMPLOYEE, true);
 
-    List<ServingHoursDayView> servingHours = establishmentService.getServingHours(
-        organization.getId(),
-        establishment.getId(),
-        currentUser(employee)
-    );
+    List<ServingHoursDayView> servingHours =
+        establishmentService.getServingHours(
+            organization.getId(), establishment.getId(), currentUser(employee));
 
     assertThat(servingHours).hasSize(7);
     assertThat(servingHours)
         .extracting(ServingHoursDayView::dayOfWeek)
         .containsExactly(DayOfWeek.values());
-    assertThat(servingHours).allSatisfy(day -> {
-      assertThat(day.closed()).isTrue();
-      assertThat(day.opensAt()).isNull();
-      assertThat(day.closesAt()).isNull();
-    });
+    assertThat(servingHours)
+        .allSatisfy(
+            day -> {
+              assertThat(day.closed()).isTrue();
+              assertThat(day.opensAt()).isNull();
+              assertThat(day.closesAt()).isNull();
+            });
   }
 
   @Test
@@ -138,22 +125,21 @@ class EstablishmentServiceIntegrationTest {
         organization.getId(),
         establishment.getId(),
         weeklySchedule(LocalTime.of(9, 0), LocalTime.of(21, 0)),
-        currentUser(manager)
-    );
+        currentUser(manager));
 
-    List<ServingHoursDayView> visibleToEmployee = establishmentService.getServingHours(
-        organization.getId(),
-        establishment.getId(),
-        currentUser(employee)
-    );
+    List<ServingHoursDayView> visibleToEmployee =
+        establishmentService.getServingHours(
+            organization.getId(), establishment.getId(), currentUser(employee));
 
     assertThat(visibleToEmployee).hasSize(7);
-    assertThatThrownBy(() -> establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        weeklySchedule(LocalTime.of(11, 0), LocalTime.of(23, 0)),
-        currentUser(employee)
-    )).isInstanceOf(ForbiddenException.class);
+    assertThatThrownBy(
+            () ->
+                establishmentService.updateServingHours(
+                    organization.getId(),
+                    establishment.getId(),
+                    weeklySchedule(LocalTime.of(11, 0), LocalTime.of(23, 0)),
+                    currentUser(employee)))
+        .isInstanceOf(ForbiddenException.class);
   }
 
   @Test
@@ -163,17 +149,19 @@ class EstablishmentServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Missing Days Bar");
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
 
-    List<UpdateServingHoursDayCommand> commands = Arrays.stream(DayOfWeek.values())
-        .limit(6)
-        .map(day -> new UpdateServingHoursDayCommand(day, false, LocalTime.of(10, 0), LocalTime.of(22, 0)))
-        .toList();
+    List<UpdateServingHoursDayCommand> commands =
+        Arrays.stream(DayOfWeek.values())
+            .limit(6)
+            .map(
+                day ->
+                    new UpdateServingHoursDayCommand(
+                        day, false, LocalTime.of(10, 0), LocalTime.of(22, 0)))
+            .toList();
 
-    assertThatThrownBy(() -> establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        commands,
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                establishmentService.updateServingHours(
+                    organization.getId(), establishment.getId(), commands, currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Serving hours must include exactly one entry for each day of the week");
   }
@@ -185,22 +173,22 @@ class EstablishmentServiceIntegrationTest {
     Establishment establishment = createEstablishment(organization, "Duplicate Days Bar");
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
 
-    List<UpdateServingHoursDayCommand> commands = List.of(
-        new UpdateServingHoursDayCommand(DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-        new UpdateServingHoursDayCommand(DayOfWeek.MONDAY, false, LocalTime.of(11, 0), LocalTime.of(23, 0)),
-        new UpdateServingHoursDayCommand(DayOfWeek.TUESDAY, true, null, null),
-        new UpdateServingHoursDayCommand(DayOfWeek.WEDNESDAY, true, null, null),
-        new UpdateServingHoursDayCommand(DayOfWeek.THURSDAY, true, null, null),
-        new UpdateServingHoursDayCommand(DayOfWeek.FRIDAY, true, null, null),
-        new UpdateServingHoursDayCommand(DayOfWeek.SATURDAY, true, null, null)
-    );
+    List<UpdateServingHoursDayCommand> commands =
+        List.of(
+            new UpdateServingHoursDayCommand(
+                DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(22, 0)),
+            new UpdateServingHoursDayCommand(
+                DayOfWeek.MONDAY, false, LocalTime.of(11, 0), LocalTime.of(23, 0)),
+            new UpdateServingHoursDayCommand(DayOfWeek.TUESDAY, true, null, null),
+            new UpdateServingHoursDayCommand(DayOfWeek.WEDNESDAY, true, null, null),
+            new UpdateServingHoursDayCommand(DayOfWeek.THURSDAY, true, null, null),
+            new UpdateServingHoursDayCommand(DayOfWeek.FRIDAY, true, null, null),
+            new UpdateServingHoursDayCommand(DayOfWeek.SATURDAY, true, null, null));
 
-    assertThatThrownBy(() -> establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        commands,
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                establishmentService.updateServingHours(
+                    organization.getId(), establishment.getId(), commands, currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Serving hours must not contain duplicate days");
   }
@@ -213,19 +201,15 @@ class EstablishmentServiceIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
 
     List<UpdateServingHoursDayCommand> commands = new ArrayList<>(closedWeek());
-    commands.set(0, new UpdateServingHoursDayCommand(
-        DayOfWeek.MONDAY,
-        true,
-        LocalTime.of(10, 0),
-        LocalTime.of(22, 0)
-    ));
+    commands.set(
+        0,
+        new UpdateServingHoursDayCommand(
+            DayOfWeek.MONDAY, true, LocalTime.of(10, 0), LocalTime.of(22, 0)));
 
-    assertThatThrownBy(() -> establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        commands,
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                establishmentService.updateServingHours(
+                    organization.getId(), establishment.getId(), commands, currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Closed days cannot include opening or closing times");
   }
@@ -238,19 +222,13 @@ class EstablishmentServiceIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
 
     List<UpdateServingHoursDayCommand> commands = new ArrayList<>(closedWeek());
-    commands.set(0, new UpdateServingHoursDayCommand(
-        DayOfWeek.MONDAY,
-        false,
-        LocalTime.of(10, 0),
-        null
-    ));
+    commands.set(
+        0, new UpdateServingHoursDayCommand(DayOfWeek.MONDAY, false, LocalTime.of(10, 0), null));
 
-    assertThatThrownBy(() -> establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        commands,
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                establishmentService.updateServingHours(
+                    organization.getId(), establishment.getId(), commands, currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Open days must include both opening and closing times");
   }
@@ -263,19 +241,15 @@ class EstablishmentServiceIntegrationTest {
     createMembership(organization, manager, OrganizationRole.ORG_MANAGER, true);
 
     List<UpdateServingHoursDayCommand> commands = new ArrayList<>(closedWeek());
-    commands.set(0, new UpdateServingHoursDayCommand(
-        DayOfWeek.MONDAY,
-        false,
-        LocalTime.of(10, 0),
-        LocalTime.of(10, 0)
-    ));
+    commands.set(
+        0,
+        new UpdateServingHoursDayCommand(
+            DayOfWeek.MONDAY, false, LocalTime.of(10, 0), LocalTime.of(10, 0)));
 
-    assertThatThrownBy(() -> establishmentService.updateServingHours(
-        organization.getId(),
-        establishment.getId(),
-        commands,
-        currentUser(manager)
-    ))
+    assertThatThrownBy(
+            () ->
+                establishmentService.updateServingHours(
+                    organization.getId(), establishment.getId(), commands, currentUser(manager)))
         .isInstanceOf(ApplicationException.class)
         .hasMessage("Opening and closing times must differ");
   }
@@ -293,14 +267,8 @@ class EstablishmentServiceIntegrationTest {
   }
 
   private User createUser(String email) {
-    return userRepository.saveAndFlush(new User(
-        email,
-        "Test",
-        "User",
-        passwordEncoder.encode("password123"),
-        true,
-        Set.of()
-    ));
+    return userRepository.saveAndFlush(
+        new User(email, "Test", "User", passwordEncoder.encode("password123"), true, Set.of()));
   }
 
   private Organization createOrganization(String name) {
@@ -308,16 +276,14 @@ class EstablishmentServiceIntegrationTest {
   }
 
   private Establishment createEstablishment(Organization organization, String name) {
-    return establishmentRepository.saveAndFlush(new Establishment(
-        organization,
-        name,
-        EstablishmentType.BAR,
-        EstablishmentStatus.ACTIVE
-    ));
+    return establishmentRepository.saveAndFlush(
+        new Establishment(organization, name, EstablishmentType.BAR, EstablishmentStatus.ACTIVE));
   }
 
-  private void createMembership(Organization organization, User user, OrganizationRole role, boolean active) {
-    organizationMembershipRepository.saveAndFlush(new OrganizationMembership(organization, user, role, active));
+  private void createMembership(
+      Organization organization, User user, OrganizationRole role, boolean active) {
+    organizationMembershipRepository.saveAndFlush(
+        new OrganizationMembership(organization, user, role, active));
   }
 
   private CurrentUser currentUser(User user) {

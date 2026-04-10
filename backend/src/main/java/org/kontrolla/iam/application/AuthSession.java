@@ -3,8 +3,7 @@ package org.kontrolla.iam.application;
 import org.kontrolla.iam.domain.User;
 
 /**
- * Authenticated session payload containing issued tokens and resolved app
- * context.
+ * Authenticated session payload containing issued tokens and resolved app context.
  *
  * @param user the authenticated user
  * @param accessToken the issued access token
@@ -13,10 +12,8 @@ import org.kontrolla.iam.domain.User;
  * @param appContext the resolved application context for the user
  */
 public record AuthSession(
-		User user,
-		String accessToken,
-		long expiresInSeconds,
-		String refreshToken,
-		UserAppContext appContext
-) {
-}
+    User user,
+    String accessToken,
+    long expiresInSeconds,
+    String refreshToken,
+    UserAppContext appContext) {}
