@@ -64,4 +64,30 @@ describe('TopBar', () => {
 
     expect(wrapper.get('.notification-badge').text()).toBe('9+')
   })
+
+  it('keeps the notifications trigger rendered in mobile view', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'workspace-home', component: { template: '<div />' } },
+        { path: '/ik-mat', name: 'ik-mat-dashboard', component: { template: '<div />' } },
+        { path: '/ik-alkohol', name: 'ik-alkohol-dashboard', component: { template: '<div />' } },
+        { path: '/admin/members', name: 'organization-members', component: { template: '<div />' } },
+      ],
+    })
+    router.push({ name: 'workspace-home' })
+    await router.isReady()
+
+    const { default: TopBar } = await import('@/app/components/TopBar.vue')
+    const wrapper = mount(TopBar, {
+      props: {
+        mobileNavOpen: false,
+      },
+      global: {
+        plugins: [router],
+      },
+    })
+
+    expect(wrapper.find('#notifications-trigger').exists()).toBe(true)
+  })
 })

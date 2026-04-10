@@ -388,7 +388,7 @@ watch(
   }
 
   .desktop-service-links,
-  .icon-wrapper-notifications {
+  .desktop-service-links {
     display: none;
   }
 

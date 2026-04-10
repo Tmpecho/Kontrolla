@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { listNotifications, markNotificationRead } from '@/notifications/api/notifications.api'
@@ -24,6 +24,7 @@ const notifications = ref<NotificationItem[]>([])
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const actionErrorMessage = ref<string | null>(null)
+const isMobileViewport = ref(false)
 const notificationsStore = useNotificationsStore()
 const router = useRouter()
 
@@ -46,6 +47,10 @@ async function loadRecentNotifications() {
   } finally {
     isLoading.value = false
   }
+}
+
+function updateViewportMode() {
+  isMobileViewport.value = window.innerWidth <= 720
 }
 
 async function openNotification(notification: NotificationItem) {
@@ -79,13 +84,21 @@ function closePopup() {
   emit('close')
 }
 
+const overlayVariant = computed(() => (isMobileViewport.value ? 'sheet-bottom' : 'popover'))
+
 function formatDateTime(createdAt: string): string {
   return notificationDateTimeFormatter.format(new Date(createdAt))
 }
 
 onMounted(() => {
+  updateViewportMode()
+  window.addEventListener('resize', updateViewportMode)
   void loadRecentNotifications()
   void notificationsStore.refreshUnreadCount().catch(() => undefined)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportMode)
 })
 </script>
 
@@ -95,10 +108,26 @@ onMounted(() => {
     :open="open"
     aria-label="Notifications"
     panel-id="notifications-popup"
-    variant="popover"
+    :variant="overlayVariant"
     @close="closePopup"
   >
     <div class="notifications-container">
+      <div class="notifications-header">
+        <button type="button" class="notifications-back-button" @click="closePopup">
+          <svg aria-hidden="true" class="notifications-back-icon" viewBox="0 0 20 20">
+            <path
+              d="M11.75 4.75 6.5 10l5.25 5.25"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+          </svg>
+          <span>Back</span>
+        </button>
+        <p class="notifications-title">Notifications</p>
+      </div>
+
       <p v-if="isLoading" class="notifications-state">Loading notifications...</p>
       <p v-else-if="errorMessage" class="notifications-state notifications-state-error">{{ errorMessage }}</p>
       <template v-else-if="notifications.length > 0">
@@ -155,8 +184,46 @@ onMounted(() => {
   min-width: 320px;
 }
 
+.notifications-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.notifications-title,
 .notifications-state {
   margin: 0;
+}
+
+.notifications-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.notifications-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notifications-back-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.notifications-state {
   padding: 14px 16px;
 }
 
@@ -255,5 +322,16 @@ onMounted(() => {
 .view-all-link {
   color: var(--color-primary);
   text-decoration: none;
+}
+
+@media (max-width: 720px) {
+  .notifications-container {
+    min-width: 0;
+    background-color: var(--color-container);
+  }
+
+  .notifications-header {
+    padding: 16px;
+  }
 }
 </style>
