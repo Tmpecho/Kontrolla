@@ -670,15 +670,16 @@ onBeforeUnmount(() => {
     <AppOverlay
       :open="Boolean(selectedDeviation) && isMobileViewport"
       aria-label="Selected deviation details"
-      variant="drawer-right"
+      variant="sheet-bottom"
       @close="clearSelectedDeviation"
     >
-      <div v-if="selectedDeviation" class="detail-drawer-shell">
+      <div v-if="selectedDeviation" class="detail-sheet-shell">
         <DeviationDetailPanel
           :deviation="selectedDeviation"
           :is-saving="isSaving"
           :member-options="selectedMemberOptions"
           :save-error-message="saveErrorMessage"
+          variant="sheet"
           :show-close-button="true"
           @add-note="handleTimelineNoteAdd"
           @close="clearSelectedDeviation"
@@ -910,15 +911,13 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
-.detail-drawer-shell {
-  height: 100%;
-  padding: 16px;
-  box-sizing: border-box;
+.detail-sheet-shell {
+  max-height: calc(100vh - 16px);
+  border-top: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background-color: var(--color-container);
+  box-shadow: var(--shadow-elevated);
   overflow-y: auto;
-}
-
-.detail-drawer-shell :deep(.detail-panel) {
-  min-height: 100%;
 }
 
 @media (max-width: 720px) {
