@@ -41,10 +41,13 @@ const cutoffTwenty = getCutoffDate(20)
 </template>
 
 <style scoped>
-.age-verification-tile {
+.age-verification-tile,
+.age-verification-tile.dashboard-tile {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
+  justify-content: flex-start;
+  min-height: 0;
   gap: 16px;
 }
 
