@@ -4,10 +4,9 @@ import { useRoute } from 'vue-router'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
-import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import { listAllChecklistRuns } from '@/checklists/api/checklist-runs.api'
 import ChecklistDefinitionManager from '@/checklists/components/ChecklistDefinitionManager.vue'
 import ChecklistRunCard from '@/checklists/components/ChecklistRunCard.vue'
-import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
 import type { ChecklistRun, ChecklistRunStatus } from '@/checklists/model/checklist.types'
 import { ApiError } from '@/shared/api/http'
 
@@ -25,6 +24,7 @@ const pinnedChecklistRunId = ref<string | null>(null)
 const requestedDefinitionGroupId = ref<string | null>(null)
 
 const ACTIVE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
+const TRIAGE_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS', 'COMPLETED']
 const canManageChecklistDefinitions = computed(() => {
   if (authStore.user?.globalRoles.includes('PLATFORM_ADMIN')) {
     return true
@@ -95,18 +95,18 @@ async function loadChecklistRuns(): Promise<void> {
   errorMessage.value = null
 
   try {
-    const pages = await Promise.all(
+    const runs = await Promise.all(
       context.establishmentIds.map((establishmentId) =>
-        listChecklistRuns({
+        listAllChecklistRuns({
           organizationId: context.organizationId,
           establishmentId,
           serviceArea: 'IK_MAT',
-          size: 200,
+          statuses: TRIAGE_STATUSES,
         }),
       ),
     )
 
-    allChecklistRuns.value = pages.flatMap((page) => page.items)
+    allChecklistRuns.value = runs.flat()
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? error.message : 'Failed to load checklist runs.'
@@ -205,14 +205,8 @@ function matchesFilter(run: ChecklistRun, filter: TriageFilter): boolean {
   }
 }
 
-const deduplicatedChecklistRuns = computed(() => selectLatestChecklistRuns(allChecklistRuns.value))
-
-function triageSourceRuns(filter: TriageFilter): ChecklistRun[] {
-  if (filter === 'UPCOMING' || filter === 'DUE_TODAY' || filter === 'LATE') {
-    return allChecklistRuns.value
-  }
-
-  return deduplicatedChecklistRuns.value
+function triageSourceRuns(_filter: TriageFilter): ChecklistRun[] {
+  return allChecklistRuns.value
 }
 
 const triageOptions = computed(() => {

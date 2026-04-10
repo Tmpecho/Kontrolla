@@ -3,9 +3,9 @@ import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/auth/model/auth.store'
 import { useProtectedWorkspaceContext } from '@/auth/model/workspace-context'
-import { listChecklistRuns } from '@/checklists/api/checklist-runs.api'
-import { selectLatestChecklistRuns } from '@/checklists/model/checklist-runs.utils'
-import type { ChecklistRun } from '@/checklists/model/checklist.types'
+import { listAllChecklistRuns } from '@/checklists/api/checklist-runs.api'
+import { sortChecklistRunsByRecency } from '@/checklists/model/checklist-runs.utils'
+import type { ChecklistRun, ChecklistRunStatus } from '@/checklists/model/checklist.types'
 import { listEstablishmentDeviations } from '@/deviations/api/deviations.api'
 import type { DeviationListItem, DeviationServiceArea } from '@/deviations/model/deviation.types'
 import {
@@ -41,6 +41,7 @@ const temperatureUnits = ref<TemperatureUnit[] | null>(null)
 const isLoadingTemperatureUnits = ref(false)
 const temperatureErrorMessage = ref<string | null>(null)
 let workspaceRequestSequence = 0
+const ACTIVE_CHECKLIST_RUN_STATUSES: ChecklistRunStatus[] = ['PENDING', 'OVERDUE', 'IN_PROGRESS']
 
 const workspaceContext = computed(() => {
   if (!authStore.isSessionReady || protectedWorkspaceContext.isStartupPending.value) {
@@ -243,25 +244,13 @@ async function listAllChecklistRunsForEstablishment(
   organizationId: string,
   establishmentId: string,
 ): Promise<ChecklistRun[]> {
-  const allRuns: ChecklistRun[] = []
-  let page = 0
-  let totalPages = 1
-
-  do {
-    const response = await listChecklistRuns({
-      organizationId,
-      establishmentId,
-      serviceArea: 'IK_MAT',
-      page,
-      size: 100,
-    })
-
-    allRuns.push(...response.items)
-    totalPages = response.totalPages
-    page += 1
-  } while (page < totalPages)
-
-  return allRuns
+  return listAllChecklistRuns({
+    organizationId,
+    establishmentId,
+    serviceArea: 'IK_MAT',
+    statuses: ACTIVE_CHECKLIST_RUN_STATUSES,
+    size: 100,
+  })
 }
 
 async function listAllDeviationsForEstablishment(
@@ -329,7 +318,7 @@ async function loadChecklistRuns(
       return
     }
 
-    checklistRuns.value = selectLatestChecklistRuns(pages.flat())
+    checklistRuns.value = sortChecklistRunsByRecency(pages.flat())
   } catch (error) {
     if (!hasActiveWorkspaceRequest(requestId)) {
       return
