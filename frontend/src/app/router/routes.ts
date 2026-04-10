@@ -16,6 +16,7 @@ import TemperatureUnitCreatePage from '@/ik-mat/pages/TemperatureUnitCreatePage.
 import DocumentUploadPage from '@/documents/pages/DocumentUploadPage.vue'
 import DocumentsPage from '@/documents/pages/DocumentsPage.vue'
 import IKAlkoholDashboardPage from '@/ik-alkohol/pages/IKAlkoholDashboardPage.vue'
+import ServingHoursEditPage from '@/ik-alkohol/pages/ServingHoursEditPage.vue'
 import DeviationPage from '@/deviations/pages/DeviationPage.vue'
 import DeviationFormPage from '@/deviations/pages/DeviationFormPage.vue'
 import MyProfilePage from '@/account/pages/MyProfilePage.vue'
@@ -140,6 +141,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'ik-alkohol/documents/upload',
         name: 'ik-alkohol-documents-upload',
         component: DocumentUploadPage,
+      },
+      {
+        path: 'ik-alkohol/serving-hours',
+        name: 'ik-alkohol-serving-hours-edit',
+        component: ServingHoursEditPage,
       },
       {
         path: 'my-profile',

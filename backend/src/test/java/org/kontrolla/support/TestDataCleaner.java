@@ -7,6 +7,7 @@ import org.kontrolla.deviations.infrastructure.DeviationRepository;
 import org.kontrolla.documents.infrastructure.DocumentFileRepository;
 import org.kontrolla.documents.infrastructure.DocumentRepository;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
+import org.kontrolla.establishments.infrastructure.EstablishmentServingHoursRepository;
 import org.kontrolla.iam.infrastructure.RefreshTokenRepository;
 import org.kontrolla.iam.infrastructure.UserInviteRepository;
 import org.kontrolla.iam.infrastructure.UserRepository;
@@ -32,6 +33,7 @@ public class TestDataCleaner {
   private final ChecklistRunRepository checklistRunRepository;
   private final ChecklistDefinitionRepository checklistDefinitionRepository;
   private final OrganizationMembershipRepository organizationMembershipRepository;
+  private final EstablishmentServingHoursRepository establishmentServingHoursRepository;
   private final EstablishmentRepository establishmentRepository;
   private final OrganizationRepository organizationRepository;
   private final UserRepository userRepository;
@@ -49,6 +51,7 @@ public class TestDataCleaner {
       ChecklistRunRepository checklistRunRepository,
       ChecklistDefinitionRepository checklistDefinitionRepository,
       OrganizationMembershipRepository organizationMembershipRepository,
+      EstablishmentServingHoursRepository establishmentServingHoursRepository,
       EstablishmentRepository establishmentRepository,
       OrganizationRepository organizationRepository,
       UserRepository userRepository
@@ -65,6 +68,7 @@ public class TestDataCleaner {
     this.checklistRunRepository = checklistRunRepository;
     this.checklistDefinitionRepository = checklistDefinitionRepository;
     this.organizationMembershipRepository = organizationMembershipRepository;
+    this.establishmentServingHoursRepository = establishmentServingHoursRepository;
     this.establishmentRepository = establishmentRepository;
     this.organizationRepository = organizationRepository;
     this.userRepository = userRepository;
@@ -83,6 +87,7 @@ public class TestDataCleaner {
     checklistRunRepository.deleteAll();
     checklistDefinitionRepository.deleteAll();
     organizationMembershipRepository.deleteAll();
+    establishmentServingHoursRepository.deleteAll();
     establishmentRepository.deleteAll();
     organizationRepository.deleteAll();
     userRepository.deleteAll();

@@ -61,4 +61,33 @@ public class EstablishmentController {
 	) {
 		return EstablishmentResponse.from(establishmentService.getEstablishment(organizationId, establishmentId, currentUser));
 	}
+
+	@GetMapping("/{establishmentId}/serving-hours")
+	public java.util.List<ServingHoursDayResponse> getServingHours(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID establishmentId,
+			@AuthenticationPrincipal CurrentUser currentUser
+	) {
+		return establishmentService.getServingHours(organizationId, establishmentId, currentUser)
+				.stream()
+				.map(ServingHoursDayResponse::from)
+				.toList();
+	}
+
+	@PutMapping("/{establishmentId}/serving-hours")
+	public java.util.List<ServingHoursDayResponse> updateServingHours(
+			@PathVariable UUID organizationId,
+			@PathVariable UUID establishmentId,
+			@AuthenticationPrincipal CurrentUser currentUser,
+			@Valid @RequestBody java.util.List<@Valid UpdateServingHoursDayRequest> request
+	) {
+		return establishmentService.updateServingHours(
+						organizationId,
+						establishmentId,
+						request.stream().map(UpdateServingHoursDayRequest::toCommand).toList(),
+						currentUser
+				).stream()
+				.map(ServingHoursDayResponse::from)
+				.toList();
+	}
 }

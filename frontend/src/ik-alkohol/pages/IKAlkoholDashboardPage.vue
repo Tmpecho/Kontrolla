@@ -33,7 +33,11 @@
       </section>
 
       <section class="dashboard-section">
-        <ServingHoursTile class="dashboard-tile"/>
+        <ServingHoursTile
+          :dashboard-to="{ name: 'ik-alkohol-dashboard' }"
+          :edit-to="{ name: 'ik-alkohol-serving-hours-edit' }"
+          class="dashboard-tile"
+        />
       </section>
     </div>
 

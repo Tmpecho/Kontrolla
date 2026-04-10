@@ -1,31 +1,39 @@
 package org.kontrolla.establishments.application;
 
+import org.kontrolla.common.exception.ApplicationException;
 import org.kontrolla.common.exception.ResourceNotFoundException;
 import org.kontrolla.establishments.domain.Establishment;
+import org.kontrolla.establishments.domain.EstablishmentServingHours;
 import org.kontrolla.establishments.domain.EstablishmentStatus;
 import org.kontrolla.establishments.domain.EstablishmentType;
 import org.kontrolla.establishments.infrastructure.EstablishmentRepository;
+import org.kontrolla.establishments.infrastructure.EstablishmentServingHoursRepository;
 import org.kontrolla.iam.security.CurrentUser;
 import org.kontrolla.organizations.application.OrganizationAccessService;
 import org.kontrolla.organizations.domain.Organization;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.util.UUID;
 
 @Service
 public class EstablishmentService {
 
 	private final EstablishmentRepository establishmentRepository;
+	private final EstablishmentServingHoursRepository servingHoursRepository;
 	private final OrganizationAccessService organizationAccessService;
 
 	public EstablishmentService(
 			EstablishmentRepository establishmentRepository,
+			EstablishmentServingHoursRepository servingHoursRepository,
 			OrganizationAccessService organizationAccessService
 	) {
 		this.establishmentRepository = establishmentRepository;
+		this.servingHoursRepository = servingHoursRepository;
 		this.organizationAccessService = organizationAccessService;
 	}
 
@@ -64,5 +72,109 @@ public class EstablishmentService {
 		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
 		Establishment establishment = new Establishment(organization, name, type, status);
 		return establishmentRepository.save(establishment);
+	}
+
+	@Transactional(readOnly = true)
+	public java.util.List<ServingHoursDayView> getServingHours(
+			UUID organizationId,
+			UUID establishmentId,
+			CurrentUser currentUser
+	) {
+		getEstablishment(organizationId, establishmentId, currentUser);
+		var configuredHours = servingHoursRepository.findByEstablishmentIdOrderByDayOfWeekAsc(establishmentId)
+				.stream()
+				.collect(java.util.stream.Collectors.toMap(
+						EstablishmentServingHours::getDayOfWeek,
+						ServingHoursDayView::from
+				));
+
+		return java.util.Arrays.stream(DayOfWeek.values())
+				.map(dayOfWeek -> configuredHours.getOrDefault(dayOfWeek, ServingHoursDayView.closed(dayOfWeek)))
+				.toList();
+	}
+
+	@Transactional
+	public java.util.List<ServingHoursDayView> updateServingHours(
+			UUID organizationId,
+			UUID establishmentId,
+			java.util.List<UpdateServingHoursDayCommand> commands,
+			CurrentUser currentUser
+	) {
+		organizationAccessService.requireEstablishmentManagement(currentUser, organizationId);
+		Establishment establishment = getEstablishment(organizationId, establishmentId, currentUser);
+		validateServingHours(commands);
+
+		var existingByDay = servingHoursRepository.findByEstablishmentIdOrderByDayOfWeekAsc(establishmentId)
+				.stream()
+				.collect(java.util.stream.Collectors.toMap(
+						EstablishmentServingHours::getDayOfWeek,
+						hours -> hours
+				));
+
+		for (UpdateServingHoursDayCommand command : commands) {
+			EstablishmentServingHours hours = existingByDay.get(command.dayOfWeek());
+			if (hours == null) {
+				hours = new EstablishmentServingHours(
+						establishment,
+						command.dayOfWeek(),
+						command.closed(),
+						command.opensAt(),
+						command.closesAt()
+				);
+			} else {
+				hours.update(command.closed(), command.opensAt(), command.closesAt());
+			}
+			servingHoursRepository.save(hours);
+		}
+
+		return getServingHours(organizationId, establishmentId, currentUser);
+	}
+
+	private void validateServingHours(java.util.List<UpdateServingHoursDayCommand> commands) {
+		if (commands == null || commands.size() != DayOfWeek.values().length) {
+			throw new ApplicationException(
+					HttpStatus.BAD_REQUEST,
+					"invalid_serving_hours",
+					"Serving hours must include exactly one entry for each day of the week"
+			);
+		}
+
+		var commandsByDay = new java.util.EnumMap<DayOfWeek, UpdateServingHoursDayCommand>(DayOfWeek.class);
+		for (UpdateServingHoursDayCommand command : commands) {
+			if (commandsByDay.put(command.dayOfWeek(), command) != null) {
+				throw new ApplicationException(
+						HttpStatus.BAD_REQUEST,
+						"invalid_serving_hours",
+						"Serving hours must not contain duplicate days"
+				);
+			}
+
+			if (command.closed()) {
+				if (command.opensAt() != null || command.closesAt() != null) {
+					throw new ApplicationException(
+							HttpStatus.BAD_REQUEST,
+							"invalid_serving_hours",
+							"Closed days cannot include opening or closing times"
+					);
+				}
+				continue;
+			}
+
+			if (command.opensAt() == null || command.closesAt() == null) {
+				throw new ApplicationException(
+						HttpStatus.BAD_REQUEST,
+						"invalid_serving_hours",
+						"Open days must include both opening and closing times"
+				);
+			}
+
+			if (command.opensAt().equals(command.closesAt())) {
+				throw new ApplicationException(
+						HttpStatus.BAD_REQUEST,
+						"invalid_serving_hours",
+						"Opening and closing times must differ"
+				);
+			}
+		}
 	}
 }
