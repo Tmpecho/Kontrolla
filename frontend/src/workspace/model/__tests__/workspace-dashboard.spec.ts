@@ -265,4 +265,43 @@ describe('workspace-dashboard', () => {
       'temperature-dessert',
     ])
   })
+
+  it('renders placeholders and skips unavailable document and temperature attention data', () => {
+    const ikMatSummary = buildIKMatServiceSummary({
+      checklistRuns: null,
+      temperatureUnits: null,
+      deviations: [],
+    })
+
+    const ikAlkoholSummary = buildIKAlkoholServiceSummary({
+      documents: null,
+      deviations: [],
+      currentUserId: 'user-1',
+    })
+
+    expect(ikMatSummary.metrics).toEqual([
+      { label: 'Active checklist runs', value: '—', tone: 'neutral' },
+      { label: 'Temperature units needing attention', value: '—', tone: 'neutral' },
+      { label: 'Open food deviations', value: '0 items', tone: 'neutral' },
+    ])
+
+    expect(ikAlkoholSummary.metrics).toEqual([
+      { label: 'Open alcohol deviations', value: '0 items', tone: 'neutral' },
+      { label: 'Documents needing attention', value: '—', tone: 'neutral' },
+      { label: 'Needs your audit', value: '—', tone: 'neutral' },
+    ])
+
+    const items = buildWorkspaceAttentionItems({
+      checklistRuns: [],
+      temperatureUnits: null,
+      deviationsByService: {
+        IK_MAT: [],
+        IK_ALKOHOL: [],
+      },
+      documents: null,
+      now: new Date(2026, 3, 5, 9, 0, 0),
+    })
+
+    expect(items).toEqual([])
+  })
 })
