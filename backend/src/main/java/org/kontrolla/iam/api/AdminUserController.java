@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 
+/**
+ * Platform-admin REST API for creating and listing users.
+ */
 @RestController
 @RequestMapping("/api/v1/admin/users")
 @PreAuthorize("hasRole('PLATFORM_ADMIN')")
@@ -19,10 +22,21 @@ public class AdminUserController {
 
 	private final UserAdministrationService userAdministrationService;
 
+	/**
+	 * Creates the admin user controller.
+	 *
+	 * @param userAdministrationService service for administrative user operations
+	 */
 	public AdminUserController(UserAdministrationService userAdministrationService) {
 		this.userAdministrationService = userAdministrationService;
 	}
 
+	/**
+	 * Creates a user administratively.
+	 *
+	 * @param request the create-user payload
+	 * @return the created user response
+	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public UserResponse createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -37,6 +51,12 @@ public class AdminUserController {
 		return UserResponse.from(user);
 	}
 
+	/**
+	 * Lists users for platform administrators.
+	 *
+	 * @param pageable pagination information
+	 * @return a page of user responses
+	 */
 	@GetMapping
 	public PageResponse<UserResponse> listUsers(@PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
 		return PageResponse.from(userAdministrationService.listUsers(pageable), UserResponse::from);

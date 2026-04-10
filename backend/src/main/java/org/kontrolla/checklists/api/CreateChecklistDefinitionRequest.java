@@ -16,6 +16,15 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
+/**
+ * Request payload for creating a checklist definition.
+ *
+ * @param title checklist title
+ * @param description optional checklist description
+ * @param serviceArea service area covered by the checklist
+ * @param tasks task definitions included in the checklist
+ * @param schedules optional schedules attached to the checklist
+ */
 public record CreateChecklistDefinitionRequest(
 		@NotBlank @Size(max = 255) String title,
 		@Size(max = 2000) String description,
@@ -24,6 +33,18 @@ public record CreateChecklistDefinitionRequest(
 		List<@Valid ChecklistScheduleRequest> schedules
 ) {
 
+	/**
+	 * Request payload describing a single task in a checklist definition.
+	 *
+	 * @param title task title
+	 * @param details optional task details
+	 * @param taskKind type of task to perform
+	 * @param required whether the task must be completed
+	 * @param sortOrder display order of the task
+	 * @param measurementUnit measurement unit for measurement tasks
+	 * @param minimumAllowedValue minimum accepted measured value
+	 * @param maximumAllowedValue maximum accepted measured value
+	 */
 	public record ChecklistTaskRequest(
 			@NotBlank @Size(max = 500) String title,
 			@Size(max = 1000) String details,
@@ -36,6 +57,18 @@ public record CreateChecklistDefinitionRequest(
 	) {
 	}
 
+	/**
+	 * Request payload describing a checklist schedule.
+	 *
+	 * @param scheduleType schedule recurrence type
+	 * @param startDate first active date for the schedule
+	 * @param endDate optional final active date
+	 * @param dueTime time of day when runs become due
+	 * @param weekdayMask bitmask describing active weekdays
+	 * @param dayOfMonth day of month used by monthly schedules
+	 * @param timezone timezone used to evaluate the schedule
+	 * @param active whether the schedule should be active
+	 */
 	public record ChecklistScheduleRequest(
 			@NotNull ChecklistScheduleType scheduleType,
 			@NotNull LocalDate startDate,

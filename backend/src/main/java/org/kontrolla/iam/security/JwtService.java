@@ -10,17 +10,32 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.Set;
 
+/**
+ * Issues JWT access tokens for authenticated users.
+ */
 @Service
 public class JwtService {
 
 	private final JwtEncoder jwtEncoder;
 	private final AppSecurityProperties properties;
 
+	/**
+	 * Creates the JWT service.
+	 *
+	 * @param jwtEncoder encoder used to sign tokens
+	 * @param properties security properties containing JWT settings
+	 */
 	public JwtService(JwtEncoder jwtEncoder, AppSecurityProperties properties) {
 		this.jwtEncoder = jwtEncoder;
 		this.properties = properties;
 	}
 
+	/**
+	 * Issues an access token for a user.
+	 *
+	 * @param user the authenticated user
+	 * @return the issued access token and expiry metadata
+	 */
 	public IssuedAccessToken issueAccessToken(User user) {
 		Instant issuedAt = Instant.now();
 		Instant expiresAt = issuedAt.plus(properties.getJwt().getAccessTokenTtl());
@@ -40,6 +55,12 @@ public class JwtService {
 		return new IssuedAccessToken(token, expiresInSeconds);
 	}
 
+	/**
+	 * Immutable access-token payload returned after JWT issuance.
+	 *
+	 * @param token signed JWT access token
+	 * @param expiresInSeconds number of seconds until the token expires
+	 */
 	public record IssuedAccessToken(String token, long expiresInSeconds) {
 	}
 }

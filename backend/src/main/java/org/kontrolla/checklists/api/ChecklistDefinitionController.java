@@ -26,16 +26,34 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * REST endpoints for managing checklist definitions within an establishment.
+ */
 @RestController
 @RequestMapping("/api/v1/organizations/{organizationId}/establishments/{establishmentId}/checklists/definitions")
 public class ChecklistDefinitionController {
 
 	private final ChecklistDefinitionService checklistDefinitionService;
 
+	/**
+	 * Creates a controller backed by the checklist definition service.
+	 *
+	 * @param checklistDefinitionService service used to manage checklist definitions
+	 */
 	public ChecklistDefinitionController(ChecklistDefinitionService checklistDefinitionService) {
 		this.checklistDefinitionService = checklistDefinitionService;
 	}
 
+	/**
+	 * Lists active checklist definitions for the requested service area.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment whose definitions are listed
+	 * @param serviceArea service area to filter by
+	 * @param currentUser authenticated user performing the request
+	 * @param pageable paging configuration
+	 * @return a page of checklist definitions
+	 */
 	@GetMapping
 	public PageResponse<ChecklistDefinitionResponse> listChecklistDefinitions(
 			@PathVariable UUID organizationId,
@@ -56,6 +74,15 @@ public class ChecklistDefinitionController {
 		);
 	}
 
+	/**
+	 * Retrieves a single checklist definition by identifier.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the definition
+	 * @param checklistDefinitionId identifier of the checklist definition to load
+	 * @param currentUser authenticated user performing the request
+	 * @return the requested checklist definition
+	 */
 	@GetMapping("/{checklistDefinitionId}")
 	public ChecklistDefinitionResponse getChecklistDefinition(
 			@PathVariable UUID organizationId,
@@ -73,6 +100,15 @@ public class ChecklistDefinitionController {
 		);
 	}
 
+	/**
+	 * Creates a new checklist definition for the establishment.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment where the definition is created
+	 * @param currentUser authenticated user performing the request
+	 * @param request checklist definition payload
+	 * @return the created checklist definition
+	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public ChecklistDefinitionResponse createChecklistDefinition(
@@ -91,6 +127,16 @@ public class ChecklistDefinitionController {
 		);
 	}
 
+	/**
+	 * Creates a new version of an existing checklist definition.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment where the definition exists
+	 * @param checklistDefinitionId identifier of the definition to update
+	 * @param currentUser authenticated user performing the request
+	 * @param request updated checklist definition payload
+	 * @return the updated checklist definition version
+	 */
 	@PutMapping("/{checklistDefinitionId}")
 	public ChecklistDefinitionResponse updateChecklistDefinition(
 			@PathVariable UUID organizationId,

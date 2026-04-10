@@ -11,6 +11,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Centralized security and development bootstrap configuration properties.
+ */
 @Getter
 @ConfigurationProperties(prefix = "app.security")
 public class AppSecurityProperties {
@@ -27,6 +30,9 @@ public class AppSecurityProperties {
 	private final BootstrapEstablishment bootstrapEstablishment = new BootstrapEstablishment();
 	private final List<BootstrapEstablishment> bootstrapEstablishments = new ArrayList<>();
 
+	/**
+	 * JWT issuance and validation settings.
+	 */
 	@Setter
 	@Getter
 	public static class Jwt {
@@ -38,6 +44,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Refresh-token cookie settings.
+	 */
 	@Setter
 	@Getter
 	public static class Refresh {
@@ -50,6 +59,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Invitation token and URL settings.
+	 */
 	@Setter
 	@Getter
 	public static class Invite {
@@ -60,6 +72,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Authentication throttling settings.
+	 */
 	@Setter
 	@Getter
 	public static class AuthThrottling {
@@ -69,6 +84,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * CORS settings for frontend origins.
+	 */
 	@Setter
 	@Getter
 	public static class Cors {
@@ -77,6 +95,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Development bootstrap platform-admin user settings.
+	 */
 	@Setter
 	@Getter
 	public static class BootstrapAdmin {
@@ -88,6 +109,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Development bootstrap non-admin user settings.
+	 */
 	@Setter
 	@Getter
 	public static class BootstrapUser {
@@ -99,6 +123,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Development bootstrap organization settings.
+	 */
 	@Setter
 	@Getter
 	public static class BootstrapOrganization {
@@ -108,6 +135,9 @@ public class AppSecurityProperties {
 
 	}
 
+	/**
+	 * Development bootstrap establishment settings.
+	 */
 	@Setter
 	@Getter
 	public static class BootstrapEstablishment {

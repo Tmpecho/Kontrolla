@@ -29,6 +29,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Handles checklist definition creation, versioning, and run generation.
+ */
 @Service
 public class ChecklistDefinitionService {
 
@@ -43,6 +46,16 @@ public class ChecklistDefinitionService {
 	private final EstablishmentService establishmentService;
 	private final UserRepository userRepository;
 
+	/**
+	 * Creates the checklist definition service.
+	 *
+	 * @param checklistDefinitionRepository repository for checklist definitions
+	 * @param checklistRunService service for checklist run lifecycle management
+	 * @param checklistSchedulerService service for schedule-based run generation
+	 * @param organizationAccessService service for organization access checks
+	 * @param establishmentService service for establishment access and lookup
+	 * @param userRepository repository for users
+	 */
 	public ChecklistDefinitionService(
 			ChecklistDefinitionRepository checklistDefinitionRepository,
 			ChecklistRunService checklistRunService,
@@ -59,6 +72,16 @@ public class ChecklistDefinitionService {
 		this.userRepository = userRepository;
 	}
 
+	/**
+	 * Lists active checklist definitions for an establishment and service area.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param serviceArea the checklist service area
+	 * @param currentUser the authenticated user
+	 * @param pageable pagination information
+	 * @return a page of checklist definitions
+	 */
 	@Transactional(readOnly = true)
 	public Page<ChecklistDefinition> listChecklistDefinitions(
 			UUID organizationId,
@@ -76,6 +99,15 @@ public class ChecklistDefinitionService {
 		);
 	}
 
+	/**
+	 * Returns a checklist definition by id.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistDefinitionId the checklist definition identifier
+	 * @param currentUser the authenticated user
+	 * @return the requested checklist definition
+	 */
 	@Transactional(readOnly = true)
 	public ChecklistDefinition getChecklistDefinition(
 			UUID organizationId,
@@ -88,6 +120,15 @@ public class ChecklistDefinitionService {
 				.orElseThrow(() -> new ResourceNotFoundException("checklist_definition_not_found", "Checklist definition not found"));
 	}
 
+	/**
+	 * Creates a checklist definition from the application command model.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param command the creation command
+	 * @param currentUser the authenticated user
+	 * @return the created checklist definition
+	 */
 	@Transactional
 	public ChecklistDefinition createChecklistDefinition(
 			UUID organizationId,
@@ -120,6 +161,19 @@ public class ChecklistDefinitionService {
 		return savedDefinition;
 	}
 
+	/**
+	 * Creates a checklist definition from legacy method parameters.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param serviceArea the checklist service area
+	 * @param title the checklist title
+	 * @param description the checklist description
+	 * @param tasks the checklist tasks
+	 * @param schedules the checklist schedules
+	 * @param currentUser the authenticated user
+	 * @return the created checklist definition
+	 */
 	@Transactional
 	public ChecklistDefinition createChecklistDefinition(
 			UUID organizationId,
@@ -145,6 +199,16 @@ public class ChecklistDefinitionService {
 		);
 	}
 
+	/**
+	 * Creates a new version of an existing checklist definition.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistDefinitionId the current checklist definition identifier
+	 * @param command the update command
+	 * @param currentUser the authenticated user
+	 * @return the new checklist definition version
+	 */
 	@Transactional
 	public ChecklistDefinition updateChecklistDefinition(
 			UUID organizationId,
@@ -192,6 +256,22 @@ public class ChecklistDefinitionService {
 		return savedDefinition;
 	}
 
+	/**
+	 * Creates a new version of an existing checklist definition from legacy
+	 * method parameters.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistDefinitionId the current checklist definition identifier
+	 * @param serviceArea the checklist service area
+	 * @param title the checklist title
+	 * @param description the checklist description
+	 * @param status the checklist definition status
+	 * @param tasks the checklist tasks
+	 * @param schedules the checklist schedules
+	 * @param currentUser the authenticated user
+	 * @return the new checklist definition version
+	 */
 	@Transactional
 	public ChecklistDefinition updateChecklistDefinition(
 			UUID organizationId,
@@ -221,6 +301,15 @@ public class ChecklistDefinitionService {
 		);
 	}
 
+	/**
+	 * Lists all versions of a checklist definition group.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistDefinitionId the checklist definition identifier
+	 * @param currentUser the authenticated user
+	 * @return the ordered checklist definition versions
+	 */
 	@Transactional(readOnly = true)
 	public List<ChecklistDefinition> listChecklistDefinitionVersions(
 			UUID organizationId,
@@ -352,6 +441,18 @@ public class ChecklistDefinitionService {
 		return status;
 	}
 
+	/**
+	 * Legacy task input for compatibility with older checklist definition APIs.
+	 *
+	 * @param title the task title
+	 * @param details the task details
+	 * @param taskKind the task kind
+	 * @param required whether the task is required
+	 * @param sortOrder the task sort order
+	 * @param measurementUnit the measurement unit, if applicable
+	 * @param minimumAllowedValue the minimum allowed value, if applicable
+	 * @param maximumAllowedValue the maximum allowed value, if applicable
+	 */
 	public record ChecklistTaskInput(
 			String title,
 			String details,
@@ -364,6 +465,19 @@ public class ChecklistDefinitionService {
 	) {
 	}
 
+	/**
+	 * Legacy schedule input for compatibility with older checklist definition
+	 * APIs.
+	 *
+	 * @param scheduleType the schedule type
+	 * @param startDate the schedule start date
+	 * @param endDate the optional schedule end date
+	 * @param dueTime the due time for generated runs
+	 * @param weekdayMask bitmask for weekly schedules
+	 * @param dayOfMonth day of month for monthly schedules
+	 * @param timezone the schedule timezone
+	 * @param active whether the schedule is active
+	 */
 	public record ChecklistScheduleInput(
 			ChecklistScheduleType scheduleType,
 			LocalDate startDate,

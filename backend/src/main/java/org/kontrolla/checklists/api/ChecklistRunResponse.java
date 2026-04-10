@@ -20,6 +20,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Response payload describing a checklist run together with its assignments, tasks, and events.
+ *
+ * @param id identifier of the checklist run
+ * @param checklistDefinitionId source checklist definition identifier
+ * @param definitionGroupId identifier shared across definition versions
+ * @param establishmentId establishment that owns the run
+ * @param serviceArea service area covered by the run
+ * @param title title snapshot taken when the run was created
+ * @param description description snapshot taken when the run was created
+ * @param dueAt due timestamp for the run
+ * @param status current run status
+ * @param startedAt instant when the run was started
+ * @param completedAt instant when the run was completed
+ * @param completedByUserId user who completed the run
+ * @param createdByUserId user who created the run
+ * @param createdAt creation timestamp
+ * @param updatedAt last update timestamp
+ * @param assignments current run assignments
+ * @param tasks task executions belonging to the run
+ * @param events audit events recorded for the run
+ */
 public record ChecklistRunResponse(
 		UUID id,
 		UUID checklistDefinitionId,
@@ -41,6 +63,12 @@ public record ChecklistRunResponse(
 		List<ChecklistRunEventResponse> events
 ) {
 
+	/**
+	 * Maps a checklist run entity to an API response.
+	 *
+	 * @param checklistRun checklist run entity to convert
+	 * @return the mapped response
+	 */
 	public static ChecklistRunResponse from(ChecklistRun checklistRun) {
 		return new ChecklistRunResponse(
 				checklistRun.getId(),
@@ -82,6 +110,15 @@ public record ChecklistRunResponse(
 		return List.copyOf(itemsById.values());
 	}
 
+	/**
+	 * Response payload describing a user assignment on a checklist run.
+	 *
+	 * @param id identifier of the assignment
+	 * @param assignedUserId identifier of the assigned user
+	 * @param assignedUserName display name of the assigned user
+	 * @param assignedByUserId identifier of the user who made the assignment
+	 * @param assignedAt assignment timestamp
+	 */
 	public record ChecklistRunAssignmentResponse(
 			UUID id,
 			UUID assignedUserId,
@@ -105,6 +142,27 @@ public record ChecklistRunResponse(
 		return "%s %s".formatted(user.getFirstName(), user.getLastName()).trim();
 	}
 
+	/**
+	 * Response payload describing the execution state of a single checklist task.
+	 *
+	 * @param checklistTaskExecutionId identifier of the task execution
+	 * @param sourceChecklistTaskDefinitionId identifier of the source task definition
+	 * @param title task title snapshot
+	 * @param details task details snapshot
+	 * @param taskKind type of task to perform
+	 * @param required whether the task is required
+	 * @param sortOrder display order of the task
+	 * @param measurementUnit measurement unit for measurement tasks
+	 * @param minimumAllowedValue lower accepted measured value
+	 * @param maximumAllowedValue upper accepted measured value
+	 * @param executionStatus current execution status
+	 * @param resolvedAt instant when the task was resolved
+	 * @param resolvedByUserId user who resolved the task
+	 * @param comment comment entered for the task
+	 * @param verificationResult verification outcome for verification tasks
+	 * @param measuredValue measured value for measurement tasks
+	 * @param enteredText entered text for text-entry tasks
+	 */
 	public record ChecklistTaskExecutionResponse(
 			UUID checklistTaskExecutionId,
 			UUID sourceChecklistTaskDefinitionId,
@@ -148,6 +206,15 @@ public record ChecklistRunResponse(
 		}
 	}
 
+	/**
+	 * Response payload describing a lifecycle event recorded for a checklist run.
+	 *
+	 * @param id identifier of the event
+	 * @param eventType recorded event type
+	 * @param actorUserId user who triggered the event
+	 * @param occurredAt event timestamp
+	 * @param metadataJson serialized event metadata
+	 */
 	public record ChecklistRunEventResponse(
 			UUID id,
 			ChecklistRunEventType eventType,

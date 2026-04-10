@@ -14,6 +14,9 @@ import org.kontrolla.common.persistence.AbstractAuditableUuidEntity;
 
 import java.math.BigDecimal;
 
+/**
+ * Task definition that belongs to a checklist definition.
+ */
 @Getter
 @Entity
 @Table(name = "checklist_task_definitions")
@@ -59,6 +62,18 @@ public class ChecklistTaskDefinition extends AbstractAuditableUuidEntity {
 	protected ChecklistTaskDefinition() {
 	}
 
+	/**
+	 * Creates a checklist task definition.
+	 *
+	 * @param title task title
+	 * @param details optional task details
+	 * @param taskKind type of task to perform
+	 * @param required whether the task is required
+	 * @param sortOrder display order of the task
+	 * @param measurementUnit measurement unit for measurement tasks
+	 * @param minimumAllowedValue minimum accepted measured value
+	 * @param maximumAllowedValue maximum accepted measured value
+	 */
 	public ChecklistTaskDefinition(
 			String title,
 			String details,

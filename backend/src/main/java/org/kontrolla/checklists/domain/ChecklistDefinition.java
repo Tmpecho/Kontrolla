@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Versioned checklist definition that describes the tasks and schedules available for an establishment.
+ */
 @Getter
 @Entity
 @Table(name = "checklist_definitions")
@@ -86,6 +89,20 @@ public class ChecklistDefinition extends AbstractAuditableUuidEntity {
 	protected ChecklistDefinition() {
 	}
 
+	/**
+	 * Creates a checklist definition version.
+	 *
+	 * @param definitionGroupId identifier shared across definition versions
+	 * @param establishment establishment that owns the definition
+	 * @param serviceArea service area covered by the checklist
+	 * @param title checklist title
+	 * @param description optional checklist description
+	 * @param versionNumber version number for this definition
+	 * @param status current definition status
+	 * @param effectiveFrom instant when the definition becomes effective
+	 * @param createdByUser user who created the definition
+	 * @param updatedByUser user who last updated the definition
+	 */
 	public ChecklistDefinition(
 			UUID definitionGroupId,
 			Establishment establishment,
@@ -110,33 +127,65 @@ public class ChecklistDefinition extends AbstractAuditableUuidEntity {
 		this.updatedByUser = updatedByUser;
 	}
 
+	/**
+	 * Marks the definition as superseded by a newer version.
+	 *
+	 * @param effectiveTo instant when this definition stopped being effective
+	 * @param updatedByUser user recording the change
+	 */
 	public void supersede(Instant effectiveTo, User updatedByUser) {
 		this.status = ChecklistDefinitionStatus.SUPERSEDED;
 		this.effectiveTo = effectiveTo;
 		this.updatedByUser = updatedByUser;
 	}
 
+	/**
+	 * Archives the definition so it can no longer be used.
+	 *
+	 * @param effectiveTo instant when the definition was archived
+	 * @param updatedByUser user recording the change
+	 */
 	public void archive(Instant effectiveTo, User updatedByUser) {
 		this.status = ChecklistDefinitionStatus.ARCHIVED;
 		this.effectiveTo = effectiveTo;
 		this.updatedByUser = updatedByUser;
 	}
 
+	/**
+	 * Replaces all task definitions attached to this checklist definition.
+	 *
+	 * @param tasks replacement task definitions
+	 */
 	public void replaceTasks(List<ChecklistTaskDefinition> tasks) {
 		this.tasks.clear();
 		tasks.forEach(this::addTask);
 	}
 
+	/**
+	 * Adds a task definition to this checklist definition.
+	 *
+	 * @param task task definition to add
+	 */
 	public void addTask(ChecklistTaskDefinition task) {
 		task.attachTo(this);
 		this.tasks.add(task);
 	}
 
+	/**
+	 * Replaces all schedules attached to this checklist definition.
+	 *
+	 * @param schedules replacement schedules
+	 */
 	public void replaceSchedules(List<ChecklistSchedule> schedules) {
 		this.schedules.clear();
 		schedules.forEach(this::addSchedule);
 	}
 
+	/**
+	 * Adds a schedule to this checklist definition.
+	 *
+	 * @param schedule schedule to add
+	 */
 	public void addSchedule(ChecklistSchedule schedule) {
 		schedule.attachTo(this);
 		this.schedules.add(schedule);

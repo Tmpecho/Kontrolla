@@ -41,6 +41,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Handles checklist run assignment, execution, completion, and state
+ * transitions.
+ */
 @Service
 public class ChecklistRunService {
 
@@ -60,6 +64,16 @@ public class ChecklistRunService {
 	private final UserRepository userRepository;
 	private final NotificationService notificationService;
 
+	/**
+	 * Creates the checklist run service.
+	 *
+	 * @param checklistRunRepository repository for checklist runs
+	 * @param checklistRunAssignmentRepository repository for checklist run assignments
+	 * @param checklistAccessService service for checklist access rules
+	 * @param organizationMembershipRepository repository for organization memberships
+	 * @param userRepository repository for users
+	 * @param notificationService service for assignment and overdue notifications
+	 */
 	public ChecklistRunService(
 			ChecklistRunRepository checklistRunRepository,
 			ChecklistRunAssignmentRepository checklistRunAssignmentRepository,
@@ -76,6 +90,22 @@ public class ChecklistRunService {
 		this.notificationService = notificationService;
 	}
 
+	/**
+	 * Lists checklist runs using optional status, assignment, and due-date
+	 * filters.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param serviceArea the checklist service area
+	 * @param statuses the desired statuses
+	 * @param assignedUserId the assigned-user filter
+	 * @param assignedToCurrentUser whether to force filtering to the current user
+	 * @param dueFrom the due-date lower bound
+	 * @param dueTo the due-date upper bound
+	 * @param currentUser the authenticated user
+	 * @param pageable pagination information
+	 * @return a page of checklist runs
+	 */
 	@Transactional(readOnly = true)
 	public Page<ChecklistRun> listChecklistRuns(
 			UUID organizationId,
@@ -113,6 +143,15 @@ public class ChecklistRunService {
 		);
 	}
 
+	/**
+	 * Returns a checklist run by id.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param currentUser the authenticated user
+	 * @return the requested checklist run
+	 */
 	@Transactional(readOnly = true)
 	public ChecklistRun getChecklistRun(
 			UUID organizationId,
@@ -124,6 +163,16 @@ public class ChecklistRunService {
 		return findChecklistRunOrThrow(establishmentId, checklistRunId);
 	}
 
+	/**
+	 * Assigns one or more users to a checklist run.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param assignedUserIds the users to assign
+	 * @param currentUser the authenticated user
+	 * @return the updated checklist run
+	 */
 	@Transactional
 	public ChecklistRun assignChecklistRun(
 			UUID organizationId,
@@ -169,6 +218,15 @@ public class ChecklistRunService {
 		return checklistRunRepository.save(checklistRun);
 	}
 
+	/**
+	 * Removes an assignment from a checklist run.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param assignmentId the assignment identifier
+	 * @param currentUser the authenticated user
+	 */
 	@Transactional
 	public void removeChecklistRunAssignment(
 			UUID organizationId,
@@ -187,6 +245,15 @@ public class ChecklistRunService {
 		checklistRunRepository.save(checklistRun);
 	}
 
+	/**
+	 * Starts a checklist run.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param currentUser the authenticated user
+	 * @return the updated checklist run
+	 */
 	@Transactional
 	public ChecklistRun startChecklistRun(
 			UUID organizationId,
@@ -224,6 +291,16 @@ public class ChecklistRunService {
 		return checklistRunRepository.save(checklistRun);
 	}
 
+	/**
+	 * Submits a checklist run with all task execution updates.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param command the submission command
+	 * @param currentUser the authenticated user
+	 * @return the completed checklist run
+	 */
 	@Transactional
 	public ChecklistRun submitChecklistRun(
 			UUID organizationId,
@@ -276,6 +353,16 @@ public class ChecklistRunService {
 		return checklistRunRepository.save(checklistRun);
 	}
 
+	/**
+	 * Submits a checklist run using legacy task-execution input objects.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param taskExecutions the task execution updates
+	 * @param currentUser the authenticated user
+	 * @return the completed checklist run
+	 */
 	@Transactional
 	public ChecklistRun submitChecklistRun(
 			UUID organizationId,
@@ -293,7 +380,19 @@ public class ChecklistRunService {
 		);
 	}
 
-@Transactional
+	/**
+	 * Updates a single checklist task execution and completes the run when all
+	 * required tasks are done.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param taskId the task execution identifier
+	 * @param command the task update command
+	 * @param currentUser the authenticated user
+	 * @return the updated checklist run
+	 */
+	@Transactional
 	public ChecklistRun updateChecklistTask(
 			UUID organizationId,
 			UUID establishmentId,
@@ -362,6 +461,15 @@ public class ChecklistRunService {
 		return run;
 	}
 
+	/**
+	 * Reopens a completed or cancelled checklist run.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param currentUser the authenticated user
+	 * @return the reopened checklist run
+	 */
 	@Transactional
 	public ChecklistRun reopenChecklistRun(
 			UUID organizationId,
@@ -392,6 +500,15 @@ public class ChecklistRunService {
 		return checklistRunRepository.save(checklistRun);
 	}
 
+	/**
+	 * Cancels a checklist run.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param currentUser the authenticated user
+	 * @return the cancelled checklist run
+	 */
 	@Transactional
 	public ChecklistRun cancelChecklistRun(
 			UUID organizationId,
@@ -421,6 +538,15 @@ public class ChecklistRunService {
 		return checklistRunRepository.save(checklistRun);
 	}
 
+	/**
+	 * Marks overdue checklist runs and notifies assignees.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param now the current instant
+	 * @param actorUserId the actor responsible for the change, if any
+	 * @return the number of updated runs
+	 */
 	@Transactional
 	public int markOverdueRuns(UUID organizationId, UUID establishmentId, Instant now, UUID actorUserId) {
 		List<ChecklistRun> overdueRuns = checklistRunRepository.findByEstablishmentIdAndStatusInAndDueAtBefore(
@@ -453,6 +579,17 @@ public class ChecklistRunService {
 		return updatedRuns;
 	}
 
+	/**
+	 * Cancels pending or overdue runs that can be regenerated for a definition
+	 * group.
+	 *
+	 * @param establishmentId the establishment identifier
+	 * @param definitionGroupId the checklist definition group identifier
+	 * @param fromDueAt the minimum due instant to cancel from
+	 * @param actorUserId the actor user identifier, if any
+	 * @param reason the cancellation reason
+	 * @return the number of updated runs
+	 */
 	@Transactional
 	public int cancelRegeneratableRunsForDefinitionGroup(
 			UUID establishmentId,
@@ -491,6 +628,15 @@ public class ChecklistRunService {
 		return updatedRuns;
 	}
 
+	/**
+	 * Resets an in-progress checklist run back to pending state.
+	 *
+	 * @param organizationId the organization identifier
+	 * @param establishmentId the establishment identifier
+	 * @param checklistRunId the checklist run identifier
+	 * @param currentUser the authenticated user
+	 * @return the reset checklist run
+	 */
 	@Transactional
 	public ChecklistRun resetChecklistRun(UUID organizationId, UUID establishmentId, UUID checklistRunId, CurrentUser currentUser) {
 		ChecklistRun run = getChecklistRun(organizationId, establishmentId, checklistRunId, currentUser);
@@ -746,6 +892,16 @@ public class ChecklistRunService {
 		});
 	}
 
+	/**
+	 * Immutable task execution payload used internally when applying checklist run updates.
+	 *
+	 * @param checklistTaskExecutionId identifier of the task execution to update
+	 * @param executionStatus execution status to persist
+	 * @param comment optional task comment
+	 * @param verificationResult verification result for verification tasks
+	 * @param measuredValue measured value for measurement tasks
+	 * @param enteredText entered text for text-entry tasks
+	 */
 	public record ChecklistTaskExecutionInput(
 			UUID checklistTaskExecutionId,
 			ChecklistTaskExecutionStatus executionStatus,

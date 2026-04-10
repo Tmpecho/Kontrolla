@@ -4,6 +4,18 @@ import org.kontrolla.checklists.domain.ChecklistTaskKind;
 
 import java.math.BigDecimal;
 
+/**
+ * Application input describing one checklist definition task.
+ *
+ * @param title the task title
+ * @param details the task details
+ * @param taskKind the task kind
+ * @param required whether the task is required
+ * @param sortOrder the task sort order
+ * @param measurementUnit the measurement unit, if applicable
+ * @param minimumAllowedValue the minimum allowed value, if applicable
+ * @param maximumAllowedValue the maximum allowed value, if applicable
+ */
 public record ChecklistDefinitionTaskInput(
 		String title,
 		String details,

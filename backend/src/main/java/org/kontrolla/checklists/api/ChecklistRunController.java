@@ -28,16 +28,39 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * REST endpoints for listing and operating on checklist runs.
+ */
 @RestController
 @RequestMapping("/api/v1/organizations/{organizationId}/establishments/{establishmentId}/checklists/runs")
 public class ChecklistRunController {
 
 	private final ChecklistRunService checklistRunService;
 
+	/**
+	 * Creates a controller backed by the checklist run service.
+	 *
+	 * @param checklistRunService service used to manage checklist runs
+	 */
 	public ChecklistRunController(ChecklistRunService checklistRunService) {
 		this.checklistRunService = checklistRunService;
 	}
 
+	/**
+	 * Lists checklist runs for the requested filters.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment whose checklist runs are listed
+	 * @param serviceArea service area to filter by
+	 * @param statuses optional run statuses to include
+	 * @param assignedUserId optional assigned user filter
+	 * @param assignedToMe whether to filter to the current user
+	 * @param dueFrom optional lower due date bound
+	 * @param dueTo optional upper due date bound
+	 * @param currentUser authenticated user performing the request
+	 * @param pageable paging configuration
+	 * @return a page of checklist runs
+	 */
 	@GetMapping
 	public PageResponse<ChecklistRunResponse> listChecklistRuns(
 			@PathVariable UUID organizationId,
@@ -68,6 +91,15 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Retrieves a single checklist run by identifier.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the checklist run to load
+	 * @param currentUser authenticated user performing the request
+	 * @return the requested checklist run
+	 */
 	@GetMapping("/{checklistRunId}")
 	public ChecklistRunResponse getChecklistRun(
 			@PathVariable UUID organizationId,
@@ -85,6 +117,16 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Assigns users to a checklist run.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to update
+	 * @param currentUser authenticated user performing the request
+	 * @param request assignment payload
+	 * @return the updated checklist run
+	 */
 	@PostMapping("/{checklistRunId}/assignments")
 	public ChecklistRunResponse assignChecklistRun(
 			@PathVariable UUID organizationId,
@@ -104,6 +146,15 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Removes a checklist run assignment.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run
+	 * @param assignmentId identifier of the assignment to remove
+	 * @param currentUser authenticated user performing the request
+	 */
 	@DeleteMapping("/{checklistRunId}/assignments/{assignmentId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void removeChecklistRunAssignment(
@@ -119,9 +170,18 @@ public class ChecklistRunController {
 				checklistRunId,
 				assignmentId,
 				currentUser
-		);
+	);
 	}
 
+	/**
+	 * Marks a checklist run as started.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to start
+	 * @param currentUser authenticated user performing the request
+	 * @return the updated checklist run
+	 */
 	@PostMapping("/{checklistRunId}/start")
 	public ChecklistRunResponse startChecklistRun(
 			@PathVariable UUID organizationId,
@@ -139,6 +199,16 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Submits execution results for a checklist run.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to submit
+	 * @param currentUser authenticated user performing the request
+	 * @param request task execution payload
+	 * @return the completed checklist run
+	 */
 	@PostMapping("/{checklistRunId}/submit")
 	public ChecklistRunResponse submitChecklistRun(
 			@PathVariable UUID organizationId,
@@ -158,6 +228,17 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Updates the execution state of a single checklist task.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to update
+	 * @param taskId identifier of the task execution to update
+	 * @param currentUser authenticated user performing the request
+	 * @param request task update payload
+	 * @return the updated checklist run
+	 */
 	@PutMapping("/{checklistRunId}/tasks/{taskId}")
 	public ChecklistRunResponse updateChecklistTask(
 			@PathVariable UUID organizationId,
@@ -179,6 +260,15 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Reopens a previously completed or cancelled checklist run.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to reopen
+	 * @param currentUser authenticated user performing the request
+	 * @return the updated checklist run
+	 */
 	@PostMapping("/{checklistRunId}/reopen")
 	public ChecklistRunResponse reopenChecklistRun(
 			@PathVariable UUID organizationId,
@@ -196,6 +286,15 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Cancels a checklist run.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to cancel
+	 * @param currentUser authenticated user performing the request
+	 * @return the updated checklist run
+	 */
 	@PostMapping("/{checklistRunId}/cancel")
 	public ChecklistRunResponse cancelChecklistRun(
 			@PathVariable UUID organizationId,
@@ -213,6 +312,15 @@ public class ChecklistRunController {
 		);
 	}
 
+	/**
+	 * Resets a checklist run back to its initial state.
+	 *
+	 * @param organizationId organization that owns the establishment
+	 * @param establishmentId establishment that owns the run
+	 * @param checklistRunId identifier of the run to reset
+	 * @param currentUser authenticated user performing the request
+	 * @return the reset checklist run
+	 */
 	@PostMapping("/{checklistRunId}/reset")
 	public ChecklistRunResponse resetChecklistRun(
 			@PathVariable UUID organizationId,
